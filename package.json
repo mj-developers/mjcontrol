@@ -9,7 +9,9 @@
     "lint": "eslint",
     "postinstall": "next telemetry disable"
   },
-  "engines": { "node": ">=18.18 <23" },
+  "engines": {
+    "node": ">=18.18 <23"
+  },
   "dependencies": {
     "next": "15.5.0",
     "react": "19.1.0",
