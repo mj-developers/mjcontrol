@@ -10,6 +10,18 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* 🔴 Paleta burdeos */
+  --color-brand-50: #fff1f3;
+  --color-brand-100: #ffe4e8;
+  --color-brand-200: #ffc9d3;
+  --color-brand-300: #f39aaa;
+  --color-brand-400: #d96882;
+  --color-brand-500: #b93a59;
+  --color-brand-600: #8f2c43;
+  --color-brand-700: #6e172b;
+  --color-brand-800: #4b0f1d;
+  --color-brand-900: #310a13;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,4 +35,10 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-poppins), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans",
+    "Apple Color Emoji", "Segoe UI Emoji";
 }
