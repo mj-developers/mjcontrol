@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Gauge,
   Users,
   Building2,
   AppWindow,
@@ -26,33 +27,43 @@ type Props = {
 export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
   const pathname = usePathname();
 
-  // Todo depende de variables CSS (definidas por data-theme) → markup estable
   const shell =
     "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]";
 
   const rowBase =
-    "group w-full flex items-center rounded-xl h-12 transition-colors focus:outline-none";
-  const rowOpen = "px-4 gap-10 hover:bg-[var(--hover-pill)]";
+    "group flex items-center rounded-xl h-12 transition-colors focus:outline-none hover:bg-[var(--hover-pill)]";
   const rowActive = "bg-[var(--row-active)]";
-  const rowClosed = "px-0 justify-center";
 
-  const iconClass = "h-7 w-7";
+  // 👇 aseguramos centrado perfecto dentro del círculo
+  const iconClass = "h-7 w-7 block leading-none";
 
   const IconCircle = ({
     children,
-    forceWhiteBorder = false,
+    className = "",
+    borderColorVar = "--icon-border",
+    bgVar,
+    textVar,
     disableHover = false,
+    style,
   }: {
     children: ReactNode;
-    forceWhiteBorder?: boolean;
+    className?: string;
+    borderColorVar?: string;
+    bgVar?: string;
+    textVar?: string;
     disableHover?: boolean;
+    style?: React.CSSProperties;
   }) => (
     <span
       className={[
-        "grid place-items-center h-10 w-10 shrink-0 rounded-full border-2 transition",
-        forceWhiteBorder ? "border-white" : "border-[var(--icon-border)]",
-        !disableHover && !open ? "group-hover:bg-[var(--hover-icon-bg)]" : "",
+        "flex items-center justify-center h-10 w-10 rounded-full border-2 transition",
+        `border-[var(${borderColorVar})]`,
+        bgVar ? `bg-[var(${bgVar})]` : "",
+        textVar ? `text-[var(${textVar})]` : "",
+        !disableHover ? "group-hover:bg-[var(--hover-icon-bg)]" : "",
+        className,
       ].join(" ")}
+      style={style}
     >
       <span
         className={
@@ -61,6 +72,24 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
       >
         {children}
       </span>
+    </span>
+  );
+
+  const Label = ({
+    children,
+    className = "",
+  }: {
+    children: ReactNode;
+    className?: string;
+  }) => (
+    <span
+      className={[
+        "overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin] duration-300 ease-out",
+        open ? "max-w-[12rem] opacity-100 ml-2" : "max-w-0 opacity-0 ml-0",
+        className,
+      ].join(" ")}
+    >
+      {children}
     </span>
   );
 
@@ -78,14 +107,13 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
       <Link
         href={href}
         aria-current={isActive ? "page" : undefined}
-        className={[
-          rowBase,
-          open ? rowOpen : rowClosed,
-          open && isActive ? rowActive : "",
-        ].join(" ")}
+        className={[rowBase, isActive ? rowActive : ""].join(" ")}
       >
-        <IconCircle>{icon}</IconCircle>
-        {open && <span className="truncate">{label}</span>}
+        {/* Rail fijo = 5rem (centrado en colapsado) */}
+        <div className="w-20 flex-none grid place-items-center">
+          <IconCircle>{icon}</IconCircle>
+        </div>
+        <Label>{label}</Label>
       </Link>
     );
   };
@@ -96,96 +124,104 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
         "fixed left-0 top-0 z-40 h-screen border-r",
         shell,
         "transition-[width] duration-300 ease-out",
-        "overflow-visible",
-        open ? "w-64" : "w-20",
+        "overflow-visible overflow-x-hidden",
+        "w-[var(--nav-w)]",
       ].join(" ")}
       aria-label="Barra de navegación"
     >
-      {/* Header + botón */}
-      <div className="relative h-16">
-        <button
-          onClick={() => setOpen((o) => !o)}
-          aria-label={open ? "Contraer menú" : "Expandir menú"}
-          title={open ? "Contraer" : "Expandir"}
+      {/* Botón toggle fijo en el borde (no se corta) */}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-label={open ? "Contraer menú" : "Expandir menú"}
+        title={open ? "Contraer" : "Expandir"}
+        className={[
+          "fixed top-8 left-[var(--nav-w)] -translate-x-1/2 z-50",
+          "grid h-10 w-10 place-items-center rounded-full border shadow-sm transition",
+          "bg-[var(--chip-bg)] border-[var(--chip-border)]",
+          "cursor-pointer",
+        ].join(" ")}
+        type="button"
+      >
+        <ChevronLeft
           className={[
-            "absolute top-1/2 -translate-y-1/2 right-[-18px] z-50",
-            "grid h-10 w-10 place-items-center rounded-full border shadow-sm transition",
-            "bg-[var(--chip-bg)] border-[var(--chip-border)]",
-            "cursor-pointer",
+            "h-5 w-5 transition-transform",
+            open ? "rotate-0" : "rotate-180",
           ].join(" ")}
-          type="button"
-        >
-          <ChevronLeft
-            className={[
-              "h-5 w-5 transition-transform",
-              open ? "rotate-0" : "rotate-180",
-            ].join(" ")}
-          />
-        </button>
-      </div>
+        />
+      </button>
 
-      <nav className="flex h-[calc(100%-4rem)] flex-col">
-        <div className="flex-1 overflow-y-auto p-3 pt-2 space-y-2">
-          <Item
-            href="/users"
-            label="Usuarios"
-            icon={<Users className={iconClass} />}
-          />
-          <Item
-            href="/clients"
-            label="Clientes"
-            icon={<Building2 className={iconClass} />}
-          />
-          <Item
-            href="/apps"
-            label="Aplicaciones"
-            icon={<AppWindow className={iconClass} />}
-          />
-          <Item
-            href="/licenses"
-            label="Licencias"
-            icon={<BadgeCheck className={iconClass} />}
-          />
-
-          {/* Tema */}
-          <button
-            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            className={[
-              rowBase,
-              open ? rowOpen : rowClosed,
-              "cursor-pointer",
-            ].join(" ")}
-            aria-label="Cambiar tema"
-            title="Cambiar tema"
-            type="button"
-          >
-            <IconCircle>
-              {/* No condicionamos por JS: CSS decide según data-theme */}
-              <span className="relative">
-                <Sun className={`${iconClass} icon-light`} />
-                <Moon className={`${iconClass} icon-dark`} />
-              </span>
-            </IconCircle>
-            {open && <span>Tema</span>}
-          </button>
+      <nav className="flex h-full flex-col">
+        {/* BLOQUE CENTRAL → centramos verticalmente la lista */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-0 py-2">
+          <div className="h-full flex flex-col justify-center gap-2">
+            <Item
+              href="/"
+              label="Dashboard"
+              icon={<Gauge className={iconClass} />}
+            />
+            <Item
+              href="/users"
+              label="Usuarios"
+              icon={<Users className={iconClass} />}
+            />
+            <Item
+              href="/clients"
+              label="Clientes"
+              icon={<Building2 className={iconClass} />}
+            />
+            <Item
+              href="/apps"
+              label="Aplicaciones"
+              icon={<AppWindow className={iconClass} />}
+            />
+            <Item
+              href="/licenses"
+              label="Licencias"
+              icon={<BadgeCheck className={iconClass} />}
+            />
+          </div>
         </div>
 
-        {/* Logout abajo — burdeos SIEMPRE, sin hover de color, aro blanco */}
-        <div className="p-3">
-          <Link
-            href="/logout"
-            className={[
-              rowBase,
-              open ? "px-4 gap-10" : "px-0 justify-center",
-              "bg-[#8E2434] text-white",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8E2434]/60 focus-visible:ring-offset-2",
-              // el offset se verá bien en ambos temas porque el fondo del aside lo ponemos con var
-            ].join(" ")}
+        {/* BLOQUE INFERIOR → Tema + Logout */}
+        <div className="px-0 py-3 space-y-2">
+          {/* Tema */}
+          <button
+            type="button"
+            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+            aria-label="Cambiar tema"
+            title="Cambiar tema"
+            className={[rowBase, "w-full text-left cursor-pointer"].join(" ")}
           >
-            <IconCircle forceWhiteBorder disableHover>
-              <LogOut className={iconClass} />
-            </IconCircle>
-            {open && <span>Logout</span>}
+            <div className="w-20 flex-none grid place-items-center">
+              <IconCircle>
+                <span className="grid place-items-center h-7 w-7">
+                  <Sun className={iconClass + " icon-light"} />
+                  <Moon className={iconClass + " icon-dark"} />
+                </span>
+              </IconCircle>
+            </div>
+            <Label>Tema</Label>
+          </button>
+
+          {/* Logout */}
+          <Link href="/logout" className={rowBase}>
+            <div className="w-20 flex-none grid place-items-center">
+              <IconCircle
+                borderColorVar="--logout-border"
+                bgVar="--logout-circle-bg"
+                textVar="--logout-icon"
+                disableHover
+                // Forzamos por style por si hay reglas más específicas
+                style={{
+                  borderColor: "var(--logout-border)",
+                  background: "var(--logout-circle-bg)",
+                  color: "var(--logout-icon)",
+                }}
+              >
+                <LogOut className={iconClass} />
+              </IconCircle>
+            </div>
+            <Label className="text-[var(--brand)]">Logout</Label>
           </Link>
         </div>
       </nav>

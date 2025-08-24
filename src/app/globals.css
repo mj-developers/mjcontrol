@@ -20,7 +20,13 @@
   --chip-bg: #ffffff; /* botón del chevron */
   --chip-border: #e4e4e7; /* zinc-200 */
 
-  /* Fuentes */
+  /* Logout (se redefinen por tema) */
+  --brand: #8e2434;
+  --logout-border: var(--icon-border);
+  --logout-circle-bg: transparent;
+  --logout-icon: #0a0a0a;
+
+  /* Fuente UI */
   --font-ui: "Segoe UI", "Inter", system-ui, -apple-system, "Helvetica Neue",
     Arial, sans-serif;
 }
@@ -41,6 +47,12 @@ html[data-theme="light"] {
 
   --chip-bg: #ffffff;
   --chip-border: #e4e4e7;
+
+  /* Logout (light): borde + icono negros, sin relleno */
+  --brand: #8e2434;
+  --logout-border: #0a0a0a; /* borde del círculo en claro */
+  --logout-circle-bg: #8e2434; /* ⬅️ antes estaba transparent */
+  --logout-icon: #ffffff;
 }
 
 html[data-theme="dark"] {
@@ -58,16 +70,22 @@ html[data-theme="dark"] {
 
   --chip-bg: #18181b; /* zinc-900 */
   --chip-border: #3f3f46; /* zinc-700 */
+
+  /* Logout (dark): círculo burdeos + borde blanco + icono blanco */
+  --brand: #8e2434;
+  --logout-border: #ffffff;
+  --logout-circle-bg: #8e2434;
+  --logout-icon: #ffffff;
 }
 
-/* ===== Mapeo para el sistema de tokens de Tailwind v4 (@theme inline) ===== */
+/* ===== Mapeo tokens Tailwind v4 (@theme inline) ===== */
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--fg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* Paleta burdeos (la tuya) */
+  /* Paleta burdeos */
   --color-brand-50: #fff1f3;
   --color-brand-100: #ffe4e8;
   --color-brand-200: #ffc9d3;
@@ -81,6 +99,17 @@ html[data-theme="dark"] {
 }
 
 /* ===== Estilos base ===== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  overflow-x: hidden; /* ⛔️ quita la barra horizontal al colapsar */
+}
+
 body {
   background: var(--bg);
   color: var(--fg);
@@ -109,8 +138,3 @@ html[data-theme="dark"] .icon-light {
 html[data-theme="dark"] .icon-dark {
   display: inline-block;
 }
-
-/* ===== NOTA IMPORTANTE =====
-   Eliminamos/ignoramos el @media (prefers-color-scheme) para que NO pise lo anterior.
-   Si lo tenías, bórralo o déjalo sin afectar a --bg/--fg.
-*/
