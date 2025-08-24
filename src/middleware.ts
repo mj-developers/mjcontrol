@@ -17,13 +17,12 @@ export function middleware(req: NextRequest) {
 
   if (isPublic) return NextResponse.next();
 
-  const auth = req.cookies.get("mj_auth")?.value;
+  const auth = req.cookies.get("mj_auth")?.value; // <-- mismo nombre
   if (!auth) {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
-
-  if (pathname === "/login") {
-    return NextResponse.redirect(new URL("/", req.url));
+    const url = req.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();

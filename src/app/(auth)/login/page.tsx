@@ -47,6 +47,7 @@ function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ login: usuario, password }),
+        credentials: "include", // ⬅️ asegura enviar/recibir cookies
       });
 
       if (!res.ok) {
@@ -55,7 +56,11 @@ function LoginPage() {
         return;
       }
 
-      router.replace("/");
+      // 🔁 Haz redirección dura para que el middleware/layout vea la cookie
+      window.location.assign("/"); // o window.location.href = "/"
+      // Si prefieres el router, añade refresh:
+      // router.replace("/");
+      // router.refresh();
     } catch {
       setError("No se pudo iniciar sesión. Revisa tu conexión.");
     } finally {

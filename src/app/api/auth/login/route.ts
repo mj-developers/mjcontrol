@@ -25,12 +25,10 @@ export async function POST(req: Request) {
     );
   }
 
-  // Llamada a tu API
   const upstreamRes = await fetch(`${base}/users/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ login, password }),
-    // importante para no cachear logins
     cache: "no-store",
   });
 
@@ -41,12 +39,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: msg }, { status: 401 });
   }
 
-  // Seteamos cookie HttpOnly con el token
   const res = NextResponse.json({ ok: true, user: data.user ?? login });
-  res.cookies.set("mj_token", data.token, {
+
+  res.cookies.set("mj_auth", data.token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: true, // en https
+    secure: process.env.NODE_ENV === "production", // solo en https prod
     path: "/",
     maxAge: 60 * 60 * 24 * 7, // 7 días
   });
