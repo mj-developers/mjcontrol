@@ -13,7 +13,7 @@ import {
   Moon,
   ChevronLeft,
 } from "lucide-react";
-import { Dispatch, SetStateAction, ReactNode } from "react";
+import { Dispatch, SetStateAction, ReactNode, CSSProperties } from "react";
 
 type Theme = "light" | "dark";
 
@@ -24,57 +24,86 @@ type Props = {
   setOpen: Dispatch<SetStateAction<boolean>>;
 };
 
+/** ---- Acentos por sección ---- */
+const ACCENT: Record<string, string> = {
+  "/": "#6366F1", // Dashboard — indigo-500
+  "/users": "#06B6D4", // Usuarios  — cyan-500
+  "/clients": "#F59E0B", // Clientes  — amber-500
+  "/apps": "#8B5CF6", // Apps      — violet-500
+  "/licenses": "#10B981", // Licencias — emerald-500
+};
+
+/** Activo si pathname coincide o está dentro de la sección (excepto "/") */
+function isRouteActive(pathname: string, href: string) {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
+/** CSSProperties con variable de acento tipada (sin any) */
+type StyleWithAccent = CSSProperties & { ["--item-accent"]?: string };
+
 export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
   const pathname = usePathname();
 
   const shell =
     "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]";
 
+  // Fila base (sin pill gris; más limpio)
   const rowBase =
-    "group flex items-center rounded-xl h-12 transition-colors focus:outline-none hover:bg-[var(--hover-pill)]";
-  const rowActive = "bg-[var(--row-active)]";
+    "group flex items-center rounded-xl h-12 transition-colors focus:outline-none";
+  const rowActive = "bg-transparent";
 
-  // 👇 aseguramos centrado perfecto dentro del círculo
+  // SVG bien centrado
   const iconClass = "h-7 w-7 block leading-none";
 
+  /** Círculo de icono configurable */
   const IconCircle = ({
     children,
     className = "",
     borderColorVar = "--icon-border",
     bgVar,
     textVar,
-    disableHover = false,
+    hoverFill = true, // controla si el hover pinta el círculo
+    zoom = true, // controla si hace el mini-zoom
+    forceActive = false,
     style,
   }: {
     children: ReactNode;
     className?: string;
     borderColorVar?: string;
-    bgVar?: string;
-    textVar?: string;
-    disableHover?: boolean;
-    style?: React.CSSProperties;
+    bgVar?: string; // var (ej. --item-accent)
+    textVar?: string; // var (ej. --item-accent)
+    hoverFill?: boolean;
+    zoom?: boolean;
+    forceActive?: boolean;
+    style?: CSSProperties;
   }) => (
     <span
       className={[
         "flex items-center justify-center h-10 w-10 rounded-full border-2 transition",
         `border-[var(${borderColorVar})]`,
-        bgVar ? `bg-[var(${bgVar})]` : "",
-        textVar ? `text-[var(${textVar})]` : "",
-        !disableHover ? "group-hover:bg-[var(--hover-icon-bg)]" : "",
+        // Hover con color de acento (si se desea)
+        hoverFill && bgVar ? "group-hover:bg-[var(--item-accent)]" : "",
+        hoverFill && bgVar ? "group-hover:border-[var(--item-accent)]" : "",
+        hoverFill && textVar ? "group-hover:text-white" : "",
+        // Activo = mismo efecto
+        forceActive && bgVar
+          ? "bg-[var(--item-accent)] border-[var(--item-accent)]"
+          : "",
+        forceActive && textVar ? "text-white" : "",
         className,
       ].join(" ")}
       style={style}
     >
       <span
-        className={
-          disableHover ? "" : "transition-transform group-hover:scale-110"
-        }
+        className={zoom ? "transition-transform group-hover:scale-110" : ""}
       >
         {children}
       </span>
     </span>
   );
 
+  /** Etiqueta animada (aparece/desaparece) */
   const Label = ({
     children,
     className = "",
@@ -84,7 +113,7 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
   }) => (
     <span
       className={[
-        "overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin] duration-300 ease-out",
+        "overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin,color,text-decoration-color] duration-300 ease-out",
         open ? "max-w-[12rem] opacity-100 ml-2" : "max-w-0 opacity-0 ml-0",
         className,
       ].join(" ")}
@@ -93,6 +122,7 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
     </span>
   );
 
+  /** Item con color de acento por sección (hover + activo) */
   const Item = ({
     href,
     label,
@@ -102,18 +132,38 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
     label: string;
     icon: ReactNode;
   }) => {
-    const isActive = pathname === href;
+    const active = isRouteActive(pathname, href);
+    const accent = ACCENT[href] ?? "#8E2434";
+    const rowStyle: StyleWithAccent = { "--item-accent": accent };
+
     return (
       <Link
         href={href}
-        aria-current={isActive ? "page" : undefined}
-        className={[rowBase, isActive ? rowActive : ""].join(" ")}
+        aria-current={active ? "page" : undefined}
+        className={[rowBase, active ? rowActive : ""].join(" ")}
+        style={rowStyle}
       >
-        {/* Rail fijo = 5rem (centrado en colapsado) */}
+        {/* Rail fijo = 5rem */}
         <div className="w-20 flex-none grid place-items-center">
-          <IconCircle>{icon}</IconCircle>
+          <IconCircle
+            bgVar="--item-accent"
+            textVar="--item-accent"
+            forceActive={active}
+          >
+            {icon}
+          </IconCircle>
         </div>
-        <Label>{label}</Label>
+
+        {/* Texto del mismo color + subrayado en hover/activo */}
+        <Label
+          className={[
+            "decoration-2 underline-offset-4 transition-colors",
+            active ? "text-[var(--item-accent)] underline" : "",
+            "group-hover:text-[var(--item-accent)] group-hover:underline",
+          ].join(" ")}
+        >
+          {label}
+        </Label>
       </Link>
     );
   };
@@ -129,7 +179,7 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
       ].join(" ")}
       aria-label="Barra de navegación"
     >
-      {/* Botón toggle fijo en el borde (no se corta) */}
+      {/* Botón toggle fijo en el borde */}
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Contraer menú" : "Expandir menú"}
@@ -150,9 +200,9 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
         />
       </button>
 
-      <nav className="flex h-full flex-col">
-        {/* BLOQUE CENTRAL → centramos verticalmente la lista */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden px-0 py-2">
+      <nav className="flex h-full min-h-0 flex-col">
+        {/* BLOQUE CENTRAL → centrado vertical */}
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-0 py-2">
           <div className="h-full flex flex-col justify-center gap-2">
             <Item
               href="/"
@@ -184,7 +234,7 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
 
         {/* BLOQUE INFERIOR → Tema + Logout */}
         <div className="px-0 py-3 space-y-2">
-          {/* Tema */}
+          {/* Tema (no usa acento de sección) */}
           <button
             type="button"
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}
@@ -203,19 +253,19 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
             <Label>Tema</Label>
           </button>
 
-          {/* Logout */}
+          {/* Logout (especial): círculo burdeos siempre, icono negro en claro y blanco en oscuro; con zoom */}
           <Link href="/logout" className={rowBase}>
             <div className="w-20 flex-none grid place-items-center">
               <IconCircle
                 borderColorVar="--logout-border"
                 bgVar="--logout-circle-bg"
-                textVar="--logout-icon"
-                disableHover
-                // Forzamos por style por si hay reglas más específicas
+                // No queremos que el hover cambie el fondo, pero sí el zoom:
+                hoverFill={false}
+                zoom={true}
                 style={{
                   borderColor: "var(--logout-border)",
                   background: "var(--logout-circle-bg)",
-                  color: "var(--logout-icon)",
+                  color: theme === "light" ? "#0a0a0a" : "#ffffff", // ⬅️ negro en claro, blanco en oscuro
                 }}
               >
                 <LogOut className={iconClass} />
