@@ -11,9 +11,9 @@ import { getInitialTheme, setThemeGlobal, type Theme } from "@/lib/theme";
 function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [theme, setTheme] = useState<Theme>("dark");
 
-  // Lee el tema inicial que dejó RootLayout y sincroniza <html> por si acaso
   useEffect(() => {
     const t = getInitialTheme();
     setTheme(t);
@@ -23,23 +23,44 @@ function LoginPage() {
   function toggleTheme() {
     setTheme((prev) => {
       const next: Theme = prev === "dark" ? "light" : "dark";
-      setThemeGlobal(next); // <-- guarda en localStorage + html + window + emite evento
+      setThemeGlobal(next);
       return next;
     });
   }
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    const fd = new FormData(e.currentTarget);
-    const usuario = String(fd.get("usuario") || "").trim();
-    const password = String(fd.get("password") || "").trim();
-    if (usuario === "mjdevs" && password === "mjdevs") {
-      document.cookie = `mj_auth=1; Path=/; SameSite=Lax`;
+    setLoading(true);
+    try {
+      const fd = new FormData(e.currentTarget);
+      const usuario = String(fd.get("usuario") || "").trim();
+      const password = String(fd.get("password") || "").trim();
+
+      if (!usuario || !password) {
+        setError("Introduce usuario y contraseña.");
+        return;
+      }
+
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ login: usuario, password }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.error || "Usuario o contraseña incorrectos.");
+        return;
+      }
+
+      // Cookie HttpOnly ya está puesta por la API → redirige
       router.replace("/");
-      return;
+    } catch {
+      setError("No se pudo iniciar sesión. Revisa tu conexión.");
+    } finally {
+      setLoading(false);
     }
-    setError("Usuario o contraseña incorrectos.");
   }
 
   const isLight = theme === "light";
@@ -188,9 +209,12 @@ function LoginPage() {
 
               <Button
                 type="submit"
-                className="w-full mt-2 cursor-pointer bg-gradient-to-b from-brand-700 to-brand-600 shadow-lg shadow-brand-900/25 hover:shadow-brand-800/40 hover:brightness-[1.03] active:scale-[.99]"
+                disabled={loading}
+                className={`w-full mt-2 cursor-pointer bg-gradient-to-b from-brand-700 to-brand-600 shadow-lg shadow-brand-900/25 hover:shadow-brand-800/40 hover:brightness-[1.03] active:scale-[.99] ${
+                  loading ? "opacity-70 pointer-events-none" : ""
+                }`}
               >
-                LOGIN
+                {loading ? "Entrando..." : "LOGIN"}
               </Button>
             </form>
           </div>
