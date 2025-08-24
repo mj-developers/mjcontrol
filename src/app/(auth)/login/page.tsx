@@ -49,6 +49,7 @@ function LoginPage() {
   }
 
   const isLight = theme === "light";
+  const tone = isLight ? "light" : "dark";
 
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[7fr_5fr] relative">
@@ -65,7 +66,7 @@ function LoginPage() {
                     }`}
       >
         {isLight ? (
-          // SOL con rayos
+          // SOL
           <svg
             viewBox="0 0 24 24"
             className="mx-auto h-6 w-6"
@@ -109,12 +110,12 @@ function LoginPage() {
         />
       </section>
 
-      {/* DERECHA: blanco en móvil oscuro; negro en desktop oscuro */}
+      {/* DERECHA */}
       <section
         className={`relative flex items-center justify-center p-6 lg:p-12
           ${isLight ? "bg-zinc-100" : "bg-white lg:bg-zinc-950"}`}
       >
-        {/* Fondo animado solo en móvil; sin círculo ni logo */}
+        {/* Fondo animado solo en móvil */}
         <div className="absolute inset-0 lg:hidden">
           <ParticleLinks
             accent="#8E2434"
@@ -128,7 +129,7 @@ function LoginPage() {
           />
         </div>
 
-        {/* Tarjeta de login (mismo look que en PC) */}
+        {/* Tarjeta de login */}
         <div className="w-full max-w-md relative z-10">
           <div
             className={
@@ -153,14 +154,9 @@ function LoginPage() {
               Iniciar sesión
             </h1>
 
-            <form
-              className={`space-y-4 ${
-                isLight ? "[&_label]:text-zinc-900 [&_input]:text-zinc-900" : ""
-              }`}
-              onSubmit={onSubmit}
-              noValidate
-            >
+            <form className="space-y-4" onSubmit={onSubmit} noValidate>
               <TextField
+                tone={tone}
                 id="usuario"
                 name="usuario"
                 label="Usuario"
@@ -178,6 +174,7 @@ function LoginPage() {
               />
 
               <TextField
+                tone={tone}
                 id="password"
                 name="password"
                 type="password"
@@ -219,5 +216,4 @@ function LoginPage() {
   );
 }
 
-// ⬇️ Desactiva SSR para esta página (sin mismatch y sin “flash” de tema)
 export default dynamic(() => Promise.resolve(LoginPage), { ssr: false });
