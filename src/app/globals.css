@@ -42,3 +42,15 @@ body {
     "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans",
     "Apple Color Emoji", "Segoe UI Emoji";
 }
+
+:root {
+  --font-ui: "Segoe UI", "Inter", system-ui, -apple-system, "Helvetica Neue",
+    Arial, sans-serif;
+}
+
+html,
+body {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  letter-spacing: 0.1px;
+}

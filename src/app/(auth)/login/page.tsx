@@ -6,32 +6,26 @@ import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import TextField from "@/components/ui/TextField";
 import ParticleLinks from "@/components/ParticleLinks";
-
-type Theme = "dark" | "light";
+import { getInitialTheme, setThemeGlobal, type Theme } from "@/lib/theme";
 
 function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [theme, setTheme] = useState<Theme>("dark");
 
-  // Tema SIN parpadeo: se decide en el cliente únicamente (no hay SSR)
-  const [theme, setTheme] = useState<Theme>(() => {
-    try {
-      const saved = localStorage.getItem("mj_theme") as Theme | null;
-      if (saved === "light" || saved === "dark") return saved;
-      if (window.matchMedia?.("(prefers-color-scheme: light)").matches)
-        return "light";
-    } catch {}
-    return "dark";
-  });
-
+  // Lee el tema inicial que dejó RootLayout y sincroniza <html> por si acaso
   useEffect(() => {
-    try {
-      localStorage.setItem("mj_theme", theme);
-    } catch {}
-  }, [theme]);
+    const t = getInitialTheme();
+    setTheme(t);
+    setThemeGlobal(t);
+  }, []);
 
   function toggleTheme() {
-    setTheme((t) => (t === "dark" ? "light" : "dark"));
+    setTheme((prev) => {
+      const next: Theme = prev === "dark" ? "light" : "dark";
+      setThemeGlobal(next); // <-- guarda en localStorage + html + window + emite evento
+      return next;
+    });
   }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -53,7 +47,7 @@ function LoginPage() {
 
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[7fr_5fr] relative">
-      {/* Botón tema */}
+      {/* BOTÓN TEMA */}
       <button
         onClick={toggleTheme}
         aria-label="Cambiar tema"
@@ -66,7 +60,6 @@ function LoginPage() {
                     }`}
       >
         {isLight ? (
-          // SOL
           <svg
             viewBox="0 0 24 24"
             className="mx-auto h-6 w-6"
@@ -80,7 +73,6 @@ function LoginPage() {
             <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
           </svg>
         ) : (
-          // LUNA
           <svg
             viewBox="0 0 24 24"
             className="mx-auto h-6 w-6"
@@ -112,10 +104,10 @@ function LoginPage() {
 
       {/* DERECHA */}
       <section
-        className={`relative flex items-center justify-center p-6 lg:p-12
-          ${isLight ? "bg-zinc-100" : "bg-white lg:bg-zinc-950"}`}
+        className={`relative flex items-center justify-center p-6 lg:p-12 ${
+          isLight ? "bg-zinc-100" : "bg-white lg:bg-zinc-950"
+        }`}
       >
-        {/* Fondo animado solo en móvil */}
         <div className="absolute inset-0 lg:hidden">
           <ParticleLinks
             accent="#8E2434"
@@ -129,7 +121,6 @@ function LoginPage() {
           />
         </div>
 
-        {/* Tarjeta de login */}
         <div className="w-full max-w-md relative z-10">
           <div
             className={
@@ -172,7 +163,6 @@ function LoginPage() {
                   (e.currentTarget as HTMLInputElement).setCustomValidity("")
                 }
               />
-
               <TextField
                 tone={tone}
                 id="password"
