@@ -1,25 +1,717 @@
-export default function Dashboard() {
-  return (
-    <div>
-      <h1 className="text-2xl font-display font-semibold">Dashboard</h1>
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        Datos de ejemplo (luego conectamos a la API).
-      </p>
+// src/app/(app)/page.tsx
+"use client";
 
-      <div className="mt-4 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
-        <div className="rounded-xl border p-4 bg-white text-zinc-900 border-zinc-200 dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-800">
-          Usuarios: 42
+import { useEffect, useId, useMemo, useState } from "react";
+import type { LucideIcon } from "lucide-react";
+import {
+  Users,
+  Building2,
+  AppWindow,
+  BadgeCheck,
+  ArrowUpRight,
+  ArrowDownRight,
+  Clock8,
+} from "lucide-react";
+
+/* =======================================================================
+   Colores utilitarios (evitamos clases tailwind dinámicas)
+   ======================================================================= */
+const TWC = {
+  indigo: { 500: "#6366F1" },
+  cyan: { 500: "#06B6D4" },
+  violet: { 500: "#8B5CF6" },
+  emerald: { 500: "#10B981" },
+  amber: { 500: "#F59E0B" },
+  rose: { 500: "#E11D48" },
+};
+const BRAND = "#8E2434";
+
+const toRGB = (hex: string) => {
+  const h = hex.replace("#", "");
+  const n =
+    h.length === 3
+      ? parseInt(
+          h
+            .split("")
+            .map((c) => c + c)
+            .join(""),
+          16
+        )
+      : parseInt(h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(" ");
+};
+const withAlpha = (hex: string, a: number) => `rgba(${toRGB(hex)},${a})`;
+
+/* =======================================================================
+   Tipos
+   ======================================================================= */
+type SvgIcon = LucideIcon;
+
+type Stat = {
+  label: string;
+  value: number;
+  delta?: number; // % (positivo o negativo)
+  color: keyof typeof TWC;
+  icon: SvgIcon;
+  spark: number[];
+};
+
+type Range = "total" | "7d" | "30d" | "90d";
+
+/* =======================================================================
+   Hook: count-up
+   ======================================================================= */
+function useCountUp(value: number, duration = 700) {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    const start = performance.now();
+    const from = 0;
+    const to = Number(value) || 0;
+    let raf = 0;
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+      setDisplay(Math.round(from + (to - from) * eased));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, duration]);
+  return display;
+}
+
+/* =======================================================================
+   Sparkline simple con SVG
+   ======================================================================= */
+function Sparkline({
+  values,
+  stroke = "#6366F1",
+  width = 120,
+  height = 36,
+  strokeWidth = 2,
+}: {
+  values: number[];
+  stroke?: string;
+  width?: number;
+  height?: number;
+  strokeWidth?: number;
+}) {
+  const id = useId();
+  if (!values.length) return null;
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const norm = (v: number) =>
+    height -
+    ((v - min) / (max - min || 1)) * (height - strokeWidth) -
+    strokeWidth / 2;
+
+  const step = width / (values.length - 1 || 1);
+  const d = values
+    .map((v, i) => `${i === 0 ? "M" : "L"} ${i * step} ${norm(v)}`)
+    .join(" ");
+
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      className="w-[120px] h-[36px]"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id={`${id}-grad`} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor={stroke} stopOpacity="1" />
+          <stop offset="100%" stopColor={stroke} stopOpacity="0.2" />
+        </linearGradient>
+      </defs>
+      <path
+        d={d}
+        fill="none"
+        stroke={`url(#${id}-grad)`}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/* =======================================================================
+   Skeletons & Empty state
+   ======================================================================= */
+function StatSkeleton() {
+  return (
+    <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/60 dark:bg-zinc-800/40 h-[94px] animate-pulse" />
+  );
+}
+function BlockSkeleton() {
+  return (
+    <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/60 dark:bg-zinc-800/40 h-[260px] animate-pulse" />
+  );
+}
+function EmptyState({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 p-8 grid place-items-center text-center bg-white dark:bg-zinc-900">
+      <svg
+        viewBox="0 0 64 64"
+        className="h-10 w-10 opacity-60 mb-2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <rect
+          x="10"
+          y="14"
+          width="44"
+          height="36"
+          rx="6"
+          className="opacity-50"
+        />
+        <path d="M20 28h24M20 36h14" />
+      </svg>
+      <p className="font-medium">{title}</p>
+      {hint && (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{hint}</p>
+      )}
+    </div>
+  );
+}
+
+/* =======================================================================
+   Tarjeta KPI (sin parallax)
+   ======================================================================= */
+function StatCard({ s }: { s: Stat }) {
+  const Icon = s.icon;
+  const positive = (s.delta ?? 0) >= 0;
+  const accent = TWC[s.color][500];
+  const displayValue = useCountUp(s.value);
+
+  return (
+    <div
+      className={[
+        "group relative isolate overflow-hidden rounded-2xl border",
+        "bg-white text-zinc-900 border-zinc-200",
+        "dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-800",
+        "transition-transform duration-200 hover:-translate-y-[2px] hover:shadow-lg",
+      ].join(" ")}
+      style={{ boxShadow: `0 0 0 1px ${withAlpha(accent, 0.16)} inset` }}
+    >
+      <div className="p-4 flex items-center gap-3">
+        <div
+          className="grid h-11 w-11 place-items-center rounded-xl border"
+          style={{
+            borderColor: withAlpha(accent, 0.35),
+            background: withAlpha(accent, 0.08),
+            color: accent,
+          }}
+        >
+          <Icon className="h-6 w-6" />
         </div>
-        <div className="rounded-xl border p-4 bg-white text-zinc-900 border-zinc-200 dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-800">
-          Clientes: 18
+
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            {s.label}
+          </p>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-2xl font-semibold">
+              {displayValue.toLocaleString()}
+            </h3>
+            {s.delta !== undefined && (
+              <span
+                className={[
+                  "inline-flex items-center gap-1 text-xs font-medium",
+                  positive
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-rose-600 dark:text-rose-400",
+                ].join(" ")}
+                title="Variación vs. periodo anterior"
+              >
+                {positive ? (
+                  <ArrowUpRight className="h-4 w-4" />
+                ) : (
+                  <ArrowDownRight className="h-4 w-4" />
+                )}
+                {Math.abs(s.delta)}%
+              </span>
+            )}
+          </div>
         </div>
-        <div className="rounded-xl border p-4 bg-white text-zinc-900 border-zinc-200 dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-800">
-          Aplicaciones: 9
-        </div>
-        <div className="rounded-xl border p-4 bg-white text-zinc-900 border-zinc-200 dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-800">
-          Licencias por vencer: 3
+
+        <div className="ml-auto opacity-90">
+          <Sparkline values={s.spark} stroke={accent} />
         </div>
       </div>
+    </div>
+  );
+}
+
+/* =======================================================================
+   Donut con estados (dots pulsantes en la leyenda)
+   ======================================================================= */
+function DonutLicenses({
+  data,
+}: {
+  data: {
+    label: string;
+    value: number;
+    color: string;
+    status: "ok" | "warn" | "error";
+  }[];
+}) {
+  const total = data.reduce((a, b) => a + b.value, 0) || 1;
+  let acc = 0;
+  const stops = data
+    .map((d) => {
+      const start = Math.round((acc / total) * 100);
+      acc += d.value;
+      const end = Math.round((acc / total) * 100);
+      return `${d.color} ${start}% ${end}%`;
+    })
+    .join(", ");
+
+  return (
+    <div className="flex items-center gap-6">
+      <div
+        className="relative h-40 w-40 rounded-full"
+        style={{
+          background: `conic-gradient(${stops})`,
+          boxShadow: "0 10px 20px rgba(0,0,0,.06)",
+        }}
+        aria-hidden
+      >
+        <div className="absolute inset-4 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800" />
+        <div className="absolute inset-0 grid place-items-center">
+          <div className="text-center">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Total</p>
+            <p className="text-2xl font-semibold">{total}</p>
+          </div>
+        </div>
+      </div>
+
+      <ul className="space-y-2">
+        {data.map((d) => (
+          <li key={d.label} className="flex items-center gap-3">
+            <span className="relative inline-grid place-items-center">
+              <span
+                className="absolute inline-block h-3 w-3 rounded-full animate-ping"
+                style={{ background: withAlpha(d.color, 0.35) }}
+              />
+              <span
+                className="relative h-2.5 w-2.5 rounded-full"
+                style={{ background: d.color }}
+              />
+            </span>
+            <span className="text-sm text-zinc-700 dark:text-zinc-300">
+              {d.label}
+            </span>
+            <span className="ml-auto text-sm font-medium">{d.value}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/* =======================================================================
+   Actividad reciente (con estado ping)
+   ======================================================================= */
+type Activity = {
+  t: string;
+  ts: string;
+  icon: SvgIcon;
+  status: "ok" | "warn" | "error";
+};
+
+const ACTIVITY_BASE: Activity[] = [
+  { t: "Nuevo usuario creado", ts: "hoy 12:30", icon: Users, status: "ok" },
+  {
+    t: "Cliente ACME actualizado",
+    ts: "ayer 18:10",
+    icon: Building2,
+    status: "warn",
+  },
+  {
+    t: "Se emitió una licencia",
+    ts: "ayer 10:02",
+    icon: BadgeCheck,
+    status: "ok",
+  },
+  {
+    t: "App CloudSync desplegada",
+    ts: "mar 16:45",
+    icon: AppWindow,
+    status: "ok",
+  },
+];
+
+/* =======================================================================
+   Dataset por rango (demostración)
+   ======================================================================= */
+const DATA_BY_RANGE: Record<
+  Range,
+  {
+    stats: Stat[];
+    donut: {
+      label: string;
+      value: number;
+      color: string;
+      status: "ok" | "warn" | "error";
+    }[];
+    activity: Activity[];
+  }
+> = {
+  total: {
+    stats: [
+      {
+        label: "Usuarios",
+        value: 820,
+        delta: 14,
+        color: "indigo",
+        icon: Users,
+        spark: [80, 120, 160, 200, 260, 320, 420, 520, 620, 700, 760, 820],
+      },
+      {
+        label: "Clientes",
+        value: 190,
+        delta: 8,
+        color: "cyan",
+        icon: Building2,
+        spark: [40, 55, 70, 85, 100, 115, 130, 145, 160, 170, 180, 190],
+      },
+      {
+        label: "Aplicaciones",
+        value: 32,
+        delta: 5,
+        color: "violet",
+        icon: AppWindow,
+        spark: [6, 8, 10, 12, 15, 18, 20, 22, 25, 27, 30, 32],
+      },
+      {
+        label: "Licencias por vencer",
+        value: 12,
+        color: "emerald",
+        icon: BadgeCheck,
+        spark: [4, 5, 7, 8, 7, 9, 10, 11, 12, 11, 12, 12],
+      },
+    ],
+    donut: [
+      { label: "Activas", value: 780, color: TWC.emerald[500], status: "ok" },
+      {
+        label: "Próximas a expirar",
+        value: 110,
+        color: TWC.amber[500],
+        status: "warn",
+      },
+      { label: "Vencidas", value: 48, color: BRAND, status: "error" },
+    ],
+    activity: ACTIVITY_BASE,
+  },
+  "7d": {
+    stats: [
+      {
+        label: "Usuarios",
+        value: 42,
+        delta: 6,
+        color: "indigo",
+        icon: Users,
+        spark: [10, 12, 13, 11, 15, 16, 18, 20, 22, 21, 26, 28],
+      },
+      {
+        label: "Clientes",
+        value: 18,
+        delta: -3,
+        color: "cyan",
+        icon: Building2,
+        spark: [5, 5, 6, 7, 6, 6, 7, 8, 9, 9, 8, 7],
+      },
+      {
+        label: "Aplicaciones",
+        value: 9,
+        delta: 2,
+        color: "violet",
+        icon: AppWindow,
+        spark: [3, 3, 4, 4, 4, 5, 5, 6, 6, 7, 7, 9],
+      },
+      {
+        label: "Licencias por vencer",
+        value: 3,
+        color: "emerald",
+        icon: BadgeCheck,
+        spark: [2, 2, 1, 3, 4, 3, 3, 2, 3, 3, 2, 3],
+      },
+    ],
+    donut: [
+      { label: "Activas", value: 62, color: TWC.emerald[500], status: "ok" },
+      {
+        label: "Próximas a expirar",
+        value: 25,
+        color: TWC.amber[500],
+        status: "warn",
+      },
+      { label: "Vencidas", value: 13, color: BRAND, status: "error" },
+    ],
+    activity: ACTIVITY_BASE,
+  },
+  "30d": {
+    stats: [
+      {
+        label: "Usuarios",
+        value: 128,
+        delta: 12,
+        color: "indigo",
+        icon: Users,
+        spark: [20, 22, 24, 23, 26, 29, 30, 35, 40, 44, 48, 52],
+      },
+      {
+        label: "Clientes",
+        value: 40,
+        delta: 4,
+        color: "cyan",
+        icon: Building2,
+        spark: [7, 8, 9, 10, 11, 12, 12, 13, 14, 15, 16, 17],
+      },
+      {
+        label: "Aplicaciones",
+        value: 15,
+        delta: 3,
+        color: "violet",
+        icon: AppWindow,
+        spark: [4, 5, 6, 7, 7, 8, 10, 10, 11, 12, 13, 15],
+      },
+      {
+        label: "Licencias por vencer",
+        value: 5,
+        color: "emerald",
+        icon: BadgeCheck,
+        spark: [4, 3, 4, 5, 5, 5, 4, 6, 6, 5, 5, 5],
+      },
+    ],
+    donut: [
+      { label: "Activas", value: 240, color: TWC.emerald[500], status: "ok" },
+      {
+        label: "Próximas a expirar",
+        value: 60,
+        color: TWC.amber[500],
+        status: "warn",
+      },
+      { label: "Vencidas", value: 20, color: BRAND, status: "error" },
+    ],
+    activity: ACTIVITY_BASE,
+  },
+  "90d": {
+    stats: [
+      {
+        label: "Usuarios",
+        value: 410,
+        delta: 18,
+        color: "indigo",
+        icon: Users,
+        spark: [60, 70, 75, 80, 88, 95, 100, 120, 140, 160, 190, 210],
+      },
+      {
+        label: "Clientes",
+        value: 95,
+        delta: 9,
+        color: "cyan",
+        icon: Building2,
+        spark: [20, 22, 25, 28, 30, 33, 36, 40, 44, 48, 50, 55],
+      },
+      {
+        label: "Aplicaciones",
+        value: 24,
+        delta: 5,
+        color: "violet",
+        icon: AppWindow,
+        spark: [5, 6, 7, 8, 9, 12, 14, 16, 18, 21, 22, 24],
+      },
+      {
+        label: "Licencias por vencer",
+        value: 9,
+        color: "emerald",
+        icon: BadgeCheck,
+        spark: [3, 4, 5, 6, 6, 7, 7, 8, 9, 9, 9, 9],
+      },
+    ],
+    donut: [
+      { label: "Activas", value: 720, color: TWC.emerald[500], status: "ok" },
+      {
+        label: "Próximas a expirar",
+        value: 110,
+        color: TWC.amber[500],
+        status: "warn",
+      },
+      { label: "Vencidas", value: 38, color: BRAND, status: "error" },
+    ],
+    activity: ACTIVITY_BASE,
+  },
+};
+
+/* =======================================================================
+   Página
+   ======================================================================= */
+export default function Dashboard() {
+  const [range, setRange] = useState<Range>("total");
+  const [loading, setLoading] = useState(true);
+
+  // Simulamos carga para skeletons
+  useEffect(() => {
+    setLoading(true);
+    const t = setTimeout(() => setLoading(false), 600);
+    return () => clearTimeout(t);
+  }, [range]);
+
+  const current = useMemo(() => DATA_BY_RANGE[range], [range]);
+
+  const chipClass = (active: boolean) =>
+    [
+      "h-8 px-3 rounded-full border text-xs font-medium transition cursor-pointer",
+      active
+        ? "bg-[var(--brand,#8E2434)] text-white border-transparent shadow-sm"
+        : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900",
+    ].join(" ");
+
+  const NO_STATS = false;
+  const NO_ACTIVITY = false;
+
+  return (
+    <div className="space-y-6">
+      <header className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-display font-semibold">Dashboard</h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            Resumen general (datos de ejemplo).
+          </p>
+        </div>
+
+        {/* Selector de rango: Total | Últimos {7d,30d,90d} */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setRange("total")}
+            aria-pressed={range === "total"}
+            className={chipClass(range === "total")}
+            title="Mostrar todo"
+          >
+            Total
+          </button>
+
+          <span className="text-xs text-zinc-500 dark:text-zinc-400 mx-1 select-none">
+            Últimos
+          </span>
+
+          {(["7d", "30d", "90d"] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              aria-pressed={range === r}
+              className={chipClass(range === r)}
+              title={`Rango ${r}`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {/* KPIs */}
+      {loading ? (
+        <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
+          <StatSkeleton />
+          <StatSkeleton />
+          <StatSkeleton />
+          <StatSkeleton />
+        </div>
+      ) : NO_STATS || current.stats.length === 0 ? (
+        <EmptyState
+          title="Sin estadísticas"
+          hint="No hay datos para el rango seleccionado."
+        />
+      ) : (
+        <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
+          {current.stats.map((s) => (
+            <StatCard key={s.label} s={s} />
+          ))}
+        </div>
+      )}
+
+      {/* Segunda fila: Donut + Actividad */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {loading ? (
+          <>
+            <BlockSkeleton />
+            <BlockSkeleton />
+          </>
+        ) : (
+          <>
+            <section
+              className="rounded-2xl border bg-white text-zinc-900 border-zinc-200 p-5
+                         dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-800"
+            >
+              <h2 className="text-base font-semibold">Licencias — estado</h2>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
+                Distribución actual.
+              </p>
+              <DonutLicenses data={current.donut} />
+            </section>
+
+            <section
+              className="relative rounded-2xl border bg-white text-zinc-900 border-zinc-200 p-5
+                         dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-800"
+            >
+              <h2 className="text-base font-semibold">Actividad reciente</h2>
+
+              {NO_ACTIVITY || current.activity.length === 0 ? (
+                <div className="mt-4">
+                  <EmptyState
+                    title="Sin actividad"
+                    hint="Todavía no hay eventos para este periodo."
+                  />
+                </div>
+              ) : (
+                <ul className="mt-3 divide-y divide-zinc-200 dark:divide-zinc-800">
+                  {current.activity.map((a, i) => {
+                    const Ico = a.icon;
+                    const color =
+                      a.status === "ok"
+                        ? TWC.emerald[500]
+                        : a.status === "warn"
+                        ? TWC.amber[500]
+                        : BRAND;
+                    return (
+                      <li key={i} className="py-3 flex items-center gap-3">
+                        <span className="relative grid h-9 w-9 place-items-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/30">
+                          <Ico className="h-5 w-5 text-zinc-600 dark:text-zinc-300" />
+                          <span className="absolute -top-1 -right-1 inline-grid place-items-center">
+                            <span
+                              className="absolute h-3 w-3 rounded-full animate-ping"
+                              style={{ background: withAlpha(color, 0.35) }}
+                            />
+                            <span
+                              className="relative h-2 w-2 rounded-full"
+                              style={{ background: color }}
+                            />
+                          </span>
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm">{a.t}</p>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {a.ts}
+                          </p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          </>
+        )}
+      </div>
+
+      {!loading && (
+        <div className="hidden md:flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <Clock8 className="h-4 w-4" />
+          Actualizado hace 2 min
+        </div>
+      )}
     </div>
   );
 }

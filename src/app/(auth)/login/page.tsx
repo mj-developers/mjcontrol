@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import TextField from "@/components/ui/TextField";
 import ParticleLinks from "@/components/ParticleLinks";
 import { getInitialTheme, setThemeGlobal, type Theme } from "@/lib/theme";
+import { Sun, Moon } from "lucide-react";
 
 function LoginPage() {
   const router = useRouter();
@@ -54,7 +55,6 @@ function LoginPage() {
         return;
       }
 
-      // Cookie HttpOnly ya está puesta por la API → redirige
       router.replace("/");
     } catch {
       setError("No se pudo iniciar sesión. Revisa tu conexión.");
@@ -66,42 +66,30 @@ function LoginPage() {
   const isLight = theme === "light";
   const tone = isLight ? "light" : "dark";
 
+  const btnTheme = isLight
+    ? "bg-[#8E2434] text-white"
+    : "bg-[#8E2434] text-black";
+
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[7fr_5fr] relative">
-      {/* BOTÓN TEMA */}
       <button
         onClick={toggleTheme}
         aria-label="Cambiar tema"
+        type="button"
         className={`fixed top-4 right-4 z-50 h-10 w-10 rounded-full 
-                    shadow-md backdrop-blur border transition
-                    ${
-                      isLight
-                        ? "bg-white/70 hover:bg-white border-zinc-200 text-zinc-900"
-                        : "bg-zinc-900/70 hover:bg-zinc-900 border-zinc-700 text-zinc-100"
-                    }`}
+              shadow-md backdrop-blur border transition
+              grid place-items-center  /* ⬅️ centra el contenido */
+              hover:cursor-pointer focus-visible:cursor-pointer
+              ${
+                isLight
+                  ? "bg-white/70 hover:bg-white border-zinc-200 text-zinc-900"
+                  : "bg-zinc-900/70 hover:bg-zinc-900 border-zinc-700 text-zinc-100"
+              }`}
       >
-        {isLight ? (
-          <svg
-            viewBox="0 0 24 24"
-            className="mx-auto h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="12" cy="12" r="4" />
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-          </svg>
-        ) : (
-          <svg
-            viewBox="0 0 24 24"
-            className="mx-auto h-6 w-6"
-            fill="currentColor"
-          >
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-          </svg>
-        )}
+        <span className="grid place-items-center h-7 w-7 leading-none transition-transform group-hover:scale-110">
+          <Sun className="h-6 w-6 icon-light" />
+          <Moon className="h-6 w-6 icon-dark" />
+        </span>
       </button>
 
       {/* IZQUIERDA (desktop) */}
@@ -111,16 +99,16 @@ function LoginPage() {
           count={80}
           linkDist={170}
           speed={60}
-          bg="#E2E5EA"
+          bg={isLight ? "#FFFFFF" : "#E2E5EA"}
           logo={
             isLight ? "/LogoPanelLoginLight.svg" : "/LogoPanelLoginDark.svg"
           }
           logoSize={460}
-          logoYOffset={0.04}
-          circleBg={isLight ? "#ffffff" : "#0B0B0D"}
-          circleBorder={isLight ? "#000000" : "#ffffff"}
+          logoYOffset={0.0}
+          circleBg="#8E2434"
+          circleBorder={isLight ? "#FFFFFF" : "#000000"}
           circleBorderWidth={4}
-          lineBaseColor="#111111"
+          lineBaseColor="#3A3A3A"
           lineBaseAlpha={0.16}
         />
       </section>
@@ -128,7 +116,7 @@ function LoginPage() {
       {/* DERECHA */}
       <section
         className={`relative flex items-center justify-center p-6 lg:p-12 ${
-          isLight ? "bg-zinc-100" : "bg-white lg:bg-zinc-950"
+          isLight ? "bg-[#F6F8FA]" : "bg-[#010409]"
         }`}
       >
         <div className="absolute inset-0 lg:hidden">
@@ -139,18 +127,18 @@ function LoginPage() {
             speed={60}
             bg="transparent"
             showCenter={false}
-            lineBaseColor="#111111"
+            lineBaseColor="#3A3A3A"
             lineBaseAlpha={0.16}
           />
         </div>
 
-        <div className="w-full max-w-md relative z-10">
+        <div className="w-full max-w-md relative z-10 login-scope">
           <div
-            className={
+            className={`rounded-2xl p-8 shadow-2xl min-h-[600px] border ${
               isLight
-                ? "rounded-2xl p-8 shadow-2xl min-h-[600px] border bg-white/80 border-zinc-200 text-zinc-900 backdrop-blur"
-                : "rounded-2xl p-8 shadow-2xl min-h-[600px] border border-zinc-800 text-zinc-100 bg-[#141416] lg:bg-zinc-900/70 lg:backdrop-blur"
-            }
+                ? "bg-white border-zinc-200 text-black"
+                : "bg-[#0D1117] border-zinc-800 text-white"
+            }`}
           >
             <div className="mb-4 flex justify-center">
               <img
@@ -162,7 +150,7 @@ function LoginPage() {
 
             <h1
               className={`mb-6 text-center text-3xl font-display font-semibold ${
-                isLight ? "text-zinc-900" : ""
+                isLight ? "text-black" : "text-white"
               }`}
             >
               Iniciar sesión
@@ -210,9 +198,24 @@ function LoginPage() {
               <Button
                 type="submit"
                 disabled={loading}
-                className={`w-full mt-2 cursor-pointer bg-gradient-to-b from-brand-700 to-brand-600 shadow-lg shadow-brand-900/25 hover:shadow-brand-800/40 hover:brightness-[1.03] active:scale-[.99] ${
-                  loading ? "opacity-70 pointer-events-none" : ""
-                }`}
+                className={[
+                  "relative w-full mt-2 inline-flex items-center justify-center h-12 rounded-xl",
+                  "px-6 font-semibold tracking-[.12em]",
+                  "text-[var(--login-btn-fg)] border border-[var(--login-btn-border)]",
+                  "bg-[var(--login-btn-bg)]",
+                  "[background-image:linear-gradient(to_bottom,#9b2e40,#8E2434)]",
+                  "hover:bg-[var(--login-btn-hover)] hover:bg-none",
+                  "before:absolute before:inset-0 before:rounded-xl",
+                  "before:bg-[linear-gradient(to_bottom,rgba(255,255,255,.14),rgba(0,0,0,0))] before:pointer-events-none",
+                  "after:absolute after:inset-0 after:rounded-xl after:opacity-0",
+                  "after:bg-[radial-gradient(120%_80%_at_50%_-20%,rgba(255,255,255,.35),transparent_40%)]",
+                  "hover:after:opacity-100",
+                  "transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0 active:scale-[.99]",
+                  "shadow-[0_12px_24px_rgba(142,36,52,.28)] hover:shadow-[0_16px_28px_rgba(142,36,52,.36)]",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]/60",
+                  "focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--login-panel-bg)]",
+                  loading ? "opacity-70 pointer-events-none" : "cursor-pointer",
+                ].join(" ")}
               >
                 {loading ? "Entrando..." : "LOGIN"}
               </Button>

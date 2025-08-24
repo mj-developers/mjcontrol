@@ -1,104 +1,160 @@
-/* Tailwind v4 */
 @import "tailwindcss";
 
-/* ===== Variables base (fallback) ===== */
 :root {
-  /* Tema base (se sobreescribe por [data-theme]) */
   --bg: #ffffff;
   --fg: #171717;
 
-  /* LeftNav (modo claro por defecto) */
-  --shell-bg: #ffffff;
+  /* ---- LeftNav ---- */
+  --shell-bg: #f6f8fa;
   --shell-fg: #0a0a0a;
-  --shell-border: #e4e4e7; /* zinc-200 */
-  --hover-pill: #f4f4f5; /* zinc-100 aprox */
-  --row-active: #f4f4f5;
+  --shell-border: #e4e4e7;
 
+  /* Botón flotante del chevron */
+  --chip-bg: #ffffff;
+  --chip-border: #0a0a0a;
+  --chip-fg: #0a0a0a;
+
+  /* Iconos "default" */
   --icon-border: #0a0a0a;
   --hover-icon-bg: #f4f4f5;
 
-  --chip-bg: #ffffff; /* botón del chevron */
-  --chip-border: #e4e4e7; /* zinc-200 */
-
-  /* Logout (se redefinen por tema) */
+  /* Logout */
   --brand: #8e2434;
-  --logout-border: var(--icon-border);
-  --logout-circle-bg: transparent;
-  --logout-icon: #0a0a0a;
+  --logout-border: #0a0a0a;
+  --logout-circle-bg: #8e2434;
+  --logout-icon: #ffffff;
+
+  /* ---- Login tokens ---- */
+  /* Lado derecho */
+  --login-right-bg: #f6f8fa;
+  /* Panel */
+  --login-panel-bg: #ffffff;
+  --login-title-fg: #000000;
+  --login-label-fg: #000000;
+  /* Inputs */
+  --login-input-bg: #ffffff;
+  --login-input-fg: #000000;
+  --login-input-border: #000000;
+  /* Botón */
+  --login-btn-bg: #8e2434;
+  --login-btn-fg: #ffffff;
+  --login-btn-hover: #d43b5f;
+  --login-btn-border: #000000;
+
+  /* Animación del login + círculo grande de la izquierda */
+  --anim-bg: #ffffff;
+  --anim-node: #8e2434;
+  --anim-line: #3a3a3a;
+  --left-circle-bg: #8e2434;
+  --left-circle-border: #000000;
 
   /* Fuente UI */
   --font-ui: "Segoe UI", "Inter", system-ui, -apple-system, "Helvetica Neue",
     Arial, sans-serif;
 }
 
-/* ===== Tema controlado por atributo ===== */
+/* ===== Tema claro ===== */
 html[data-theme="light"] {
   --bg: #ffffff;
   --fg: #171717;
 
-  --shell-bg: #ffffff;
+  /* Nav */
+  --shell-bg: #f6f8fa;
   --shell-fg: #0a0a0a;
   --shell-border: #e4e4e7;
-  --hover-pill: #f4f4f5;
-  --row-active: #f4f4f5;
+
+  --chip-bg: #ffffff;
+  --chip-border: #0a0a0a;
+  --chip-fg: #0a0a0a;
 
   --icon-border: #0a0a0a;
   --hover-icon-bg: #f4f4f5;
 
-  --chip-bg: #ffffff;
-  --chip-border: #e4e4e7;
-
-  /* Logout (light): borde + icono negros, sin relleno */
+  /* Logout */
   --brand: #8e2434;
-  --logout-border: #0a0a0a; /* borde del círculo en claro */
-  --logout-circle-bg: #8e2434; /* ⬅️ antes estaba transparent */
+  --logout-border: #0a0a0a;
+  --logout-circle-bg: #8e2434;
   --logout-icon: #ffffff;
+
+  /* Login */
+  --login-right-bg: #f6f8fa;
+  --login-panel-bg: #ffffff;
+  --login-title-fg: #000000;
+  --login-label-fg: #000000;
+
+  --login-input-bg: #ffffff;
+  --login-input-fg: #000000;
+  --login-input-border: #f6f8fa;
+
+  --login-btn-bg: #8e2434;
+  --login-btn-fg: #ffffff;
+  --login-btn-hover: #d43b5f;
+  --login-btn-border: #f6f8fa;
+
+  --anim-bg: #ffffff;
+  --anim-node: #8e2434;
+  --anim-line: #3a3a3a;
+  --left-circle-bg: #8e2434;
+  --left-circle-border: #ffffff;
 }
 
+/* ===== Tema oscuro ===== */
 html[data-theme="dark"] {
   --bg: #0b0b0d;
   --fg: #ffffff;
 
-  --shell-bg: rgba(9, 9, 11, 0.8); /* zinc-950/80 */
+  /* Nav */
+  --shell-bg: #0d1117;
   --shell-fg: #fafafa;
-  --shell-border: #27272a; /* zinc-800 */
-  --hover-pill: rgba(24, 24, 27, 0.7); /* zinc-900/70 */
-  --row-active: rgba(24, 24, 27, 0.8); /* zinc-900/80 */
+  --shell-border: #27272a;
+
+  --chip-bg: #0d1117;
+  --chip-border: #3f3f46;
+  --chip-fg: #ffffff;
 
   --icon-border: #ffffff;
-  --hover-icon-bg: rgba(24, 24, 27, 0.6); /* zinc-900/60 */
+  --hover-icon-bg: rgba(24, 24, 27, 0.6);
 
-  --chip-bg: #18181b; /* zinc-900 */
-  --chip-border: #3f3f46; /* zinc-700 */
-
-  /* Logout (dark): círculo burdeos + borde blanco + icono blanco */
+  /* Logout */
   --brand: #8e2434;
   --logout-border: #ffffff;
   --logout-circle-bg: #8e2434;
   --logout-icon: #ffffff;
+
+  /* Login */
+  --login-right-bg: #010409;
+  --login-panel-bg: #0d1117;
+  --login-title-fg: #ffffff;
+  --login-label-fg: #ffffff;
+
+  --login-input-bg: #010409;
+  --login-input-fg: #ffffff;
+  --login-input-border: #010409;
+
+  --login-btn-bg: #8e2434;
+  --login-btn-fg: #000000;
+  --login-btn-hover: #d43b5f;
+  --login-btn-border: #010409;
+
+  --anim-bg: #e2e5ea;
+  --anim-node: #8e2434;
+  --anim-line: #3a3a3a;
+  --left-circle-bg: #8e2434;
+  --left-circle-border: #000000;
 }
 
-/* ===== Mapeo tokens Tailwind v4 (@theme inline) ===== */
+/* ===== Tailwind tokens ===== */
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--fg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* Paleta burdeos */
-  --color-brand-50: #fff1f3;
-  --color-brand-100: #ffe4e8;
-  --color-brand-200: #ffc9d3;
-  --color-brand-300: #f39aaa;
-  --color-brand-400: #d96882;
-  --color-brand-500: #b93a59;
-  --color-brand-600: #8f2c43;
-  --color-brand-700: #6e172b;
-  --color-brand-800: #4b0f1d;
-  --color-brand-900: #310a13;
+  /* Paleta brand */
+  --color-brand-500: #8e2434;
 }
 
-/* ===== Estilos base ===== */
+/* ===== Base ===== */
 *,
 *::before,
 *::after {
@@ -107,7 +163,7 @@ html[data-theme="dark"] {
 
 html,
 body {
-  overflow-x: hidden; /* ⛔️ quita la barra horizontal al colapsar */
+  overflow-x: hidden;
 }
 
 body {
@@ -118,14 +174,12 @@ body {
   letter-spacing: 0.1px;
 }
 
-/* (opcional) fuente display que usabas */
 .font-display {
   font-family: var(--font-poppins), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans",
     "Apple Color Emoji", "Segoe UI Emoji";
 }
 
-/* ===== Toggle de iconos de tema sin JS ===== */
 .icon-light {
   display: inline-block;
 }
@@ -137,4 +191,23 @@ html[data-theme="dark"] .icon-light {
 }
 html[data-theme="dark"] .icon-dark {
   display: inline-block;
+}
+
+.login-scope label {
+  color: var(--login-label-fg) !important;
+}
+.login-scope input[type="text"],
+.login-scope input[type="password"],
+.login-scope input[type="email"],
+.login-scope input[type="search"] {
+  background: var(--login-input-bg) !important;
+  color: var(--login-input-fg) !important;
+  border: 1.5px solid var(--login-input-border) !important;
+}
+.login-scope input::placeholder {
+  opacity: 0.7;
+}
+
+.bg-login-panel {
+  background: var(--login-panel-bg);
 }
