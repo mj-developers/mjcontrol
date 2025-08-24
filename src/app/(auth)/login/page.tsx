@@ -91,9 +91,11 @@ function LoginPage() {
           linkDist={170}
           speed={60}
           bg="#E2E5EA"
-          logo={isLight ? "/LogoMJDevsLight.svg" : "/LogoMJDevsDark.svg"}
+          logo={
+            isLight ? "/LogoPanelLoginLight.svg" : "/LogoPanelLoginDark.svg"
+          }
           logoSize={460}
-          logoYOffset={-0.06}
+          logoYOffset={0.04}
           circleBg={isLight ? "#ffffff" : "#0B0B0D"}
           circleBorder={isLight ? "#000000" : "#ffffff"}
           circleBorderWidth={4}

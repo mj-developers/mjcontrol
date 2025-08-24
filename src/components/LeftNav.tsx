@@ -25,32 +25,23 @@ type Props = {
 
 export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
   const pathname = usePathname();
-  const isLight = theme === "light";
 
-  const shell = isLight
-    ? "bg-white border-zinc-200 text-zinc-900"
-    : "bg-zinc-950/80 backdrop-blur border-zinc-800 text-zinc-100";
+  // Todo depende de variables CSS (definidas por data-theme) → markup estable
+  const shell =
+    "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]";
 
-  // Fila base
   const rowBase =
     "group w-full flex items-center rounded-xl h-12 transition-colors focus:outline-none";
-
-  // Abierto: padding + gap + hover de píldora (AUMENTAMOS EL GAP)
-  const rowOpen = `px-4 gap-10 ${
-    isLight ? "hover:bg-zinc-100" : "hover:bg-zinc-900/70"
-  }`;
-  const rowActive = isLight ? "bg-zinc-100" : "bg-zinc-900/80";
-
-  // Cerrado: centrado, sin padding ni gap; hover solo en el círculo
+  const rowOpen = "px-4 gap-10 hover:bg-[var(--hover-pill)]";
+  const rowActive = "bg-[var(--row-active)]";
   const rowClosed = "px-0 justify-center";
 
   const iconClass = "h-7 w-7";
 
-  // Círculo del icono (con opciones para logout)
   const IconCircle = ({
     children,
-    forceWhiteBorder = false, // para logout
-    disableHover = false, // para logout
+    forceWhiteBorder = false,
+    disableHover = false,
   }: {
     children: ReactNode;
     forceWhiteBorder?: boolean;
@@ -59,17 +50,8 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
     <span
       className={[
         "grid place-items-center h-10 w-10 shrink-0 rounded-full border-2 transition",
-        forceWhiteBorder
-          ? "border-white"
-          : isLight
-          ? "border-zinc-900"
-          : "border-white",
-        // En plegado, el hover rellena el círculo (si no lo desactivamos)
-        !disableHover && !open
-          ? isLight
-            ? "group-hover:bg-zinc-100"
-            : "group-hover:bg-zinc-900/60"
-          : "",
+        forceWhiteBorder ? "border-white" : "border-[var(--icon-border)]",
+        !disableHover && !open ? "group-hover:bg-[var(--hover-icon-bg)]" : "",
       ].join(" ")}
     >
       <span
@@ -114,8 +96,8 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
         "fixed left-0 top-0 z-40 h-screen border-r",
         shell,
         "transition-[width] duration-300 ease-out",
-        "overflow-visible", // el botón no se corta
-        open ? "w-64" : "w-20", // un poco más compacto al abrir
+        "overflow-visible",
+        open ? "w-64" : "w-20",
       ].join(" ")}
       aria-label="Barra de navegación"
     >
@@ -128,9 +110,8 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
           className={[
             "absolute top-1/2 -translate-y-1/2 right-[-18px] z-50",
             "grid h-10 w-10 place-items-center rounded-full border shadow-sm transition",
-            isLight
-              ? "bg-white border-zinc-200"
-              : "bg-zinc-900 border-zinc-700",
+            "bg-[var(--chip-bg)] border-[var(--chip-border)]",
+            "cursor-pointer",
           ].join(" ")}
           type="button"
         >
@@ -168,20 +149,22 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
 
           {/* Tema */}
           <button
-            onClick={() => setTheme(isLight ? "dark" : "light")}
-            className={[rowBase, open ? rowOpen : rowClosed].join(" ")}
-            aria-label={
-              isLight ? "Cambiar a tema oscuro" : "Cambiar a tema claro"
-            }
-            title={isLight ? "Cambiar a tema oscuro" : "Cambiar a tema claro"}
+            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+            className={[
+              rowBase,
+              open ? rowOpen : rowClosed,
+              "cursor-pointer",
+            ].join(" ")}
+            aria-label="Cambiar tema"
+            title="Cambiar tema"
             type="button"
           >
             <IconCircle>
-              {isLight ? (
-                <Sun className={iconClass} />
-              ) : (
-                <Moon className={iconClass} />
-              )}
+              {/* No condicionamos por JS: CSS decide según data-theme */}
+              <span className="relative">
+                <Sun className={`${iconClass} icon-light`} />
+                <Moon className={`${iconClass} icon-dark`} />
+              </span>
             </IconCircle>
             {open && <span>Tema</span>}
           </button>
@@ -193,13 +176,10 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
             href="/logout"
             className={[
               rowBase,
-              open ? "px-4 gap-10" : "px-0 justify-center", // gap-6 también aquí
-              "bg-[#8E2434] text-white", // sin hover de color
-              // foco accesible
+              open ? "px-4 gap-10" : "px-0 justify-center",
+              "bg-[#8E2434] text-white",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8E2434]/60 focus-visible:ring-offset-2",
-              isLight
-                ? "focus-visible:ring-offset-white"
-                : "focus-visible:ring-offset-zinc-950",
+              // el offset se verá bien en ambos temas porque el fondo del aside lo ponemos con var
             ].join(" ")}
           >
             <IconCircle forceWhiteBorder disableHover>

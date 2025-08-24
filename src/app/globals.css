@@ -1,17 +1,73 @@
+/* Tailwind v4 */
 @import "tailwindcss";
 
+/* ===== Variables base (fallback) ===== */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Tema base (se sobreescribe por [data-theme]) */
+  --bg: #ffffff;
+  --fg: #171717;
+
+  /* LeftNav (modo claro por defecto) */
+  --shell-bg: #ffffff;
+  --shell-fg: #0a0a0a;
+  --shell-border: #e4e4e7; /* zinc-200 */
+  --hover-pill: #f4f4f5; /* zinc-100 aprox */
+  --row-active: #f4f4f5;
+
+  --icon-border: #0a0a0a;
+  --hover-icon-bg: #f4f4f5;
+
+  --chip-bg: #ffffff; /* botón del chevron */
+  --chip-border: #e4e4e7; /* zinc-200 */
+
+  /* Fuentes */
+  --font-ui: "Segoe UI", "Inter", system-ui, -apple-system, "Helvetica Neue",
+    Arial, sans-serif;
 }
 
+/* ===== Tema controlado por atributo ===== */
+html[data-theme="light"] {
+  --bg: #ffffff;
+  --fg: #171717;
+
+  --shell-bg: #ffffff;
+  --shell-fg: #0a0a0a;
+  --shell-border: #e4e4e7;
+  --hover-pill: #f4f4f5;
+  --row-active: #f4f4f5;
+
+  --icon-border: #0a0a0a;
+  --hover-icon-bg: #f4f4f5;
+
+  --chip-bg: #ffffff;
+  --chip-border: #e4e4e7;
+}
+
+html[data-theme="dark"] {
+  --bg: #0b0b0d;
+  --fg: #ffffff;
+
+  --shell-bg: rgba(9, 9, 11, 0.8); /* zinc-950/80 */
+  --shell-fg: #fafafa;
+  --shell-border: #27272a; /* zinc-800 */
+  --hover-pill: rgba(24, 24, 27, 0.7); /* zinc-900/70 */
+  --row-active: rgba(24, 24, 27, 0.8); /* zinc-900/80 */
+
+  --icon-border: #ffffff;
+  --hover-icon-bg: rgba(24, 24, 27, 0.6); /* zinc-900/60 */
+
+  --chip-bg: #18181b; /* zinc-900 */
+  --chip-border: #3f3f46; /* zinc-700 */
+}
+
+/* ===== Mapeo para el sistema de tokens de Tailwind v4 (@theme inline) ===== */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* 🔴 Paleta burdeos */
+  /* Paleta burdeos (la tuya) */
   --color-brand-50: #fff1f3;
   --color-brand-100: #ffe4e8;
   --color-brand-200: #ffc9d3;
@@ -24,33 +80,37 @@
   --color-brand-900: #310a13;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ===== Estilos base ===== */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  letter-spacing: 0.1px;
 }
 
+/* (opcional) fuente display que usabas */
 .font-display {
   font-family: var(--font-poppins), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans",
     "Apple Color Emoji", "Segoe UI Emoji";
 }
 
-:root {
-  --font-ui: "Segoe UI", "Inter", system-ui, -apple-system, "Helvetica Neue",
-    Arial, sans-serif;
+/* ===== Toggle de iconos de tema sin JS ===== */
+.icon-light {
+  display: inline-block;
+}
+.icon-dark {
+  display: none;
+}
+html[data-theme="dark"] .icon-light {
+  display: none;
+}
+html[data-theme="dark"] .icon-dark {
+  display: inline-block;
 }
 
-html,
-body {
-  font-family: var(--font-ui);
-  font-weight: 600;
-  letter-spacing: 0.1px;
-}
+/* ===== NOTA IMPORTANTE =====
+   Eliminamos/ignoramos el @media (prefers-color-scheme) para que NO pise lo anterior.
+   Si lo tenías, bórralo o déjalo sin afectar a --bg/--fg.
+*/

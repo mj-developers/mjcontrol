@@ -11,24 +11,19 @@ const NAV_CLOSED = "5rem";
 const CONTENT_GAP = "2rem";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
   const [open, setOpen] = useState(false);
 
-  // ➊ tema inicial + ➋ escuchar cambios globales (evento mj:theme y storage)
   useEffect(() => {
+    // Relee lo que dejó el no-flash script y escucha cambios globales
     setTheme(getInitialTheme());
-
-    const onTheme = (e: Event) => {
-      const t = (e as CustomEvent<Theme>).detail;
-      setTheme(t);
-    };
+    const onTheme = (e: Event) => setTheme((e as CustomEvent<Theme>).detail);
     const onStorage = (e: StorageEvent) => {
       if (
         e.key === "mj_theme" &&
         (e.newValue === "light" || e.newValue === "dark")
-      ) {
+      )
         setTheme(e.newValue);
-      }
     };
     window.addEventListener("mj:theme", onTheme as EventListener);
     window.addEventListener("storage", onStorage);
@@ -44,19 +39,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div
-      data-theme={theme}
-      className={`min-h-screen ${
-        theme === "light" ? "text-zinc-900" : "text-white"
-      }`}
-      style={style}
-    >
+    <div className="min-h-screen text-zinc-900 dark:text-white" style={style}>
       <LeftNav
         theme={theme}
         setTheme={(t) => {
           setTheme(t);
           setThemeGlobal(t);
-        }} // <- sincroniza global
+        }}
         open={open}
         setOpen={setOpen}
       />
