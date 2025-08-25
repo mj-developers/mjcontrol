@@ -1,7 +1,16 @@
 // src/app/api/users/delete/[id]/route.ts
 import { NextResponse } from "next/server";
 
-export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
+type Ctx = { params?: { id?: string } };
+
+export async function DELETE(_req: Request, ctx: unknown) {
+  const { params } = (ctx as Ctx) ?? {};
+  const id = typeof params?.id === "string" ? params.id : "";
+
+  if (!id) {
+    return NextResponse.json({ error: "Falta id" }, { status: 400 });
+  }
+
   const base = process.env.API_BASE_URL ?? process.env.BACKEND_URL;
   if (!base) {
     return NextResponse.json(
@@ -11,7 +20,7 @@ export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
   }
 
   const upstream = await fetch(
-    `${base}/users/delete/${encodeURIComponent(ctx.params.id)}`,
+    `${base}/users/delete/${encodeURIComponent(id)}`,
     {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
