@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
-import LeftNav from "@/components/LeftNav";
+import ResponsiveNav from "@/components/nav/ResponsiveNav";
 import { getInitialTheme, setThemeGlobal, type Theme } from "@/lib/theme";
 
-type CSSVars = CSSProperties & { ["--nav-w"]?: string; ["--nav-gap"]?: string };
+type CSSVars = CSSProperties & {
+  ["--nav-w"]?: string;
+  ["--nav-gap"]?: string;
+};
 
 const NAV_OPEN = "16rem";
 const NAV_CLOSED = "5rem";
@@ -15,15 +18,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    // Relee lo que dejó el no-flash script y escucha cambios globales
     setTheme(getInitialTheme());
     const onTheme = (e: Event) => setTheme((e as CustomEvent<Theme>).detail);
     const onStorage = (e: StorageEvent) => {
       if (
         e.key === "mj_theme" &&
         (e.newValue === "light" || e.newValue === "dark")
-      )
+      ) {
         setTheme(e.newValue);
+      }
     };
     window.addEventListener("mj:theme", onTheme as EventListener);
     window.addEventListener("storage", onStorage);
@@ -40,7 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen text-zinc-900 dark:text-white" style={style}>
-      <LeftNav
+      <ResponsiveNav
         theme={theme}
         setTheme={(t) => {
           setTheme(t);
@@ -49,7 +52,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         open={open}
         setOpen={setOpen}
       />
-      <main className="min-h-screen p-6 pl-[calc(var(--nav-w)+var(--nav-gap))] transition-[padding] duration-300 ease-out">
+
+      <main
+        className="
+          min-h-screen p-6
+          pl-0
+          md:pl-[calc(5rem+var(--nav-gap))]
+          lg:pl-[calc(var(--nav-w)+var(--nav-gap))]
+          transition-[padding] duration-300 ease-out
+        "
+      >
         {children}
       </main>
     </div>

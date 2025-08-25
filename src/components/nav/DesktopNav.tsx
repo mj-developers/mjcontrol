@@ -24,7 +24,7 @@ import {
 } from "react";
 import IconCircle from "@/components/ui/IconCircle";
 
-type Theme = "light" | "dark";
+export type Theme = "light" | "dark";
 
 type Props = {
   theme: Theme;
@@ -33,7 +33,6 @@ type Props = {
   setOpen: Dispatch<SetStateAction<boolean>>;
 };
 
-/** Acentos por sección */
 const ACCENT: Record<string, string> = {
   "/": "#6366F1",
   "/users": "#06B6D4",
@@ -48,21 +47,17 @@ function isRouteActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-/** CSS vars tipadas */
 type StyleWithVars = CSSProperties & {
   ["--nav-w"]?: string;
   ["--label-max"]?: string;
   ["--item-accent"]?: string;
 };
 
-export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
+export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
   const pathname = usePathname();
-
-  // Evitar hydration mismatch
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // Margen fijo del contenido
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("--content-gap", "2rem");
@@ -76,7 +71,6 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
   const shell =
     "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]";
 
-  /** Nav width */
   const RAIL = "5rem";
   const navVars: StyleWithVars = {
     "--nav-w": open ? "14rem" : RAIL,
@@ -85,11 +79,9 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
 
   const rowBase =
     "group flex items-center rounded-xl h-12 transition-colors focus:outline-none";
-
   const IconRail = ({ children }: { children: ReactNode }) => (
     <div className="w-20 flex-none grid place-items-center">{children}</div>
   );
-
   const Label = ({ children }: { children: ReactNode }) => (
     <span
       className={[
@@ -104,11 +96,9 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
     </span>
   );
 
-  /** Paleta base por tema (estado normal) */
   const NORMAL_BORDER = theme === "light" ? "#0e1117" : "#ffffff";
   const NORMAL_BG = theme === "light" ? "#e2e5ea" : "#0b0b0d";
 
-  /** Clases del icono (centrado con `block`). Si activo ⇒ sin hover/zoom */
   function iconCls(active: boolean): string {
     const zoom = active ? "" : "transition-transform group-hover:scale-[1.15]";
     if (theme === "light") {
@@ -121,19 +111,17 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
     return ["block", zoom, base, hover].filter(Boolean).join(" ");
   }
 
-  /** Props base de TODOS los IconCircle (el círculo no hace zoom) */
   const circleBaseProps = {
     theme,
     size: "md" as const,
     borderWidth: 2,
     borderColor: { light: NORMAL_BORDER, dark: NORMAL_BORDER },
     bg: { light: NORMAL_BG, dark: NORMAL_BG },
-    fillOnHover: true, // hover/activo: fondo y borde = accent
+    fillOnHover: true,
     hoverEffect: "none" as const,
     zoomOnHover: false,
   };
 
-  /** Enlace del menú */
   const NavLink = ({
     href,
     label,
@@ -172,7 +160,6 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
     );
   };
 
-  // Skeleton SSR
   if (!mounted) {
     return (
       <aside
@@ -186,10 +173,7 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
         style={navVars}
         aria-label="Barra de navegación"
       >
-        <nav className="flex h-full flex-col">
-          <div className="flex-1 px-0 py-2" />
-          <div className="px-0 py-3" />
-        </nav>
+        <nav className="flex h-full flex-col" />
       </aside>
     );
   }
@@ -206,7 +190,7 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
       style={navVars}
       aria-label="Barra de navegación"
     >
-      {/* Toggle: sin cambio de color en hover (solo zoom del icono) */}
+      {/* Toggle */}
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Contraer menú" : "Expandir menú"}
@@ -231,7 +215,6 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
       </button>
 
       <nav className="flex h-full min-h-0 flex-col">
-        {/* Centro */}
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-0 py-2">
           <div className="h-full flex flex-col justify-center gap-2">
             <NavLink
@@ -267,31 +250,28 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
           </div>
         </div>
 
-        {/* Inferior */}
         <div className="px-0 py-3 space-y-2">
-          {/* Tema: un icono y en hover el contrario con fondo/borde según regla.
-              El wrapper usa var(--icon-size) de IconCircle ⇒ centrado matemático */}
+          {/* Tema */}
           <button
             type="button"
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}
             aria-label="Cambiar tema"
-            className={[rowBase, "w-full text-left cursor-pointer group"].join(
-              " "
-            )}
+            className={[
+              "group flex items-center rounded-xl h-12 w-full text-left cursor-pointer",
+            ].join(" ")}
           >
-            <IconRail>
+            <div className="w-20 flex-none grid place-items-center">
               <IconCircle
                 {...circleBaseProps}
-                fillOnHover={false} // no usamos accent aquí
+                fillOnHover={false}
                 className={
                   theme === "dark"
                     ? "group-hover:bg-white group-hover:border-white"
                     : "group-hover:bg-[#18181b] group-hover:border-[#18181b]"
                 }
               >
-                {/* superposición exacta y tamaño igual a --icon-size */}
                 <span
-                  className="relative transition-transform group-hover:scale-[1.15]"
+                  className="relative"
                   style={{
                     width: "var(--icon-size)",
                     height: "var(--icon-size)",
@@ -315,19 +295,22 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
                   />
                 </span>
               </IconCircle>
-            </IconRail>
-            <Label>
-              <span>Tema</span>
-            </Label>
+            </div>
+            <span
+              className="overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin,color,text-decoration-color] duration-300 ease-out ml-2"
+              style={{ maxWidth: "var(--label-max)" }}
+            >
+              Tema
+            </span>
           </button>
 
-          {/* Logout: fondo burdeos siempre; borde burdeos en hover; icono blanco */}
+          {/* Logout */}
           <Link
             href="/logout"
             className={rowBase}
             style={{ "--item-accent": BRAND } as StyleWithVars}
           >
-            <IconRail>
+            <div className="w-20 flex-none grid place-items-center">
               <IconCircle
                 {...circleBaseProps}
                 fillOnHover={false}
@@ -336,12 +319,15 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
               >
                 <LogOut className="block text-white transition-transform group-hover:scale-[1.15]" />
               </IconCircle>
-            </IconRail>
-            <Label>
+            </div>
+            <span
+              className="overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin,color,text-decoration-color] duration-300 ease-out ml-2"
+              style={{ maxWidth: "var(--label-max)" }}
+            >
               <span className="group-hover:text-[var(--item-accent)] group-hover:underline">
                 Logout
               </span>
-            </Label>
+            </span>
           </Link>
         </div>
       </nav>
