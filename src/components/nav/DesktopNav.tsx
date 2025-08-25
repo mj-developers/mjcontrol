@@ -51,6 +51,9 @@ type StyleWithVars = CSSProperties & {
   ["--nav-w"]?: string;
   ["--label-max"]?: string;
   ["--item-accent"]?: string;
+  ["--shell-bg"]?: string;
+  ["--shell-fg"]?: string;
+  ["--shell-border"]?: string;
 };
 
 export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
@@ -58,6 +61,7 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  // margen fijo del contenido (como lo tenías)
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("--content-gap", "2rem");
@@ -68,6 +72,10 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
     };
   }, []);
 
+  const SHELL_BG = theme === "light" ? "#e2e5ea" : "#0d1117";
+  const SHELL_BORDER = theme === "light" ? "#0b0b0d" : "#ffffff";
+  const SHELL_FG = theme === "light" ? "#0b0b0d" : "#ffffff";
+
   const shell =
     "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]";
 
@@ -75,6 +83,9 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
   const navVars: StyleWithVars = {
     "--nav-w": open ? "14rem" : RAIL,
     "--label-max": open ? `calc(var(--nav-w) - ${RAIL} - 0.5rem)` : "0px",
+    "--shell-bg": SHELL_BG,
+    "--shell-border": SHELL_BORDER,
+    "--shell-fg": SHELL_FG,
   };
 
   const rowBase =
@@ -256,9 +267,7 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
             type="button"
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}
             aria-label="Cambiar tema"
-            className={[
-              "group flex items-center rounded-xl h-12 w-full text-left cursor-pointer",
-            ].join(" ")}
+            className="group flex items-center rounded-xl h-12 w-full text-left cursor-pointer"
           >
             <div className="w-20 flex-none grid place-items-center">
               <IconCircle

@@ -29,6 +29,9 @@ const BRAND = "#8E2434";
 type StyleWithVars = CSSProperties & {
   ["--nav-w"]?: string;
   ["--item-accent"]?: string;
+  ["--shell-bg"]?: string;
+  ["--shell-fg"]?: string;
+  ["--shell-border"]?: string;
 };
 
 export default function TabletNav({
@@ -40,17 +43,23 @@ export default function TabletNav({
 }) {
   const pathname = usePathname();
 
-  // Evita hydration mismatch: no renderizar contenido hasta montar
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // En tablet usamos rail fijo (5rem). El padding del contenido lo maneja el layout (md:pl[...] )
+  const SHELL_BG = theme === "light" ? "#e2e5ea" : "#0d1117";
+  const SHELL_BORDER = theme === "light" ? "#0b0b0d" : "#ffffff";
+  const SHELL_FG = theme === "light" ? "#0b0b0d" : "#ffffff";
+
   const shell =
     "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]";
   const RAIL = "5rem";
-  const navVars: StyleWithVars = { "--nav-w": RAIL };
+  const navVars: StyleWithVars = {
+    "--nav-w": RAIL,
+    "--shell-bg": SHELL_BG,
+    "--shell-border": SHELL_BORDER,
+    "--shell-fg": SHELL_FG,
+  };
 
-  // Estilos base por tema (normal)
   const NORMAL_BORDER = theme === "light" ? "#0e1117" : "#ffffff";
   const NORMAL_BG = theme === "light" ? "#e2e5ea" : "#0b0b0d";
   const circleBaseProps = {
@@ -59,9 +68,9 @@ export default function TabletNav({
     borderWidth: 2,
     borderColor: { light: NORMAL_BORDER, dark: NORMAL_BORDER },
     bg: { light: NORMAL_BG, dark: NORMAL_BG },
-    fillOnHover: true, // hover/activo: fondo y borde = accent
+    fillOnHover: true,
     hoverEffect: "none" as const,
-    zoomOnHover: false, // solo el icono hace zoom (lo damos con class)
+    zoomOnHover: false,
   };
 
   const rowBase = "group flex items-center justify-center h-16";
@@ -116,7 +125,6 @@ export default function TabletNav({
     );
   };
 
-  // Shell vacío durante SSR/primer render del cliente para evitar difs de tema
   if (!mounted) {
     return (
       <aside
@@ -161,7 +169,7 @@ export default function TabletNav({
         </div>
 
         <div className="px-0 py-3 grid place-items-center gap-2">
-          {/* Tema: cambia fondo/borde en hover y alterna icono */}
+          {/* Tema */}
           <button
             type="button"
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}
@@ -204,7 +212,7 @@ export default function TabletNav({
             </IconCircle>
           </button>
 
-          {/* Logout: fondo burdeos siempre; borde burdeos en hover; icono blanco */}
+          {/* Logout */}
           <Link href="/logout" className="group">
             <IconCircle
               {...circleBaseProps}

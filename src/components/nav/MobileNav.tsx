@@ -15,7 +15,7 @@ import {
   ArrowLeft,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import IconCircle from "@/components/ui/IconCircle";
 import type { Theme } from "./DesktopNav";
 
@@ -28,6 +28,12 @@ const ACCENT: Record<string, string> = {
 };
 const BRAND = "#8E2434";
 
+type StyleWithVars = CSSProperties & {
+  ["--shell-bg"]?: string;
+  ["--shell-fg"]?: string;
+  ["--shell-border"]?: string;
+};
+
 export default function MobileNav({
   theme,
   setTheme,
@@ -37,17 +43,16 @@ export default function MobileNav({
 }) {
   const pathname = usePathname();
 
-  // Evita mismatch: no renderizar items hasta montar
+  // evitar mismatch
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // Panel de ajustes
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   // deja hueco inferior para la barra
   useEffect(() => {
     if (!mounted) return;
-    const height = 72; // px
+    const height = 72;
     document.body.style.setProperty(
       "padding-bottom",
       `calc(${height}px + env(safe-area-inset-bottom))`
@@ -57,37 +62,38 @@ export default function MobileNav({
     };
   }, [mounted]);
 
-  // Paleta base por tema
+  // vars del shell (colores del contenedor)
+  const SHELL_BG = theme === "light" ? "#e2e5ea" : "#0d1117";
+  const SHELL_BORDER = theme === "light" ? "#0b0b0d" : "#ffffff";
+  const SHELL_FG = theme === "light" ? "#0b0b0d" : "#ffffff";
+
+  // paleta de círculos (estado normal)
   const NORMAL_BORDER = theme === "light" ? "#0e1117" : "#ffffff";
   const NORMAL_BG = theme === "light" ? "#e2e5ea" : "#0b0b0d";
-
-  // Props base para TODOS los círculos
   const circleBaseProps = {
     theme,
     size: "md" as const,
     borderWidth: 2,
     borderColor: { light: NORMAL_BORDER, dark: NORMAL_BORDER },
     bg: { light: NORMAL_BG, dark: NORMAL_BG },
-    fillOnHover: true, // hover/activo: fondo/borde = accent
+    fillOnHover: true,
     hoverEffect: "none" as const,
-    zoomOnHover: false, // solo el icono hace zoom
+    zoomOnHover: false,
   };
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
     return pathname === href || pathname.startsWith(href + "/");
   }
-
   function iconCls(active: boolean) {
     const zoom = active ? "" : "transition-transform group-hover:scale-[1.15]";
-    if (theme === "light") {
+    if (theme === "light")
       return [
         "block",
         zoom,
         active ? "text-white" : "text-[#010409]",
         active ? "" : "group-hover:text-white",
       ].join(" ");
-    }
     return [
       "block",
       zoom,
@@ -115,7 +121,6 @@ export default function MobileNav({
     );
   };
 
-  // SSR/shell para evitar difs de tema
   if (!mounted) {
     return (
       <nav
@@ -125,7 +130,14 @@ export default function MobileNav({
           "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]",
           "px-3",
         ].join(" ")}
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        style={
+          {
+            paddingBottom: "env(safe-area-inset-bottom)",
+            "--shell-bg": SHELL_BG,
+            "--shell-border": SHELL_BORDER,
+            "--shell-fg": SHELL_FG,
+          } as StyleWithVars
+        }
         aria-label="Barra de navegación (móvil)"
       />
     );
@@ -139,10 +151,16 @@ export default function MobileNav({
         "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]",
         "px-3",
       ].join(" ")}
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      style={
+        {
+          paddingBottom: "env(safe-area-inset-bottom)",
+          "--shell-bg": SHELL_BG,
+          "--shell-border": SHELL_BORDER,
+          "--shell-fg": SHELL_FG,
+        } as StyleWithVars
+      }
       aria-label="Barra de navegación (móvil)"
     >
-      {/* Grid cambia según modo */}
       <div
         className={[
           "h-full grid place-items-center gap-2",
@@ -194,7 +212,7 @@ export default function MobileNav({
               </IconCircle>
             </button>
 
-            {/* Logout: fondo burdeos siempre; borde burdeos en hover; icono blanco */}
+            {/* Logout */}
             <Link href="/logout" className="group grid place-items-center">
               <IconCircle
                 {...circleBaseProps}
@@ -206,7 +224,7 @@ export default function MobileNav({
               </IconCircle>
             </Link>
 
-            {/* Volver (cierra ajustes) */}
+            {/* Volver */}
             <button
               type="button"
               aria-label="Volver"
@@ -220,7 +238,6 @@ export default function MobileNav({
           </>
         ) : (
           <>
-            {/* Navegación normal */}
             <Item href="/" Icon={Gauge} accent={ACCENT["/"]} />
             <Item href="/users" Icon={Users} accent={ACCENT["/users"]} />
             <Item
@@ -234,8 +251,7 @@ export default function MobileNav({
               Icon={BadgeCheck}
               accent={ACCENT["/licenses"]}
             />
-
-            {/* Engranaje (abre ajustes) */}
+            {/* Engranaje */}
             <button
               type="button"
               aria-label="Ajustes"
