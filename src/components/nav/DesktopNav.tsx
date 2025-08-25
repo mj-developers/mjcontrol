@@ -61,7 +61,7 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // margen fijo del contenido (como lo tenías)
+  // margen fijo del contenido
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("--content-gap", "2rem");
@@ -72,6 +72,7 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
     };
   }, []);
 
+  // Variables de shell por tema
   const SHELL_BG = theme === "light" ? "#e2e5ea" : "#0d1117";
   const SHELL_BORDER = theme === "light" ? "#0b0b0d" : "#ffffff";
   const SHELL_FG = theme === "light" ? "#0b0b0d" : "#ffffff";
@@ -80,13 +81,21 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
     "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]";
 
   const RAIL = "5rem";
-  const navVars: StyleWithVars = {
+
+  // Base (independiente del tema)
+  const baseVars: StyleWithVars = {
     "--nav-w": open ? "14rem" : RAIL,
     "--label-max": open ? `calc(var(--nav-w) - ${RAIL} - 0.5rem)` : "0px",
-    "--shell-bg": SHELL_BG,
-    "--shell-border": SHELL_BORDER,
-    "--shell-fg": SHELL_FG,
   };
+  // Sólo añadimos vars de tema cuando está montado (evita hydration mismatch)
+  const themeVars: Partial<StyleWithVars> = mounted
+    ? {
+        ["--shell-bg"]: SHELL_BG,
+        ["--shell-border"]: SHELL_BORDER,
+        ["--shell-fg"]: SHELL_FG,
+      }
+    : {};
+  const navVars: StyleWithVars = { ...baseVars, ...themeVars };
 
   const rowBase =
     "group flex items-center rounded-xl h-12 transition-colors focus:outline-none";
@@ -171,6 +180,7 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
     );
   };
 
+  // SSR/skeleton sin vars de tema (mismo HTML que el server)
   if (!mounted) {
     return (
       <aside
@@ -181,7 +191,7 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
           "overflow-visible overflow-x-hidden",
           "w-[var(--nav-w)]",
         ].join(" ")}
-        style={navVars}
+        style={baseVars}
         aria-label="Barra de navegación"
       >
         <nav className="flex h-full flex-col" />

@@ -1,8 +1,10 @@
 "use client";
 
-import DesktopNav, { type Theme } from "./DesktopNav";
-import TabletNav from "./TabletNav";
-import MobileNav from "./MobileNav";
+import DesktopNav from "@/components/nav/DesktopNav";
+import TabletNav from "@/components/nav/TabletNav";
+import MobileNav from "@/components/nav/MobileNav";
+import type { Theme } from "@/components/nav/DesktopNav";
+import type { Dispatch, SetStateAction } from "react";
 
 export default function ResponsiveNav({
   theme,
@@ -13,11 +15,11 @@ export default function ResponsiveNav({
   theme: Theme;
   setTheme: (t: Theme) => void;
   open: boolean;
-  setOpen: (v: boolean | ((o: boolean) => boolean)) => void;
+  setOpen: Dispatch<SetStateAction<boolean>>;
 }) {
   return (
     <>
-      {/* Desktop: >= lg */}
+      {/* Desktop */}
       <div className="hidden lg:block">
         <DesktopNav
           theme={theme}
@@ -27,12 +29,12 @@ export default function ResponsiveNav({
         />
       </div>
 
-      {/* Tablet: md..lg-1 */}
+      {/* Tablet (rail fijo) */}
       <div className="hidden md:block lg:hidden">
         <TabletNav theme={theme} setTheme={setTheme} />
       </div>
 
-      {/* Mobile: < md */}
+      {/* Mobile (barra inferior) */}
       <div className="block md:hidden">
         <MobileNav theme={theme} setTheme={setTheme} />
       </div>

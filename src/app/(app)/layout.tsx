@@ -4,21 +4,22 @@ import { useEffect, useState, type CSSProperties } from "react";
 import ResponsiveNav from "@/components/nav/ResponsiveNav";
 import { getInitialTheme, setThemeGlobal, type Theme } from "@/lib/theme";
 
-type CSSVars = CSSProperties & {
-  ["--nav-w"]?: string;
-  ["--nav-gap"]?: string;
-};
+type CSSVars = CSSProperties & { ["--nav-w"]?: string; ["--nav-gap"]?: string };
 
 const NAV_OPEN = "16rem";
 const NAV_CLOSED = "5rem";
 const CONTENT_GAP = "2rem";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
+  // Mismo valor en SSR y primer render del cliente
+  const [theme, setTheme] = useState<Theme>("dark");
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    setTheme(getInitialTheme());
+    // Sincroniza con el tema real tras montar (no rompe la hidratación)
+    const t = getInitialTheme();
+    setTheme(t);
+
     const onTheme = (e: Event) => setTheme((e as CustomEvent<Theme>).detail);
     const onStorage = (e: StorageEvent) => {
       if (
@@ -52,16 +53,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         open={open}
         setOpen={setOpen}
       />
-
-      <main
-        className="
-          min-h-screen p-6
-          pl-0
-          md:pl-[calc(5rem+var(--nav-gap))]
-          lg:pl-[calc(var(--nav-w)+var(--nav-gap))]
-          transition-[padding] duration-300 ease-out
-        "
-      >
+      <main className="min-h-screen p-6 pl-[calc(var(--nav-w)+var(--nav-gap))] transition-[padding] duration-300 ease-out">
         {children}
       </main>
     </div>

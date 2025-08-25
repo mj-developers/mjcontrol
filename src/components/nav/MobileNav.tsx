@@ -43,7 +43,6 @@ export default function MobileNav({
 }) {
   const pathname = usePathname();
 
-  // evitar mismatch
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -66,6 +65,9 @@ export default function MobileNav({
   const SHELL_BG = theme === "light" ? "#e2e5ea" : "#0d1117";
   const SHELL_BORDER = theme === "light" ? "#0b0b0d" : "#ffffff";
   const SHELL_FG = theme === "light" ? "#0b0b0d" : "#ffffff";
+
+  const shell =
+    "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]";
 
   // paleta de círculos (estado normal)
   const NORMAL_BORDER = theme === "light" ? "#0e1117" : "#ffffff";
@@ -121,6 +123,7 @@ export default function MobileNav({
     );
   };
 
+  // Shell vacío durante SSR/primer render del cliente (sin vars de tema)
   if (!mounted) {
     return (
       <nav
@@ -130,14 +133,7 @@ export default function MobileNav({
           "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]",
           "px-3",
         ].join(" ")}
-        style={
-          {
-            paddingBottom: "env(safe-area-inset-bottom)",
-            "--shell-bg": SHELL_BG,
-            "--shell-border": SHELL_BORDER,
-            "--shell-fg": SHELL_FG,
-          } as StyleWithVars
-        }
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label="Barra de navegación (móvil)"
       />
     );

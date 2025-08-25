@@ -53,12 +53,16 @@ export default function TabletNav({
   const shell =
     "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]";
   const RAIL = "5rem";
-  const navVars: StyleWithVars = {
-    "--nav-w": RAIL,
-    "--shell-bg": SHELL_BG,
-    "--shell-border": SHELL_BORDER,
-    "--shell-fg": SHELL_FG,
-  };
+
+  const baseVars: StyleWithVars = { "--nav-w": RAIL };
+  const themeVars: Partial<StyleWithVars> = mounted
+    ? {
+        ["--shell-bg"]: SHELL_BG,
+        ["--shell-border"]: SHELL_BORDER,
+        ["--shell-fg"]: SHELL_FG,
+      }
+    : {};
+  const navVars: StyleWithVars = { ...baseVars, ...themeVars };
 
   const NORMAL_BORDER = theme === "light" ? "#0e1117" : "#ffffff";
   const NORMAL_BG = theme === "light" ? "#e2e5ea" : "#0b0b0d";
@@ -125,6 +129,7 @@ export default function TabletNav({
     );
   };
 
+  // Skeleton en SSR sin vars de tema
   if (!mounted) {
     return (
       <aside
@@ -133,7 +138,7 @@ export default function TabletNav({
           shell,
           "w-[var(--nav-w)]",
         ].join(" ")}
-        style={navVars}
+        style={baseVars}
         aria-label="Barra de navegación (tablet)"
       />
     );
