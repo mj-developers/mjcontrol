@@ -5,9 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node server.mjs",
+    "start": "NODE_ENV=production node server.mjs",
     "lint": "eslint",
-    "postinstall": "next telemetry disable"
+    "postinstall": "next build && next telemetry disable"
   },
   "engines": {
     "node": ">=18.18 <23"
