@@ -12,14 +12,17 @@ import {
   Sun,
   Moon,
   ChevronLeft,
+  type LucideIcon,
 } from "lucide-react";
 import {
   Dispatch,
   SetStateAction,
-  ReactNode,
   CSSProperties,
   useEffect,
+  ReactNode,
+  useState,
 } from "react";
+import IconCircle from "@/components/ui/IconCircle";
 
 type Theme = "light" | "dark";
 
@@ -30,7 +33,7 @@ type Props = {
   setOpen: Dispatch<SetStateAction<boolean>>;
 };
 
-/** ---- Acentos por sección ---- */
+/** Acentos por sección */
 const ACCENT: Record<string, string> = {
   "/": "#6366F1",
   "/users": "#06B6D4",
@@ -38,33 +41,32 @@ const ACCENT: Record<string, string> = {
   "/apps": "#8B5CF6",
   "/licenses": "#10B981",
 };
+const BRAND = "#8E2434";
 
-/** Activo si pathname coincide o está dentro de la sección (excepto "/") */
 function isRouteActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-/** CSSProperties con variables tipadas */
+/** CSS vars tipadas */
 type StyleWithVars = CSSProperties & {
-  ["--item-accent"]?: string;
   ["--nav-w"]?: string;
   ["--label-max"]?: string;
+  ["--item-accent"]?: string;
 };
 
 export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
   const pathname = usePathname();
 
-  /** === MARGEN FIJO DEL CONTENIDO ===
-   * Mantiene el mismo gap entre el nav y la página, plegado o desplegado.
-   * Lo aplicamos desde aquí a <body> para que afecte a todas las páginas.
-   */
-  const CONTENT_GAP = "2rem";
+  // Evitar hydration mismatch
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // Margen fijo del contenido
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--content-gap", CONTENT_GAP);
+    root.style.setProperty("--content-gap", "2rem");
     document.body.style.paddingLeft = "var(--content-gap)";
-
     return () => {
       document.body.style.paddingLeft = "";
       root.style.removeProperty("--content-gap");
@@ -74,133 +76,123 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
   const shell =
     "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]";
 
-  const rowBase =
-    "group flex items-center rounded-xl h-12 transition-colors focus:outline-none";
-  const rowActive = "bg-transparent";
-
-  const iconClass = "h-7 w-7 block leading-none";
-
-  /** Círculo de icono configurable */
-  const IconCircle = ({
-    children,
-    className = "",
-    borderColorVar = "--icon-border",
-    bgVar,
-    textVar,
-    hoverFill = true,
-    zoom = true,
-    forceActive = false,
-    style,
-  }: {
-    children: ReactNode;
-    className?: string;
-    borderColorVar?: string;
-    bgVar?: string;
-    textVar?: string;
-    hoverFill?: boolean;
-    zoom?: boolean;
-    forceActive?: boolean;
-    style?: CSSProperties;
-  }) => (
-    <span
-      className={[
-        "flex items-center justify-center h-10 w-10 rounded-full border-2 transition",
-        `border-[var(${borderColorVar})]`,
-        hoverFill && bgVar ? "group-hover:bg-[var(--item-accent)]" : "",
-        hoverFill && bgVar ? "group-hover:border-[var(--item-accent)]" : "",
-        hoverFill && textVar ? "group-hover:text-white" : "",
-        forceActive && bgVar
-          ? "bg-[var(--item-accent)] border-[var(--item-accent)]"
-          : "",
-        forceActive && textVar ? "text-white" : "",
-        className,
-      ].join(" ")}
-      style={style}
-    >
-      <span
-        className={zoom ? "transition-transform group-hover:scale-110" : ""}
-      >
-        {children}
-      </span>
-    </span>
-  );
-
-  /** Etiqueta animada */
-  const Label = ({
-    children,
-    className = "",
-    style,
-  }: {
-    children: ReactNode;
-    className?: string;
-    style?: CSSProperties;
-  }) => (
-    <span
-      className={[
-        "overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin,color,text-decoration-color] duration-300 ease-out",
-        open ? "opacity-100 ml-2" : "opacity-0 ml-0",
-        className,
-      ].join(" ")}
-      style={style}
-    >
-      {children}
-    </span>
-  );
-
-  /** --- NAV WIDTH ---
-   * Rail de iconos = w-20 = 5rem. Desplegado más estrecho = 14rem.
-   */
+  /** Nav width */
   const RAIL = "5rem";
   const navVars: StyleWithVars = {
     "--nav-w": open ? "14rem" : RAIL,
     "--label-max": open ? `calc(var(--nav-w) - ${RAIL} - 0.5rem)` : "0px",
   };
 
-  /** Item con color de acento por sección */
-  const Item = ({
+  const rowBase =
+    "group flex items-center rounded-xl h-12 transition-colors focus:outline-none";
+
+  const IconRail = ({ children }: { children: ReactNode }) => (
+    <div className="w-20 flex-none grid place-items-center">{children}</div>
+  );
+
+  const Label = ({ children }: { children: ReactNode }) => (
+    <span
+      className={[
+        "overflow-hidden whitespace-nowrap",
+        "transition-[max-width,opacity,margin,color,text-decoration-color] duration-300 ease-out",
+        open ? "opacity-100 ml-2" : "opacity-0 ml-0",
+        "decoration-2 underline-offset-4",
+      ].join(" ")}
+      style={{ maxWidth: "var(--label-max)" }}
+    >
+      {children}
+    </span>
+  );
+
+  /** Paleta base por tema (estado normal) */
+  const NORMAL_BORDER = theme === "light" ? "#0e1117" : "#ffffff";
+  const NORMAL_BG = theme === "light" ? "#e2e5ea" : "#0b0b0d";
+
+  /** Clases del icono (centrado con `block`). Si activo ⇒ sin hover/zoom */
+  function iconCls(active: boolean): string {
+    const zoom = active ? "" : "transition-transform group-hover:scale-[1.15]";
+    if (theme === "light") {
+      const base = active ? "text-white" : "text-[#010409]";
+      const hover = active ? "" : "group-hover:text-white";
+      return ["block", zoom, base, hover].filter(Boolean).join(" ");
+    }
+    const base = active ? "text-[#0b0b0d]" : "text-white";
+    const hover = active ? "" : "group-hover:text-[#0b0b0d]";
+    return ["block", zoom, base, hover].filter(Boolean).join(" ");
+  }
+
+  /** Props base de TODOS los IconCircle (el círculo no hace zoom) */
+  const circleBaseProps = {
+    theme,
+    size: "md" as const,
+    borderWidth: 2,
+    borderColor: { light: NORMAL_BORDER, dark: NORMAL_BORDER },
+    bg: { light: NORMAL_BG, dark: NORMAL_BG },
+    fillOnHover: true, // hover/activo: fondo y borde = accent
+    hoverEffect: "none" as const,
+    zoomOnHover: false,
+  };
+
+  /** Enlace del menú */
+  const NavLink = ({
     href,
     label,
-    icon,
+    Icon,
+    accent,
   }: {
     href: string;
     label: string;
-    icon: ReactNode;
+    Icon: LucideIcon;
+    accent: string;
   }) => {
     const active = isRouteActive(pathname, href);
-    const accent = ACCENT[href] ?? "#8E2434";
-    const rowStyle: StyleWithVars = { "--item-accent": accent };
-
     return (
       <Link
         href={href}
         aria-current={active ? "page" : undefined}
-        className={[rowBase, active ? rowActive : ""].join(" ")}
-        style={rowStyle}
+        className={rowBase}
+        style={{ "--item-accent": accent } as StyleWithVars}
       >
-        {/* Rail fijo = 5rem */}
-        <div className="w-20 flex-none grid place-items-center">
-          <IconCircle
-            bgVar="--item-accent"
-            textVar="--item-accent"
-            forceActive={active}
-          >
-            {icon}
+        <IconRail>
+          <IconCircle {...circleBaseProps} accent={accent} active={active}>
+            <Icon className={iconCls(active)} />
           </IconCircle>
-        </div>
-
-        <Label
-          className={[
-            "decoration-2 underline-offset-4 transition-colors",
-            active ? "text-[var(--item-accent)] underline" : "",
-            "group-hover:text-[var(--item-accent)] group-hover:underline",
-          ].join(" ")}
-          style={{ maxWidth: `var(--label-max)` }}
-        >
-          {label}
+        </IconRail>
+        <Label>
+          <span
+            className={[
+              active ? "text-[var(--item-accent)] underline" : "",
+              "group-hover:text-[var(--item-accent)] group-hover:underline",
+            ].join(" ")}
+          >
+            {label}
+          </span>
         </Label>
       </Link>
     );
   };
+
+  // Skeleton SSR
+  if (!mounted) {
+    return (
+      <aside
+        className={[
+          "fixed left-0 top-0 z-40 h-screen border-r",
+          shell,
+          "transition-[width] duration-300 ease-out",
+          "overflow-visible overflow-x-hidden",
+          "w-[var(--nav-w)]",
+        ].join(" ")}
+        style={navVars}
+        aria-label="Barra de navegación"
+      >
+        <nav className="flex h-full flex-col">
+          <div className="flex-1 px-0 py-2" />
+          <div className="px-0 py-3" />
+        </nav>
+      </aside>
+    );
+  }
 
   return (
     <aside
@@ -214,104 +206,141 @@ export default function LeftNav({ theme, setTheme, open, setOpen }: Props) {
       style={navVars}
       aria-label="Barra de navegación"
     >
-      {/* Botón toggle - ahora con transición en left */}
+      {/* Toggle: sin cambio de color en hover (solo zoom del icono) */}
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Contraer menú" : "Expandir menú"}
         title={open ? "Contraer" : "Expandir"}
         className={[
           "fixed top-8 left-[var(--nav-w)] -translate-x-1/2 z-50",
-          "grid h-10 w-10 place-items-center rounded-full border shadow-sm",
-          "bg-[var(--chip-bg)] border-[var(--chip-border)]",
-          "cursor-pointer",
+          "grid place-items-center cursor-pointer group",
           "transition-[left] duration-300 ease-out",
         ].join(" ")}
         type="button"
       >
-        <ChevronLeft
-          className={[
-            "h-5 w-5 transition-transform",
-            "text-[var(--chip-fg)]",
-            open ? "rotate-0" : "rotate-180",
-          ].join(" ")}
-        />
+        <IconCircle {...circleBaseProps} fillOnHover={false} accent={BRAND}>
+          <ChevronLeft
+            className={[
+              "block",
+              "transition-transform group-hover:scale-[1.15]",
+              "h-5 w-5",
+              open ? "rotate-0" : "rotate-180",
+            ].join(" ")}
+          />
+        </IconCircle>
       </button>
 
       <nav className="flex h-full min-h-0 flex-col">
-        {/* BLOQUE CENTRAL */}
+        {/* Centro */}
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-0 py-2">
           <div className="h-full flex flex-col justify-center gap-2">
-            <Item
+            <NavLink
               href="/"
               label="Dashboard"
-              icon={<Gauge className={iconClass} />}
+              Icon={Gauge}
+              accent={ACCENT["/"]}
             />
-            <Item
+            <NavLink
               href="/users"
               label="Usuarios"
-              icon={<Users className={iconClass} />}
+              Icon={Users}
+              accent={ACCENT["/users"]}
             />
-            <Item
+            <NavLink
               href="/clients"
               label="Clientes"
-              icon={<Building2 className={iconClass} />}
+              Icon={Building2}
+              accent={ACCENT["/clients"]}
             />
-            <Item
+            <NavLink
               href="/apps"
               label="Aplicaciones"
-              icon={<AppWindow className={iconClass} />}
+              Icon={AppWindow}
+              accent={ACCENT["/apps"]}
             />
-            <Item
+            <NavLink
               href="/licenses"
               label="Licencias"
-              icon={<BadgeCheck className={iconClass} />}
+              Icon={BadgeCheck}
+              accent={ACCENT["/licenses"]}
             />
           </div>
         </div>
 
-        {/* BLOQUE INFERIOR */}
+        {/* Inferior */}
         <div className="px-0 py-3 space-y-2">
-          {/* Tema */}
+          {/* Tema: un icono y en hover el contrario con fondo/borde según regla.
+              El wrapper usa var(--icon-size) de IconCircle ⇒ centrado matemático */}
           <button
             type="button"
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            aria-label=""
-            title=""
-            className={[rowBase, "w-full text-left cursor-pointer"].join(" ")}
+            aria-label="Cambiar tema"
+            className={[rowBase, "w-full text-left cursor-pointer group"].join(
+              " "
+            )}
           >
-            <div className="w-20 flex-none grid place-items-center">
-              <IconCircle>
-                <span className="grid place-items-center h-7 w-7">
-                  <Sun className={iconClass + " icon-light"} />
-                  <Moon className={iconClass + " icon-dark"} />
+            <IconRail>
+              <IconCircle
+                {...circleBaseProps}
+                fillOnHover={false} // no usamos accent aquí
+                className={
+                  theme === "dark"
+                    ? "group-hover:bg-white group-hover:border-white"
+                    : "group-hover:bg-[#18181b] group-hover:border-[#18181b]"
+                }
+              >
+                {/* superposición exacta y tamaño igual a --icon-size */}
+                <span
+                  className="relative transition-transform group-hover:scale-[1.15]"
+                  style={{
+                    width: "var(--icon-size)",
+                    height: "var(--icon-size)",
+                  }}
+                >
+                  <Sun
+                    className={[
+                      "absolute inset-0 block w-full h-full transition-opacity",
+                      theme === "light"
+                        ? "opacity-100 group-hover:opacity-0 text-[#010409]"
+                        : "opacity-0 group-hover:opacity-100 text-black",
+                    ].join(" ")}
+                  />
+                  <Moon
+                    className={[
+                      "absolute inset-0 block w-full h-full transition-opacity",
+                      theme === "dark"
+                        ? "opacity-100 group-hover:opacity-0 text-white"
+                        : "opacity-0 group-hover:opacity-100 text-white",
+                    ].join(" ")}
+                  />
                 </span>
               </IconCircle>
-            </div>
-            <Label style={{ maxWidth: `var(--label-max)` }}>Tema</Label>
+            </IconRail>
+            <Label>
+              <span>Tema</span>
+            </Label>
           </button>
 
-          {/* Logout */}
-          <Link href="/logout" className={rowBase}>
-            <div className="w-20 flex-none grid place-items-center">
+          {/* Logout: fondo burdeos siempre; borde burdeos en hover; icono blanco */}
+          <Link
+            href="/logout"
+            className={rowBase}
+            style={{ "--item-accent": BRAND } as StyleWithVars}
+          >
+            <IconRail>
               <IconCircle
-                borderColorVar="--logout-border"
-                bgVar="--logout-circle-bg"
-                hoverFill={false}
-                zoom={true}
-                style={{
-                  borderColor: "var(--logout-border)",
-                  background: "var(--logout-circle-bg)",
-                  color: theme === "light" ? "#0a0a0a" : "#ffffff",
-                }}
+                {...circleBaseProps}
+                fillOnHover={false}
+                bg={BRAND}
+                className="group-hover:border-[var(--item-accent)]"
               >
-                <LogOut className={iconClass} />
+                <LogOut className="block text-white transition-transform group-hover:scale-[1.15]" />
               </IconCircle>
-            </div>
-            <Label
-              className="text-[var(--brand)]"
-              style={{ maxWidth: `var(--label-max)` }}
-            >
-              Logout
+            </IconRail>
+            <Label>
+              <span className="group-hover:text-[var(--item-accent)] group-hover:underline">
+                Logout
+              </span>
             </Label>
           </Link>
         </div>
