@@ -1,11 +1,11 @@
+// src/app/api/auth/logout/route.ts
 import { NextResponse } from "next/server";
 
 export async function POST() {
   const res = NextResponse.json({ ok: true });
-  res.cookies.set("mj_token", "", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: true,
+  res.cookies.set({
+    name: "mj_auth",
+    value: "",
     path: "/",
     expires: new Date(0),
   });

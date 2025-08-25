@@ -33,6 +33,7 @@ function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
     try {
       const fd = new FormData(e.currentTarget);
       const usuario = String(fd.get("usuario") || "").trim();
@@ -47,20 +48,18 @@ function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ login: usuario, password }),
-        credentials: "include", // ⬅️ asegura enviar/recibir cookies
+        credentials: "include", // recibe la cookie del mismo origen
       });
 
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         setError(data?.error || "Usuario o contraseña incorrectos.");
         return;
       }
 
-      // 🔁 Haz redirección dura para que el middleware/layout vea la cookie
-      window.location.assign("/"); // o window.location.href = "/"
-      // Si prefieres el router, añade refresh:
-      // router.replace("/");
-      // router.refresh();
+      // Respeta el ?next= que el middleware puso al redirigir
+      const next = new URLSearchParams(window.location.search).get("next");
+      window.location.assign(next || "/");
     } catch {
       setError("No se pudo iniciar sesión. Revisa tu conexión.");
     } finally {
