@@ -2,15 +2,24 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import TextField from "@/components/ui/TextField";
 import ParticleLinks from "@/components/ParticleLinks";
 import { getInitialTheme, setThemeGlobal, type Theme } from "@/lib/theme";
 import { Sun, Moon } from "lucide-react";
+import IconCircle from "@/components/ui/IconCircle";
+
+/* ---- helpers de parseo, sin any ---- */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+function extractErrorMessage(v: unknown): string | null {
+  if (!isRecord(v)) return null;
+  const maybe = v["error"];
+  return typeof maybe === "string" && maybe.trim().length > 0 ? maybe : null;
+}
 
 function LoginPage() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [theme, setTheme] = useState<Theme>("dark");
@@ -48,16 +57,25 @@ function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ login: usuario, password }),
-        credentials: "include", // recibe la cookie del mismo origen
+        credentials: "include", // cookie httpOnly desde mismo origen
       });
 
-      const data = await res.json().catch(() => ({}));
+      // Intentamos leer JSON (puede no haber cuerpo y no pasa nada)
+      let data: unknown = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
+
       if (!res.ok) {
-        setError(data?.error || "Usuario o contraseña incorrectos.");
+        setError(
+          extractErrorMessage(data) ?? "Usuario o contraseña incorrectos."
+        );
         return;
       }
 
-      // Respeta el ?next= que el middleware puso al redirigir
+      // Éxito: simplemente redirigimos (la cookie ya está puesta)
       const next = new URLSearchParams(window.location.search).get("next");
       window.location.assign(next || "/");
     } catch {
@@ -70,30 +88,53 @@ function LoginPage() {
   const isLight = theme === "light";
   const tone = isLight ? "light" : "dark";
 
-  const btnTheme = isLight
-    ? "bg-[#8E2434] text-white"
-    : "bg-[#8E2434] text-black";
-
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[7fr_5fr] relative">
+      {/* Botón de tema con IconCircle: igual que en los menús */}
       <button
         onClick={toggleTheme}
         aria-label="Cambiar tema"
         type="button"
-        className={`fixed top-4 right-4 z-50 h-10 w-10 rounded-full 
-              shadow-md backdrop-blur border transition
-              grid place-items-center  /* ⬅️ centra el contenido */
-              hover:cursor-pointer focus-visible:cursor-pointer
-              ${
-                isLight
-                  ? "bg-white/70 hover:bg-white border-zinc-200 text-zinc-900"
-                  : "bg-zinc-900/70 hover:bg-zinc-900 border-zinc-700 text-zinc-100"
-              }`}
+        className="fixed top-4 right-4 z-50 grid place-items-center cursor-pointer group"
+        title={isLight ? "Cambiar a oscuro" : "Cambiar a claro"}
       >
-        <span className="grid place-items-center h-7 w-7 leading-none transition-transform group-hover:scale-110">
-          <Sun className="h-6 w-6 icon-light" />
-          <Moon className="h-6 w-6 icon-dark" />
-        </span>
+        <IconCircle
+          theme={theme}
+          size="md"
+          borderWidth={2}
+          borderColor={{ light: "#0e1117", dark: "#ffffff" }}
+          bg={{ light: "#e2e5ea", dark: "#0b0b0d" }}
+          fillOnHover={false}
+          hoverEffect="none"
+          zoomOnHover={false}
+          className={
+            isLight
+              ? "group-hover:bg-[#18181b] group-hover:border-[#18181b]"
+              : "group-hover:bg-white group-hover:border-white"
+          }
+        >
+          <span
+            className="relative transition-transform group-hover:scale-[1.15]"
+            style={{ width: "var(--icon-size)", height: "var(--icon-size)" }}
+          >
+            <Sun
+              className={[
+                "absolute inset-0 block w-full h-full transition-opacity",
+                isLight
+                  ? "opacity-100 group-hover:opacity-0 text-[#010409]"
+                  : "opacity-0 group-hover:opacity-100 text-black",
+              ].join(" ")}
+            />
+            <Moon
+              className={[
+                "absolute inset-0 block w-full h-full transition-opacity",
+                isLight
+                  ? "opacity-0 group-hover:opacity-100 text-white"
+                  : "opacity-100 group-hover:opacity-0 text-white",
+              ].join(" ")}
+            />
+          </span>
+        </IconCircle>
       </button>
 
       {/* IZQUIERDA (desktop) */}
@@ -108,7 +149,7 @@ function LoginPage() {
             isLight ? "/LogoPanelLoginLight.svg" : "/LogoPanelLoginDark.svg"
           }
           logoSize={460}
-          logoYOffset={0.0}
+          logoYOffset={0}
           circleBg="#8E2434"
           circleBorder={isLight ? "#FFFFFF" : "#000000"}
           circleBorderWidth={4}
