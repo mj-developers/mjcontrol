@@ -21,39 +21,30 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
-        {/* No-flash: fija tema y variables ANTES de hidratar */}
+        {/* No-flash: fija data-theme y vars antes de hidratar */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `
-(function(){
-  var t='dark';
+            __html: `(function () {
+  var t = 'dark';
   try {
     var s = localStorage.getItem('mj_theme');
     if (s === 'light' || s === 'dark') t = s;
     else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) t = 'light';
-  } catch(e) {}
-
-  // Exponer al cliente
-  window.__MJ_THEME__ = t;
-
-  // Marcar HTML con el tema
+  } catch {}
   var html = document.documentElement;
   html.setAttribute('data-theme', t);
   if (t === 'dark') html.classList.add('dark'); else html.classList.remove('dark');
-
-  // Variables CSS usadas por el body
-  var bg = t === 'light' ? '#ffffff' : '#0B0B0D';
-  var fg = t === 'light' ? '#0a0a0a' : '#ffffff';
-  html.style.setProperty('--bg', bg);
-  html.style.setProperty('--fg', fg);
-})();
-            `,
+  // base por si algo externo mira --bg/--fg
+  html.style.setProperty('--bg', t === 'light' ? '#ffffff' : '#0B0B0D');
+  html.style.setProperty('--fg', t === 'light' ? '#0a0a0a' : '#ffffff');
+  window.__MJ_THEME__ = t;
+})();`,
           }}
         />
       </head>
       <body
-        style={{ background: "var(--bg)", color: "var(--fg)" }}
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        style={{ background: "var(--bg)", color: "var(--fg)" }}
       >
         {children}
       </body>

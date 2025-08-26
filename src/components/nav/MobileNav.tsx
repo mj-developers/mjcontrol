@@ -16,7 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
-import IconCircle from "@/components/ui/IconCircle";
+import IconCircle from "@/components/ui/IconMark";
 import type { Theme } from "./DesktopNav";
 
 const ACCENT: Record<string, string> = {

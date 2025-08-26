@@ -1,213 +1,23 @@
+/* 1) Cargar Tailwind (imprescindible) */
 @import "tailwindcss";
 
-:root {
-  --bg: #ffffff;
-  --fg: #171717;
+/* 2) Cargar tus temas (tokens) */
+@import "../styles/themes/dark.css";
+@import "../styles/themes/light.css";
 
-  /* ---- LeftNav ---- */
-  --shell-bg: #f6f8fa;
-  --shell-fg: #0a0a0a;
-  --shell-border: #e4e4e7;
-
-  /* Botón flotante del chevron */
-  --chip-bg: #ffffff;
-  --chip-border: #0a0a0a;
-  --chip-fg: #0a0a0a;
-
-  /* Iconos "default" */
-  --icon-border: #0a0a0a;
-  --hover-icon-bg: #f4f4f5;
-
-  /* Logout */
-  --brand: #8e2434;
-  --logout-border: #0a0a0a;
-  --logout-circle-bg: #8e2434;
-  --logout-icon: #ffffff;
-
-  /* ---- Login tokens ---- */
-  /* Lado derecho */
-  --login-right-bg: #f6f8fa;
-  /* Panel */
-  --login-panel-bg: #ffffff;
-  --login-title-fg: #000000;
-  --login-label-fg: #000000;
-  /* Inputs */
-  --login-input-bg: #ffffff;
-  --login-input-fg: #000000;
-  --login-input-border: #000000;
-  /* Botón */
-  --login-btn-bg: #8e2434;
-  --login-btn-fg: #ffffff;
-  --login-btn-hover: #d43b5f;
-  --login-btn-border: #000000;
-
-  /* Animación del login + círculo grande de la izquierda */
-  --anim-bg: #ffffff;
-  --anim-node: #8e2434;
-  --anim-line: #3a3a3a;
-  --left-circle-bg: #8e2434;
-  --left-circle-border: #000000;
-
-  /* Fuente UI */
-  --font-ui: "Segoe UI", "Inter", system-ui, -apple-system, "Helvetica Neue",
-    Arial, sans-serif;
-}
-
-/* ===== Tema claro ===== */
-html[data-theme="light"] {
-  --bg: #ffffff;
-  --fg: #171717;
-
-  /* Nav */
-  --shell-bg: #f6f8fa;
-  --shell-fg: #0a0a0a;
-  --shell-border: #e4e4e7;
-
-  --chip-bg: #ffffff;
-  --chip-border: #0a0a0a;
-  --chip-fg: #0a0a0a;
-
-  --icon-border: #0a0a0a;
-  --hover-icon-bg: #f4f4f5;
-
-  /* Logout */
-  --brand: #8e2434;
-  --logout-border: #0a0a0a;
-  --logout-circle-bg: #8e2434;
-  --logout-icon: #ffffff;
-
-  /* Login */
-  --login-right-bg: #f6f8fa;
-  --login-panel-bg: #ffffff;
-  --login-title-fg: #000000;
-  --login-label-fg: #000000;
-
-  --login-input-bg: #ffffff;
-  --login-input-fg: #000000;
-  --login-input-border: #f6f8fa;
-
-  --login-btn-bg: #8e2434;
-  --login-btn-fg: #ffffff;
-  --login-btn-hover: #d43b5f;
-  --login-btn-border: #f6f8fa;
-
-  --anim-bg: #ffffff;
-  --anim-node: #8e2434;
-  --anim-line: #3a3a3a;
-  --left-circle-bg: #8e2434;
-  --left-circle-border: #ffffff;
-}
-
-/* ===== Tema oscuro ===== */
-html[data-theme="dark"] {
-  --bg: #0b0b0d;
-  --fg: #ffffff;
-
-  /* Nav */
-  --shell-bg: #0d1117;
-  --shell-fg: #fafafa;
-  --shell-border: #27272a;
-
-  --chip-bg: #0d1117;
-  --chip-border: #3f3f46;
-  --chip-fg: #ffffff;
-
-  --icon-border: #ffffff;
-  --hover-icon-bg: rgba(24, 24, 27, 0.6);
-
-  /* Logout */
-  --brand: #8e2434;
-  --logout-border: #ffffff;
-  --logout-circle-bg: #8e2434;
-  --logout-icon: #ffffff;
-
-  /* Login */
-  --login-right-bg: #010409;
-  --login-panel-bg: #0d1117;
-  --login-title-fg: #ffffff;
-  --login-label-fg: #ffffff;
-
-  --login-input-bg: #010409;
-  --login-input-fg: #ffffff;
-  --login-input-border: #010409;
-
-  --login-btn-bg: #8e2434;
-  --login-btn-fg: #000000;
-  --login-btn-hover: #d43b5f;
-  --login-btn-border: #010409;
-
-  --anim-bg: #e2e5ea;
-  --anim-node: #8e2434;
-  --anim-line: #3a3a3a;
-  --left-circle-bg: #8e2434;
-  --left-circle-border: #000000;
-}
-
-/* ===== Tailwind tokens ===== */
-@theme inline {
-  --color-background: var(--bg);
-  --color-foreground: var(--fg);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-
-  /* Paleta brand */
-  --color-brand-500: #8e2434;
-}
-
-/* ===== Base ===== */
+/* 3) Unos mínimos de base */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
-
 html,
 body {
-  overflow-x: hidden;
+  height: 100%;
 }
-
 body {
   background: var(--bg);
   color: var(--fg);
-  font-family: var(--font-ui);
-  font-weight: 600;
-  letter-spacing: 0.1px;
-}
-
-.font-display {
-  font-family: var(--font-poppins), ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans",
-    "Apple Color Emoji", "Segoe UI Emoji";
-}
-
-.icon-light {
-  display: inline-block;
-}
-.icon-dark {
-  display: none;
-}
-html[data-theme="dark"] .icon-light {
-  display: none;
-}
-html[data-theme="dark"] .icon-dark {
-  display: inline-block;
-}
-
-.login-scope label {
-  color: var(--login-label-fg) !important;
-}
-.login-scope input[type="text"],
-.login-scope input[type="password"],
-.login-scope input[type="email"],
-.login-scope input[type="search"] {
-  background: var(--login-input-bg) !important;
-  color: var(--login-input-fg) !important;
-  border: 1.5px solid var(--login-input-border) !important;
-}
-.login-scope input::placeholder {
-  opacity: 0.7;
-}
-
-.bg-login-panel {
-  background: var(--login-panel-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

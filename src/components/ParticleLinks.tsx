@@ -74,7 +74,6 @@ export default function ParticleLinks({
 
     let W = 0,
       H = 0,
-      dpr = 1,
       raf = 0,
       running = true;
     let CX = 0,
@@ -91,15 +90,26 @@ export default function ParticleLinks({
 
     function fit() {
       const r = wrap.getBoundingClientRect();
-      W = r.width;
-      H = r.height;
+      // Dimensiones CSS (en px lógicas)
+      W = Math.max(1, Math.floor(r.width || window.innerWidth));
+      H = Math.max(1, Math.floor(r.height || window.innerHeight));
 
-      dpr = Math.max(1, window.devicePixelRatio || 1);
-      canvas.width = Math.max(1, Math.floor(W * dpr));
-      canvas.height = Math.max(1, Math.floor(H * dpr));
+      // Limitar DPI y tamaño físico del canvas para evitar errores del navegador
+      const MAX_DIM = 8192; // por lado
+      const dpr = Math.min(window.devicePixelRatio || 1, 2); // no más de 2x
+
+      const pxW = Math.min(Math.floor(W * dpr), MAX_DIM);
+      const pxH = Math.min(Math.floor(H * dpr), MAX_DIM);
+
+      canvas.width = pxW;
+      canvas.height = pxH;
       canvas.style.width = `${W}px`;
       canvas.style.height = `${H}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Factor de escala REAL (puede ser < dpr si pinchó en el clamp)
+      const sx = pxW / W;
+      const sy = pxH / H;
+      ctx.setTransform(sx, 0, 0, sy, 0, 0);
 
       if (!pts.length) seed();
       if (showCenter) layoutCircle();
@@ -109,8 +119,8 @@ export default function ParticleLinks({
       const circle = circleRef.current!;
       const img = logoRef.current!;
 
-      const cx = W / 2,
-        cy = H / 2;
+      const cx = W / 2;
+      const cy = H / 2;
       const D = Math.max(220, Math.min(logoSize, Math.min(W, H) * 0.68));
       CX = cx;
       CY = cy;
@@ -123,14 +133,14 @@ export default function ParticleLinks({
       circle.style.background = circleBg;
       circle.style.border = "none";
       circle.style.boxShadow = `0 18px 40px rgba(0,0,0,.20), 0 0 0 ${circleBorderWidth}px ${circleBorder}`;
-      circle.style.opacity = "1"; // mostrar cuando ya hay layout
+      circle.style.opacity = "1";
 
       const yOffsetPx = logoYOffset * D;
       img.style.maxWidth = `${Math.floor(D * 0.72)}px`;
       img.style.maxHeight = `${Math.floor(D * 0.72)}px`;
       img.style.left = `${cx}px`;
       img.style.top = `${cy + yOffsetPx}px`;
-      img.style.opacity = "1"; // mostrar sin flash
+      img.style.opacity = "1";
     }
 
     function seed() {
@@ -160,7 +170,7 @@ export default function ParticleLinks({
       const r = (n >> 16) & 255,
         g = (n >> 8) & 255,
         b = n & 255;
-      return `rgba(${r},${g},${b},${Math.max(0, Math.min(1, a))})`;
+      return `rgba(${r},${g},${b},${clamp(a, 0, 1)})`;
     };
 
     function step(dt: number) {
@@ -169,8 +179,8 @@ export default function ParticleLinks({
         p.vy += (Math.random() - 0.5) * wander * dt;
 
         if (mouse.has) {
-          const dx = mouse.x - p.x,
-            dy = mouse.y - p.y;
+          const dx = mouse.x - p.x;
+          const dy = mouse.y - p.y;
           const d2 = dx * dx + dy * dy;
           if (d2 < mouseRadius * mouseRadius) {
             const d = Math.sqrt(d2) + 1e-4;
@@ -302,6 +312,7 @@ export default function ParticleLinks({
 
     const ro = new ResizeObserver(fit);
     ro.observe(wrap);
+
     function onMouse(e: MouseEvent) {
       const r = canvas.getBoundingClientRect();
       mouse.x = e.clientX - r.left;
@@ -311,14 +322,18 @@ export default function ParticleLinks({
     function onLeave() {
       mouse.has = false;
     }
+
     wrap.addEventListener("mousemove", onMouse);
     wrap.addEventListener("mouseleave", onLeave);
+
     const onVis = () => {
       running = !document.hidden;
       if (running) {
         last = performance.now();
         raf = requestAnimationFrame(loop);
-      } else cancelAnimationFrame(raf);
+      } else {
+        cancelAnimationFrame(raf);
+      }
     };
     document.addEventListener("visibilitychange", onVis);
 

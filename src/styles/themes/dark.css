@@ -1,0 +1,48 @@
+/* src/styles/themes/dark.css */
+:root,
+html[data-theme="dark"] {
+  /* Base */
+  --bg: #0b0b0d;
+  --fg: #ffffff;
+  --muted-fg: #9ca3af;
+  --border: #27272a;
+
+  /* Superficies */
+  --surface-1: #0d1117;
+  --surface-2: #0b0b0d;
+
+  /* Inputs */
+  --input-bg: #0d1117;
+  --input-border: #374151;
+  --placeholder: #9ca3af;
+
+  /* Contenedor/nav */
+  --shell-bg: #0d1117;
+  --shell-border: #ffffff;
+  --shell-fg: #ffffff;
+
+  /* ===== IconMark ===== */
+  /* Estado normal */
+  --iconmark-bg: #0d1117;
+  --iconmark-border: #ffffff;
+  --iconmark-icon-fg: #ffffff;
+
+  /* Hover */
+  --iconmark-hover-bg: #ffffff;
+  --iconmark-hover-border: #ffffff;
+  --iconmark-hover-icon-fg: #0d1117;
+
+  /* Otros tokens */
+  --brand: #8e2434;
+  --acc-green: #10b981;
+  --acc-blue: #6366f1;
+  --acc-cyan: #06b6d4;
+  --acc-amber: #f59e0b;
+  --acc-violet: #8b5cf6;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.25);
+
+  --border-strong: 2px;
+  --radius-control: 12px;
+}

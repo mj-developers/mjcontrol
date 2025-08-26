@@ -1,0 +1,32 @@
+/* src/styles/themes/light.css */
+html[data-theme="light"] {
+  /* Base */
+  --bg: #f6f8fa;
+  --fg: #0b0b0d;
+  --muted-fg: #4b5563;
+  --border: #d1d5db;
+
+  /* Superficies */
+  --surface-1: #ffffff;
+  --surface-2: #e2e5ea;
+
+  /* Inputs */
+  --input-bg: #f6f8fa;
+  --input-border: #d1d5db;
+  --placeholder: #6b7280;
+
+  /* Contenedor/nav */
+  --shell-bg: #e2e5ea;
+  --shell-border: #0b0b0d;
+  --shell-fg: #0b0b0d;
+
+  /* IconMark (normal) */
+  --circle-bg: #e2e5ea;
+  --circle-border: #0b0b0d;
+  --circle-icon-fg: #0b0b0d;
+
+  /* IconMark (hover) – provisional */
+  --circle-hover-bg: #0b0b0d;
+  --circle-hover-border: #0b0b0d;
+  --circle-hover-icon-fg: #ffffff;
+}

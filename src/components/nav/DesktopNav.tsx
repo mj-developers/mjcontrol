@@ -22,7 +22,7 @@ import {
   ReactNode,
   useState,
 } from "react";
-import IconCircle from "@/components/ui/IconCircle";
+import IconCircle from "@/components/ui/IconMark";
 
 export type Theme = "light" | "dark";
 

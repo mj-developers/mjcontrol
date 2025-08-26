@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Pencil,
+  Save,
   Trash2,
   Search,
   UserPlus,
   X,
   type LucideIcon,
 } from "lucide-react";
-import IconCircle from "@/components/ui/IconCircle";
+import IconCircle from "@/components/ui/IconMark";
 import { getInitialTheme, type Theme } from "@/lib/theme";
 
 /* ----------------------------- Tipos de datos ----------------------------- */
@@ -95,8 +95,9 @@ export default function UsersPage() {
     zoomOnHover: false,
   };
 
+  /* Acentos */
   const ACC_CREATE = "#10B981";
-  const ACC_EDIT = "#6366F1";
+  const ACC_SAVE = "#6366F1";
   const ACC_DELETE = "#8E2434";
 
   /* Estado UI */
@@ -177,13 +178,15 @@ export default function UsersPage() {
   }
 
   /* ------------------------------- Guardar / Del ------------------------------ */
+  const hasChanges = useMemo(() => {
+    if (!info || !originalInfo) return false;
+    return Object.keys(diffUpdatePayload(originalInfo, info)).length > 0;
+  }, [info, originalInfo]);
+
   async function handleSave() {
     if (!info || !originalInfo || selectedId == null) return;
     const diff = diffUpdatePayload(originalInfo, info);
-    if (Object.keys(diff).length === 0) {
-      alert("No hay cambios para guardar.");
-      return;
-    }
+    if (Object.keys(diff).length === 0) return;
     if (!window.confirm("¿Guardar los cambios del usuario?")) return;
     try {
       await fetchJSON<unknown>(`/api/users/update/${selectedId}`, {
@@ -230,19 +233,25 @@ export default function UsersPage() {
     accent,
     Icon,
     onClick,
+    disabled,
   }: {
     title: string;
     accent: string;
     Icon: LucideIcon;
     onClick?: () => void;
+    disabled?: boolean;
   }) {
     return (
       <button
         type="button"
         onClick={onClick}
         title={title}
-        className="group"
         aria-label={title}
+        disabled={disabled}
+        className={[
+          "group",
+          disabled ? "opacity-50 pointer-events-none" : "",
+        ].join(" ")}
       >
         <IconCircle {...circleBaseProps} accent={accent}>
           <Icon className="block transition-transform group-hover:scale-[1.15]" />
@@ -253,61 +262,78 @@ export default function UsersPage() {
 
   if (!mounted) return <div className="p-6" />;
 
+  /* tokens de card por tema */
+  const cardCls = [
+    "rounded-2xl border shadow-sm",
+    theme === "light"
+      ? "bg-white border-zinc-300"
+      : "bg-[#0D1117] border-zinc-700",
+  ].join(" ");
+
+  const subtleText = theme === "light" ? "text-zinc-500" : "text-zinc-400";
+
   return (
     <div className="p-4 md:p-6">
-      {/* Top bar */}
-      <div className="mb-4 flex items-center gap-3">
-        <div className="relative flex-1">
-          <input
-            value={search}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setSearch(e.target.value)
-            }
-            placeholder="Buscar usuario…"
+      <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] gap-6">
+        {/* ------------------------------ Card izquierda ------------------------------ */}
+        <aside className={cardCls}>
+          {/* Header sticky con buscador + nuevo */}
+          <div
             className={[
-              "w-full h-12 rounded-xl pl-11 pr-4 border outline-none",
+              "sticky top-0 z-10 px-4 pt-4 pb-3 border-b",
               theme === "light"
-                ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900 placeholder-zinc-500"
-                : "bg-[#0D1117] border-zinc-700 text-white placeholder-zinc-400",
-              "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/40",
+                ? "bg-white/90 border-zinc-200"
+                : "bg-[#0D1117]/90 border-zinc-800",
+              "backdrop-blur supports-[backdrop-filter]:backdrop-blur",
+              "rounded-t-2xl",
             ].join(" ")}
-          />
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2"
-            size={20}
-          />
-        </div>
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="relative flex-1">
+                <input
+                  value={search}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setSearch(e.target.value)
+                  }
+                  placeholder="Buscar usuario…"
+                  className={[
+                    "w-full h-11 rounded-xl pl-10 pr-3 border outline-none",
+                    theme === "light"
+                      ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900 placeholder-zinc-500"
+                      : "bg-[#0D1117] border-zinc-700 text-white placeholder-zinc-400",
+                    "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/40",
+                  ].join(" ")}
+                />
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2"
+                  size={18}
+                />
+              </div>
 
-        {/* Botón abrir modal Crear */}
-        <IconOnly
-          title="Nuevo usuario"
-          accent={ACC_CREATE}
-          Icon={UserPlus}
-          onClick={() => setCreateOpen(true)}
-        />
-      </div>
+              {/* Nuevo usuario (abre modal) */}
+              <IconOnly
+                title="Nuevo usuario"
+                accent={ACC_CREATE}
+                Icon={UserPlus}
+                onClick={() => setCreateOpen(true)}
+              />
+            </div>
+          </div>
 
-      {/* Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4">
-        {/* Lista */}
-        <aside
-          className={[
-            "rounded-xl border",
-            theme === "light"
-              ? "bg-[#F6F8FA] border-zinc-300"
-              : "bg-[#0D1117] border-zinc-700",
-          ].join(" ")}
-        >
+          {/* Lista */}
           <div className="max-h-[70vh] overflow-auto p-2">
             {loadingList && (
-              <p className="px-3 py-2 text-sm opacity-70">Cargando…</p>
+              <p className={`px-3 py-2 text-sm ${subtleText}`}>Cargando…</p>
             )}
             {listError && (
               <p className="px-3 py-2 text-sm text-red-400">{listError}</p>
             )}
             {!loadingList && filtered.length === 0 && (
-              <p className="px-3 py-2 text-sm opacity-70">Sin resultados.</p>
+              <p className={`px-3 py-2 text-sm ${subtleText}`}>
+                Sin resultados.
+              </p>
             )}
+
             <ul className="space-y-1">
               {filtered.map((u) => {
                 const active = u.id === selectedId;
@@ -320,7 +346,7 @@ export default function UsersPage() {
                         void loadInfo(u.id);
                       }}
                       className={[
-                        "w-full text-left px-3 py-2 rounded-lg transition",
+                        "w-full text-left px-3 py-2 rounded-xl transition",
                         active
                           ? "bg-[var(--brand,#8E2434)]/15"
                           : "hover:bg-zinc-500/10",
@@ -335,78 +361,97 @@ export default function UsersPage() {
           </div>
         </aside>
 
-        {/* Detalle */}
-        <section
-          className={[
-            "rounded-xl border p-4 md:p-6 relative min-h-[380px]",
-            theme === "light"
-              ? "bg-white border-zinc-300 text-zinc-900"
-              : "bg-[#0D1117] border-zinc-700 text-white",
-          ].join(" ")}
-        >
-          <div className="absolute right-4 top-4 flex items-center gap-2">
-            <IconOnly
-              title="Guardar cambios"
-              accent={ACC_EDIT}
-              Icon={Pencil}
-              onClick={handleSave}
-            />
-            <IconOnly
-              title="Eliminar usuario"
-              accent={ACC_DELETE}
-              Icon={Trash2}
-              onClick={handleDelete}
-            />
+        {/* ------------------------------ Card derecha ------------------------------ */}
+        <section className={[cardCls, "relative"].join(" ")}>
+          {/* Header con acciones */}
+          <div
+            className={[
+              "sticky top-0 z-10 px-5 py-4 border-b flex items-center justify-between gap-3 rounded-t-2xl",
+              theme === "light"
+                ? "bg-white/90 border-zinc-200"
+                : "bg-[#0D1117]/90 border-zinc-800",
+              "backdrop-blur supports-[backdrop-filter]:backdrop-blur",
+            ].join(" ")}
+          >
+            <div>
+              <h2 className="text-base font-semibold">
+                {selectedId && info ? info.login : "Detalles del usuario"}
+              </h2>
+              <p className={`text-xs mt-0.5 ${subtleText}`}>
+                {selectedId
+                  ? loadingInfo
+                    ? "Cargando…"
+                    : "Editar información"
+                  : "Selecciona un usuario"}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <IconOnly
+                title={hasChanges ? "Guardar" : "Nada que guardar"}
+                accent={ACC_SAVE}
+                Icon={Save}
+                onClick={handleSave}
+                disabled={!hasChanges || !selectedId}
+              />
+              <IconOnly
+                title="Eliminar usuario"
+                accent={ACC_DELETE}
+                Icon={Trash2}
+                onClick={handleDelete}
+                disabled={!selectedId}
+              />
+            </div>
           </div>
 
-          {!selectedId && (
-            <p className="opacity-70">Selecciona un usuario de la lista.</p>
-          )}
-          {selectedId && loadingInfo && <p>Cargando detalles…</p>}
-          {detailError && <p className="text-sm text-red-400">{detailError}</p>}
+          {/* Contenido */}
+          <div className="p-5">
+            {!selectedId && (
+              <p className={subtleText}>Selecciona un usuario de la lista.</p>
+            )}
+            {selectedId && loadingInfo && <p>Cargando detalles…</p>}
+            {detailError && (
+              <p className="text-sm text-red-400">{detailError}</p>
+            )}
 
-          {selectedId && info && (
-            <form
-              className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void handleSave();
-              }}
-            >
-              <Field
-                label="Login"
-                value={info.login}
-                onChange={(v) => setInfo({ ...info, login: v })}
-                theme={theme}
-              />
-              <Field
-                label="Email"
-                value={info.email}
-                onChange={(v) => setInfo({ ...info, email: v })}
-                theme={theme}
-              />
-              <Field
-                label="Nombre"
-                value={info.firstName}
-                onChange={(v) => setInfo({ ...info, firstName: v })}
-                theme={theme}
-              />
-              <Field
-                label="Apellidos"
-                value={info.lastName}
-                onChange={(v) => setInfo({ ...info, lastName: v })}
-                theme={theme}
-              />
-              <div className="col-span-full pt-2">
-                <button
-                  type="submit"
-                  className="text-sm underline opacity-80 hover:opacity-100"
-                >
-                  Guardar cambios
-                </button>
-              </div>
-            </form>
-          )}
+            {selectedId && info && (
+              <form
+                className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void handleSave();
+                }}
+              >
+                <Field
+                  label="Login"
+                  value={info.login}
+                  onChange={(v) => setInfo({ ...info, login: v })}
+                  theme={theme}
+                />
+                <Field
+                  label="Email"
+                  value={info.email}
+                  onChange={(v) => setInfo({ ...info, email: v })}
+                  theme={theme}
+                />
+                <Field
+                  label="Nombre"
+                  value={info.firstName}
+                  onChange={(v) => setInfo({ ...info, firstName: v })}
+                  theme={theme}
+                />
+                <Field
+                  label="Apellidos"
+                  value={info.lastName}
+                  onChange={(v) => setInfo({ ...info, lastName: v })}
+                  theme={theme}
+                />
+
+                {/* No mostramos botón "Guardar cambios" aquí: se guarda con el disquete del header */}
+                <input type="submit" hidden />
+              </form>
+            )}
+          </div>
         </section>
       </div>
 
@@ -517,13 +562,16 @@ function CreateUserModal({
     >
       <div
         className={[
-          "relative w-full max-w-md rounded-2xl border shadow-xl",
+          "relative w-full max-w-md rounded-2xl border shadow-2xl",
           isLight ? "bg-white border-zinc-300" : "bg-[#0D1117] border-zinc-700",
         ].join(" ")}
         onMouseDown={stop}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-4 pb-3">
+        <div
+          className="flex items-center justify-between px-5 pt-4 pb-3 border-b
+                        border-zinc-200 dark:border-zinc-800 rounded-t-2xl"
+        >
           <h2 className="text-lg font-semibold">Crear usuario</h2>
           <button
             type="button"
@@ -537,7 +585,7 @@ function CreateUserModal({
 
         {/* Body */}
         <form
-          className="px-5 pb-5 space-y-4"
+          className="px-5 pb-5 pt-4 space-y-4"
           onSubmit={handleSubmit}
           autoComplete="off" // no recordar
         >
@@ -581,7 +629,7 @@ function CreateUserModal({
           </label>
 
           {/* Footer */}
-          <div className="pt-1 flex items-center gap-3">
+          <div className="pt-2 flex items-center gap-3">
             <button
               type="submit"
               disabled={busy || !login.trim() || !pass}
