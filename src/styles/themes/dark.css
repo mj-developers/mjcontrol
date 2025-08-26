@@ -1,7 +1,6 @@
-/* src/styles/themes/dark.css */
 :root,
 html[data-theme="dark"] {
-  /* Base */
+  /* ==== Base semántica ==== */
   --bg: #0b0b0d;
   --fg: #ffffff;
   --muted-fg: #9ca3af;
@@ -21,28 +20,56 @@ html[data-theme="dark"] {
   --shell-border: #ffffff;
   --shell-fg: #ffffff;
 
-  /* ===== IconMark ===== */
-  /* Estado normal */
+  /* ==== Fondacionales (globales) ==== */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.25);
+  --border-strong: 2px;
+  --radius-control: 12px;
+
+  /* ==== Marca / acentos ==== */
+  --brand: #8e2434;
+  --brand-600: #9b2e40;
+  --brand-rgb: 142 36 52;
+
+  /* ==== IconMark (colores) ==== */
   --iconmark-bg: #0d1117;
   --iconmark-border: #ffffff;
   --iconmark-icon-fg: #ffffff;
-
-  /* Hover */
   --iconmark-hover-bg: #ffffff;
   --iconmark-hover-border: #ffffff;
   --iconmark-hover-icon-fg: #0d1117;
 
-  /* Otros tokens */
-  --brand: #8e2434;
-  --acc-green: #10b981;
-  --acc-blue: #6366f1;
-  --acc-cyan: #06b6d4;
-  --acc-amber: #f59e0b;
-  --acc-violet: #8b5cf6;
+  /* ==== Login (colores) ==== */
+  --login-right-bg: #010409;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
-  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.25);
+  --login-panel-bg: #0d1117;
+  --login-panel-border: #27272a;
+  --login-panel-fg: #ffffff;
 
-  --border-strong: 2px;
-  --radius-control: 12px;
+  --login-btn-fg: #ffffff;
+  --login-btn-border: transparent;
+  --login-btn-bg: linear-gradient(to bottom, var(--brand-600), var(--brand));
+  --login-btn-hover: var(--brand);
+  --login-btn-shadow: 0 12px 24px rgba(var(--brand-rgb), 0.28);
+  --login-btn-shadow-hover: 0 16px 28px rgba(var(--brand-rgb), 0.36);
+  --login-btn-glow: radial-gradient(
+    120% 80% at 50% -20%,
+    rgba(255, 255, 255, 0.35),
+    transparent 40%
+  );
+
+  --login-panel-bg-for-ring: var(--login-panel-bg);
+
+  /* ==== ParticleBg (colores) ==== */
+  /* Columna izquierda por defecto (desktop) */
+  --pl-left-bg: #e2e5ea;
+
+  /* Tokens del efecto (puedes overridearlos por panel con style={{"--pl-...":""}}) */
+  --pl-bg: var(--pl-left-bg);
+  --pl-link-color: #3a3a3a;
+  --pl-link-alpha: 0.16;
+  --pl-accent: var(--brand);
+  --pl-point-alpha: 0.85;
+  --pl-ring-alpha: 0.1;
+  --pl-ring-stroke-alpha: 0.6;
 }

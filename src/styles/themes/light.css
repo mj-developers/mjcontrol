@@ -1,4 +1,3 @@
-/* src/styles/themes/light.css */
 html[data-theme="light"] {
   /* Base */
   --bg: #f6f8fa;
@@ -6,27 +5,57 @@ html[data-theme="light"] {
   --muted-fg: #4b5563;
   --border: #d1d5db;
 
-  /* Superficies */
   --surface-1: #ffffff;
   --surface-2: #e2e5ea;
 
-  /* Inputs */
   --input-bg: #f6f8fa;
   --input-border: #d1d5db;
   --placeholder: #6b7280;
 
-  /* Contenedor/nav */
   --shell-bg: #e2e5ea;
   --shell-border: #0b0b0d;
   --shell-fg: #0b0b0d;
 
-  /* IconMark (normal) */
-  --circle-bg: #e2e5ea;
-  --circle-border: #0b0b0d;
-  --circle-icon-fg: #0b0b0d;
+  /* IconMark */
+  --iconmark-bg: #0d1117;
+  --iconmark-border: #0d1117;
+  --iconmark-icon-fg: #ffffff;
+  --iconmark-hover-bg: #ffffff;
+  --iconmark-hover-border: #0d1117;
+  --iconmark-hover-icon-fg: #0d1117;
 
-  /* IconMark (hover) – provisional */
-  --circle-hover-bg: #0b0b0d;
-  --circle-hover-border: #0b0b0d;
-  --circle-hover-icon-fg: #ffffff;
+  /* Login */
+  --login-right-bg: #f6f8fa;
+
+  --login-panel-bg: #ffffff;
+  --login-panel-border: #e5e7eb; /* ≈ zinc-200 */
+  --login-panel-fg: #000000;
+
+  --brand: #8e2434;
+  --brand-600: #9b2e40;
+  --brand-rgb: 142 36 52;
+
+  --login-btn-fg: #ffffff;
+  --login-btn-border: transparent;
+  --login-btn-bg: linear-gradient(to bottom, var(--brand-600), var(--brand));
+  --login-btn-hover: var(--brand);
+  --login-btn-shadow: 0 12px 24px rgba(var(--brand-rgb), 0.2);
+  --login-btn-shadow-hover: 0 16px 28px rgba(var(--brand-rgb), 0.28);
+  --login-btn-glow: radial-gradient(
+    120% 80% at 50% -20%,
+    rgba(255, 255, 255, 0.45),
+    transparent 40%
+  );
+
+  --login-panel-bg-for-ring: var(--login-panel-bg);
+
+  /* ParticleBg */
+  --pl-left-bg: #ffffff;
+  --pl-bg: var(--pl-left-bg);
+  --pl-link-color: #3a3a3a;
+  --pl-link-alpha: 0.16;
+  --pl-accent: var(--brand);
+  --pl-point-alpha: 0.85;
+  --pl-ring-alpha: 0.1;
+  --pl-ring-stroke-alpha: 0.6;
 }

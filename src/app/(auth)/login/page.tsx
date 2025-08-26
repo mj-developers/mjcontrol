@@ -4,11 +4,12 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import TextField from "@/components/ui/TextField";
-import ParticleLinks from "@/components/ParticleLinks";
+import ParticleBg from "@/components/ParticleBg";
 import { getInitialTheme, setThemeGlobal, type Theme } from "@/lib/theme";
 import { Sun, Moon } from "lucide-react";
 import IconMark from "@/components/ui/IconMark";
 
+/* helpers parseo */
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
 }
@@ -17,6 +18,14 @@ function extractErrorMessage(v: unknown): string | null {
   const maybe = v["error"];
   return typeof maybe === "string" && maybe.trim().length > 0 ? maybe : null;
 }
+
+/* Tipado para overrides de ParticleBg */
+type PBVars = React.CSSProperties & {
+  ["--pl-bg"]?: string;
+  ["--pl-link-color"]?: string;
+  ["--pl-link-alpha"]?: string;
+  ["--pl-accent"]?: string;
+};
 
 function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -41,38 +50,30 @@ function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     try {
       const fd = new FormData(e.currentTarget);
       const usuario = String(fd.get("usuario") || "").trim();
       const password = String(fd.get("password") || "").trim();
-
       if (!usuario || !password) {
         setError("Introduce usuario y contraseña.");
         return;
       }
-
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ login: usuario, password }),
         credentials: "include",
       });
-
       let data: unknown = null;
       try {
         data = await res.json();
-      } catch {
-        data = null;
-      }
-
+      } catch {}
       if (!res.ok) {
         setError(
           extractErrorMessage(data) ?? "Usuario o contraseña incorrectos."
         );
         return;
       }
-
       const next = new URLSearchParams(window.location.search).get("next");
       window.location.assign(next || "/");
     } catch {
@@ -84,6 +85,16 @@ function LoginPage() {
 
   const isLight = theme === "light";
   const tone = isLight ? "light" : "dark";
+
+  /* ParticleBg: columna izquierda usa el token del tema */
+  const leftBgStyle: PBVars = {
+    ["--pl-bg"]: "var(--pl-left-bg)",
+  };
+
+  /* Overlay móvil: queremos transparencia */
+  const mobileOverlayStyle: PBVars = {
+    ["--pl-bg"]: "transparent",
+  };
 
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[7fr_5fr] relative">
@@ -98,59 +109,36 @@ function LoginPage() {
         icon={isLight ? <Sun /> : <Moon />}
         hoverIcon={isLight ? <Moon /> : <Sun />}
         hoverAnim="cycle"
-        cycleOffset={12} // cuánto se desplaza
-        cycleAngleDeg={35} // inclinación de la trayectoria
-        cycleRotateDeg={16} // rotación del icono saliente
+        cycleOffset={12}
+        cycleAngleDeg={35}
+        cycleRotateDeg={16}
         className="fixed top-4 right-4 z-50"
       />
 
       {/* IZQUIERDA (desktop) */}
       <section className="relative hidden lg:block z-0">
-        <ParticleLinks
-          accent="#8E2434"
-          count={80}
-          linkDist={170}
-          speed={60}
-          bg={isLight ? "#FFFFFF" : "#E2E5EA"}
-          logo={
-            isLight ? "/LogoPanelLoginLight.svg" : "/LogoPanelLoginDark.svg"
-          }
-          logoSize={460}
-          logoYOffset={0}
-          circleBg="#8E2434"
-          circleBorder={isLight ? "#FFFFFF" : "#000000"}
-          circleBorderWidth={4}
-          lineBaseColor="#3A3A3A"
-          lineBaseAlpha={0.16}
-        />
+        <ParticleBg fill style={leftBgStyle} />
       </section>
 
       {/* DERECHA */}
       <section
-        className={`relative flex items-center justify-center p-6 lg:p-12 ${
-          isLight ? "bg-[#F6F8FA]" : "bg-[#010409]"
-        }`}
+        className={
+          "relative flex items-center justify-center p-6 lg:p-12 bg-[var(--login-right-bg)]"
+        }
       >
+        {/* Fondo móvil (overlay) */}
         <div className="absolute inset-0 lg:hidden">
-          <ParticleLinks
-            accent="#8E2434"
-            count={56}
-            linkDist={150}
-            speed={60}
-            bg="transparent"
-            showCenter={false}
-            lineBaseColor="#3A3A3A"
-            lineBaseAlpha={0.16}
-          />
+          <ParticleBg fill style={mobileOverlayStyle} />
         </div>
 
         <div className="w-full max-w-md relative z-10 login-scope">
           <div
-            className={`rounded-2xl p-8 shadow-2xl min-h-[600px] border ${
-              isLight
-                ? "bg-white border-zinc-200 text-black"
-                : "bg-[#0D1117] border-zinc-800 text-white"
-            }`}
+            className={[
+              "rounded-2xl p-8 shadow-2xl min-h-[600px] border",
+              "bg-[var(--login-panel-bg)]",
+              "border-[var(--login-panel-border)]",
+              "text-[var(--login-panel-fg)]",
+            ].join(" ")}
           >
             <div className="mb-4 flex justify-center">
               <img
@@ -160,11 +148,7 @@ function LoginPage() {
               />
             </div>
 
-            <h1
-              className={`mb-6 text-center text-3xl font-display font-semibold ${
-                isLight ? "text-black" : "text-white"
-              }`}
-            >
+            <h1 className="mb-6 text-center text-3xl font-display font-semibold">
               Iniciar sesión
             </h1>
 
@@ -211,21 +195,21 @@ function LoginPage() {
                 type="submit"
                 disabled={loading}
                 className={[
-                  "relative w-full mt-2 inline-flex items-center justify-center h-12 rounded-xl",
-                  "px-6 font-semibold tracking-[.12em]",
-                  "text-[var(--login-btn-fg)] border border-[var(--login-btn-border)]",
+                  "relative w-full mt-2 inline-flex items-center justify-center h-12 rounded-xl px-6",
+                  "font-semibold tracking-[.12em]",
+                  "text-[var(--login-btn-fg)]",
+                  "border border-[var(--login-btn-border)]",
                   "bg-[var(--login-btn-bg)]",
-                  "[background-image:linear-gradient(to_bottom,#9b2e40,#8E2434)]",
                   "hover:bg-[var(--login-btn-hover)] hover:bg-none",
                   "before:absolute before:inset-0 before:rounded-xl",
                   "before:bg-[linear-gradient(to_bottom,rgba(255,255,255,.14),rgba(0,0,0,0))] before:pointer-events-none",
                   "after:absolute after:inset-0 after:rounded-xl after:opacity-0",
-                  "after:bg-[radial-gradient(120%_80%_at_50%_-20%,rgba(255,255,255,.35),transparent_40%)]",
+                  "after:bg-[var(--login-btn-glow)]",
                   "hover:after:opacity-100",
                   "transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0 active:scale-[.99]",
-                  "shadow-[0_12px_24px_rgba(142,36,52,.28)] hover:shadow-[0_16px_28px_rgba(142,36,52,.36)]",
+                  "shadow-[var(--login-btn-shadow)] hover:shadow-[var(--login-btn-shadow-hover)]",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]/60",
-                  "focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--login-panel-bg)]",
+                  "focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--login-panel-bg-for-ring)]",
                   loading ? "opacity-70 pointer-events-none" : "cursor-pointer",
                 ].join(" ")}
               >
@@ -234,11 +218,7 @@ function LoginPage() {
             </form>
           </div>
 
-          <p
-            className={`mt-6 text-center text-xs ${
-              isLight ? "text-zinc-500" : "text-zinc-400"
-            }`}
-          >
+          <p className="mt-6 text-center text-xs text-[var(--muted-fg)]">
             © {new Date().getFullYear()} MJ Devs
           </p>
         </div>

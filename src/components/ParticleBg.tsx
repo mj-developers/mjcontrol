@@ -1,147 +1,124 @@
 "use client";
 import { useRef, useLayoutEffect } from "react";
 
+type MouseMode = "attract" | "repel";
+
 type Props = {
-  accent?: string;
+  /** Densidad/velocidad/alcance */
   count?: number;
   linkDist?: number;
   speed?: number;
 
-  bg?: string;
-  logo?: string;
-  logoSize?: number;
-  logoYOffset?: number;
-
+  /** Interacción con el ratón (opcional) */
   showRing?: boolean;
   ringRadius?: number;
-  ringAlpha?: number;
-  ringStrokeAlpha?: number;
-  ringStrokeWidth?: number;
-  mouseMode?: "attract" | "repel";
+  mouseMode?: MouseMode;
   repelStrength?: number;
-  pointAlpha?: number;
 
-  circleBg?: string;
-  circleBorder?: string;
-  circleBorderWidth?: number;
+  /** Montaje */
+  className?: string;
+  style?: React.CSSProperties;
+  /** Si true, rellena el contenedor */
+  fill?: boolean;
 
-  lineBaseColor?: string;
-  lineBaseAlpha?: number;
+  /** Nombre del CustomEvent para cambios de tema (tu setThemeGlobal lo emite) */
+  themeEventName?: string;
 
-  showCenter?: boolean;
+  /** Desactivar puntitos de fondo */
+  backgroundDots?: boolean;
 };
 
 type Pt = { x: number; y: number; vx: number; vy: number };
 
-export default function ParticleLinks({
-  accent = "#8E2434",
+/** Lee una CSS var del propio wrapper con fallback */
+function readVar(el: Element, name: string, fallback: string): string {
+  const v = getComputedStyle(el).getPropertyValue(name);
+  return v && v.trim().length ? v.trim() : fallback;
+}
+function clamp(v: number, a: number, b: number) {
+  return Math.max(a, Math.min(b, v));
+}
+function hexWithAlpha(hex: string, a: number) {
+  let c = hex.replace("#", "");
+  if (c.length === 3)
+    c = c
+      .split("")
+      .map((ch) => ch + ch)
+      .join("");
+  // Si no es hex puro (rgb/hsl/var), devolvemos tal cual y dejamos alpha al contexto
+  if (!/^[0-9a-fA-F]{6}$/.test(c)) return hex;
+  const n = parseInt(c, 16);
+  const r = (n >> 16) & 255,
+    g = (n >> 8) & 255,
+    b = n & 255;
+  return `rgba(${r},${g},${b},${clamp(a, 0, 1)})`;
+}
+
+export default function ParticleBg({
   count = 78,
   linkDist = 160,
   speed = 60,
 
-  bg = "#E2E5EA",
-  logo = "/LogoMJDevsDark.svg",
-  logoSize = 460,
-  logoYOffset = -0.06,
-
   showRing = false,
   ringRadius = 120,
-  ringAlpha = 0.1,
-  ringStrokeAlpha = 0.6,
-  ringStrokeWidth = 1.6,
   mouseMode = "attract",
   repelStrength = 22,
-  pointAlpha = 0.85,
 
-  circleBg = "#0B0B0D",
-  circleBorder = "#ffffff",
-  circleBorderWidth = 4,
-
-  lineBaseColor = "#111111",
-  lineBaseAlpha = 0.16,
-
-  showCenter = true,
+  className,
+  style,
+  fill = false,
+  themeEventName = "mj:theme",
+  backgroundDots = true,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const circleRef = useRef<HTMLDivElement>(null);
-  const logoRef = useRef<HTMLImageElement>(null);
 
   useLayoutEffect(() => {
     const wrap = wrapRef.current!;
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
 
+    // Tokens de color/alpha (colores en el TEMA → --pl-*)
+    const tokens = {
+      bg: "#E2E5EA",
+      linkColor: "#3A3A3A",
+      linkAlpha: 0.16,
+      accent: "#8E2434",
+      pointAlpha: 0.85,
+      ringAlpha: 0.1,
+      ringStrokeAlpha: 0.6,
+    };
+
+    function readTokens() {
+      tokens.bg = readVar(wrap, "--pl-bg", tokens.bg);
+      tokens.linkColor = readVar(wrap, "--pl-link-color", tokens.linkColor);
+      tokens.linkAlpha =
+        parseFloat(readVar(wrap, "--pl-link-alpha", `${tokens.linkAlpha}`)) ||
+        tokens.linkAlpha;
+      tokens.accent = readVar(wrap, "--pl-accent", tokens.accent);
+      tokens.pointAlpha =
+        parseFloat(readVar(wrap, "--pl-point-alpha", `${tokens.pointAlpha}`)) ||
+        tokens.pointAlpha;
+      tokens.ringAlpha =
+        parseFloat(readVar(wrap, "--pl-ring-alpha", `${tokens.ringAlpha}`)) ||
+        tokens.ringAlpha;
+      tokens.ringStrokeAlpha =
+        parseFloat(
+          readVar(wrap, "--pl-ring-stroke-alpha", `${tokens.ringStrokeAlpha}`)
+        ) || tokens.ringStrokeAlpha;
+    }
+
     let W = 0,
       H = 0,
-      raf = 0,
-      running = true;
-    let CX = 0,
-      CY = 0,
-      CR = 0;
-
+      raf = 0;
+    let running = true;
     const pts: Pt[] = [];
     const mouse = { x: 0, y: 0, has: false };
 
     const wander = 6;
-    const mouseRadius = ringRadius;
+    const mouseR = ringRadius;
     const attractStrength = 20;
     const maxSpeed = speed * 1.25;
-
-    function fit() {
-      const r = wrap.getBoundingClientRect();
-      // Dimensiones CSS (en px lógicas)
-      W = Math.max(1, Math.floor(r.width || window.innerWidth));
-      H = Math.max(1, Math.floor(r.height || window.innerHeight));
-
-      // Limitar DPI y tamaño físico del canvas para evitar errores del navegador
-      const MAX_DIM = 8192; // por lado
-      const dpr = Math.min(window.devicePixelRatio || 1, 2); // no más de 2x
-
-      const pxW = Math.min(Math.floor(W * dpr), MAX_DIM);
-      const pxH = Math.min(Math.floor(H * dpr), MAX_DIM);
-
-      canvas.width = pxW;
-      canvas.height = pxH;
-      canvas.style.width = `${W}px`;
-      canvas.style.height = `${H}px`;
-
-      // Factor de escala REAL (puede ser < dpr si pinchó en el clamp)
-      const sx = pxW / W;
-      const sy = pxH / H;
-      ctx.setTransform(sx, 0, 0, sy, 0, 0);
-
-      if (!pts.length) seed();
-      if (showCenter) layoutCircle();
-    }
-
-    function layoutCircle() {
-      const circle = circleRef.current!;
-      const img = logoRef.current!;
-
-      const cx = W / 2;
-      const cy = H / 2;
-      const D = Math.max(220, Math.min(logoSize, Math.min(W, H) * 0.68));
-      CX = cx;
-      CY = cy;
-      CR = D / 2;
-
-      circle.style.width = `${D}px`;
-      circle.style.height = `${D}px`;
-      circle.style.left = `${cx}px`;
-      circle.style.top = `${cy}px`;
-      circle.style.background = circleBg;
-      circle.style.border = "none";
-      circle.style.boxShadow = `0 18px 40px rgba(0,0,0,.20), 0 0 0 ${circleBorderWidth}px ${circleBorder}`;
-      circle.style.opacity = "1";
-
-      const yOffsetPx = logoYOffset * D;
-      img.style.maxWidth = `${Math.floor(D * 0.72)}px`;
-      img.style.maxHeight = `${Math.floor(D * 0.72)}px`;
-      img.style.left = `${cx}px`;
-      img.style.top = `${cy + yOffsetPx}px`;
-      img.style.opacity = "1";
-    }
 
     function seed() {
       pts.length = 0;
@@ -157,21 +134,28 @@ export default function ParticleLinks({
       }
     }
 
-    const clamp = (v: number, a: number, b: number) =>
-      Math.max(a, Math.min(b, v));
-    const hexWithAlpha = (hex: string, a: number) => {
-      let c = hex.replace("#", "");
-      if (c.length === 3)
-        c = c
-          .split("")
-          .map((ch) => ch + ch)
-          .join("");
-      const n = parseInt(c, 16);
-      const r = (n >> 16) & 255,
-        g = (n >> 8) & 255,
-        b = n & 255;
-      return `rgba(${r},${g},${b},${clamp(a, 0, 1)})`;
-    };
+    function fit() {
+      readTokens();
+      const r = wrap.getBoundingClientRect();
+      W = Math.max(1, Math.floor(r.width || window.innerWidth));
+      H = Math.max(1, Math.floor(r.height || window.innerHeight));
+
+      const MAX_DIM = 8192;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const pxW = Math.min(Math.floor(W * dpr), MAX_DIM);
+      const pxH = Math.min(Math.floor(H * dpr), MAX_DIM);
+
+      canvas.width = pxW;
+      canvas.height = pxH;
+      canvas.style.width = `${W}px`;
+      canvas.style.height = `${H}px`;
+
+      const sx = pxW / W;
+      const sy = pxH / H;
+      ctx.setTransform(sx, 0, 0, sy, 0, 0);
+
+      if (!pts.length) seed();
+    }
 
     function step(dt: number) {
       for (const p of pts) {
@@ -179,12 +163,12 @@ export default function ParticleLinks({
         p.vy += (Math.random() - 0.5) * wander * dt;
 
         if (mouse.has) {
-          const dx = mouse.x - p.x;
-          const dy = mouse.y - p.y;
+          const dx = mouse.x - p.x,
+            dy = mouse.y - p.y;
           const d2 = dx * dx + dy * dy;
-          if (d2 < mouseRadius * mouseRadius) {
+          if (d2 < mouseR * mouseR) {
             const d = Math.sqrt(d2) + 1e-4;
-            const t = 1 - d / mouseRadius;
+            const t = 1 - d / mouseR;
             if (mouseMode === "repel") {
               const f = repelStrength * t;
               p.vx -= (dx / d) * f * dt;
@@ -214,6 +198,7 @@ export default function ParticleLinks({
     }
 
     function drawBackgroundDots() {
+      if (!backgroundDots) return;
       ctx.fillStyle = "rgba(17,17,17,0.04)";
       const step = 64;
       for (let y = 0; y < H; y += step)
@@ -233,7 +218,10 @@ export default function ParticleLinks({
             const d = Math.sqrt(d2);
             const t = 1 - d / linkDist;
 
-            ctx.strokeStyle = hexWithAlpha(lineBaseColor, lineBaseAlpha * t);
+            ctx.strokeStyle = hexWithAlpha(
+              tokens.linkColor,
+              tokens.linkAlpha * t
+            );
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.lineTo(b.x, b.y);
@@ -242,7 +230,7 @@ export default function ParticleLinks({
             if ((i + j) % 7 === 0 && t > 0.6) {
               const wave = 0.5 + 0.5 * Math.sin(time * 0.8 + i * 0.33);
               const aAcc = clamp((t - 0.6) / 0.4, 0, 1) * (0.12 + 0.18 * wave);
-              ctx.strokeStyle = hexWithAlpha(accent, aAcc);
+              ctx.strokeStyle = hexWithAlpha(tokens.accent, aAcc);
               ctx.lineWidth = 2.1;
               ctx.beginPath();
               ctx.moveTo(a.x, a.y);
@@ -256,7 +244,7 @@ export default function ParticleLinks({
     }
 
     function drawPoints() {
-      ctx.fillStyle = hexWithAlpha(accent, pointAlpha);
+      ctx.fillStyle = hexWithAlpha(tokens.accent, tokens.pointAlpha);
       for (const p of pts) {
         ctx.beginPath();
         ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
@@ -275,21 +263,20 @@ export default function ParticleLinks({
         mouse.y,
         r
       );
-      g.addColorStop(0, hexWithAlpha(accent, 0));
-      g.addColorStop(1, hexWithAlpha(accent, ringAlpha));
+      g.addColorStop(0, hexWithAlpha(tokens.accent, 0));
+      g.addColorStop(1, hexWithAlpha(tokens.accent, tokens.ringAlpha));
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(mouse.x, mouse.y, r, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.lineWidth = ringStrokeWidth;
-      ctx.strokeStyle = hexWithAlpha(accent, ringStrokeAlpha);
+      ctx.lineWidth = 1.6;
+      ctx.strokeStyle = hexWithAlpha(tokens.accent, tokens.ringStrokeAlpha);
       ctx.beginPath();
       ctx.arc(mouse.x, mouse.y, r, 0, Math.PI * 2);
       ctx.stroke();
     }
 
-    // loop
     let last = performance.now();
     function loop(now: number) {
       if (!running) return;
@@ -299,7 +286,7 @@ export default function ParticleLinks({
       step(dt);
 
       ctx.clearRect(0, 0, W, H);
-      ctx.fillStyle = bg;
+      ctx.fillStyle = tokens.bg;
       ctx.fillRect(0, 0, W, H);
 
       drawBackgroundDots();
@@ -337,71 +324,50 @@ export default function ParticleLinks({
     };
     document.addEventListener("visibilitychange", onVis);
 
+    const onTheme = () => {
+      readTokens();
+    };
+    window.addEventListener(themeEventName, onTheme as EventListener);
+
     fit();
-    raf = requestAnimationFrame(loop);
+    const id = requestAnimationFrame(loop); // const → sin warning
 
     return () => {
+      window.removeEventListener(themeEventName, onTheme as EventListener);
       document.removeEventListener("visibilitychange", onVis);
       wrap.removeEventListener("mousemove", onMouse);
       wrap.removeEventListener("mouseleave", onLeave);
       ro.disconnect();
+      cancelAnimationFrame(id);
       cancelAnimationFrame(raf);
     };
   }, [
-    accent,
     count,
     linkDist,
     speed,
-    bg,
-    logo,
-    logoSize,
-    logoYOffset,
     showRing,
     ringRadius,
-    ringAlpha,
-    ringStrokeAlpha,
-    ringStrokeWidth,
     mouseMode,
     repelStrength,
-    pointAlpha,
-    circleBg,
-    circleBorder,
-    circleBorderWidth,
-    lineBaseColor,
-    lineBaseAlpha,
-    showCenter,
+    themeEventName,
+    backgroundDots,
   ]);
 
   return (
     <div
       ref={wrapRef}
-      className="absolute inset-0"
-      style={{ backgroundColor: bg }}
+      className={[
+        fill ? "absolute inset-0" : "",
+        "pointer-events-auto",
+        className || "",
+      ].join(" ")}
+      style={style}
     >
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full select-none"
-        style={{ pointerEvents: "auto" }}
         aria-hidden="true"
       />
-      {showCenter && (
-        <>
-          <div
-            ref={circleRef}
-            className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none opacity-0 transition-opacity duration-200"
-            aria-hidden="true"
-          />
-          <img
-            suppressHydrationWarning
-            ref={logoRef}
-            src={logo}
-            alt="MJ Devs"
-            className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-0 transition-opacity duration-200"
-            style={{ filter: "drop-shadow(0 6px 18px rgba(0,0,0,.18))" }}
-            aria-hidden="true"
-          />
-        </>
-      )}
     </div>
   );
 }

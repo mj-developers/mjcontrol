@@ -5,6 +5,7 @@ type Shape = "circle" | "rounded" | "square" | "pill";
 type SizeKey = "xs" | "sm" | "md" | "lg";
 type HoverAnim = "none" | "zoom" | "cycle";
 
+/** Variables CSS internas del componente (sin any) */
 type IconMarkCSSVars =
   | "--mark-bg"
   | "--mark-border"
@@ -34,6 +35,8 @@ export type IconMarkProps = {
   size?: SizeKey | number;
   iconSize?: number;
   shape?: Shape;
+
+  /** Override de ancho de borde (px). Si no lo pasas, usa tokens del tema */
   borderWidth?: number;
 
   interactive?: boolean;
@@ -49,7 +52,7 @@ export type IconMarkProps = {
 
   /** Parámetros del efecto “cycle” */
   cycleOffset?: number; // desplazamiento en px
-  cycleAngleDeg?: number; // 0=→, 90=↑
+  cycleAngleDeg?: number; // ángulo del arco (0=→, 90=↑)
   cycleRotateDeg?: number; // rotación del icono saliente
   className?: string;
   style?: React.CSSProperties;
@@ -92,7 +95,8 @@ function radiusFor(shape: Shape | undefined) {
       return "6px";
     case "rounded":
     default:
-      return "var(--radius-control, 12px)";
+      /* map a var del componente, que a su vez mapea a fondacional */
+      return "var(--iconmark-radius, 12px)";
   }
 }
 function normalizeIcon(node: React.ReactNode, px: number) {
@@ -162,11 +166,14 @@ export default function IconMark({
   const hoverIconNode =
     hoverIcon != null ? normalizeIcon(hoverIcon, evenIconPx) : null;
 
+  /* ancho de borde: si no se pasa prop, usa var del componente */
   const bw =
-    borderWidth != null ? `${borderWidth}px` : "var(--border-strong,2px)";
+    borderWidth != null
+      ? `${borderWidth}px`
+      : "var(--iconmark-border-width, 2px)";
 
-  // ====== Variables para animación "cycle"
-  // Queremos: SALIENTE → derecha y abajo; ENTRANTE ← izquierda y abajo.
+  // ==== Variables para animación "cycle"
+  // Saliente → DERECHA y ABAJO; Entrante ← IZQUIERDA y ABAJO.
   const rad = (cycleAngleDeg * Math.PI) / 180;
   const dx = Math.cos(rad) * cycleOffset; // +x = derecha
   const dy = Math.sin(rad) * cycleOffset; // +y = abajo
@@ -186,7 +193,7 @@ export default function IconMark({
     background: "var(--mark-bg, var(--iconmark-bg, transparent))",
     color: "var(--mark-fg, var(--iconmark-icon-fg, currentColor))",
 
-    // ZOOM vars
+    /* ZOOM vars */
     ["--mark-zoom-scale"]: String(zoomScale),
     ["--mark-def-scale"]: "1",
     ["--mark-hov-scale"]: "1",
@@ -195,7 +202,7 @@ export default function IconMark({
     ["--mark-def-opacity-hover"]: hoverIcon ? "0" : "1",
     ["--mark-hov-opacity-hover"]: hoverIcon ? "1" : "0",
 
-    // CYCLE vars (saliente → derecha/abajo, entrante ← izquierda/abajo)
+    /* CYCLE vars */
     ["--mark-def-out-x"]: `${right}px`,
     ["--mark-def-out-y"]: `${down}px`,
     ["--mark-hov-in-x"]: `${left}px`,
@@ -251,12 +258,17 @@ export default function IconMark({
         </span>
       )}
 
+      {/* Mapeos y animaciones (global para poder overridear desde fuera) */}
       <style jsx global>{`
-        /* Mapear tokens del tema → variables locales */
+        /* Mapear tokens del tema → vars locales */
         .mj-iconmark {
           --mark-bg: var(--iconmark-bg);
           --mark-border: var(--iconmark-border);
           --mark-fg: var(--iconmark-icon-fg);
+
+          /* Mapear fondacionales → vars del componente (ajustables por-screen) */
+          --iconmark-border-width: var(--border-strong, 2px);
+          --iconmark-radius: var(--radius-control, 12px);
         }
         .mj-iconmark:hover {
           --mark-bg: var(--iconmark-hover-bg, var(--iconmark-bg));
