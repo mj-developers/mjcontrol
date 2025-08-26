@@ -31,13 +31,27 @@ html[data-theme="dark"] {
   --brand-600: #9b2e40;
   --brand-rgb: 142 36 52;
 
-  /* ==== IconMark (colores) ==== */
+  /* ==== IconMark (colores por defecto) ==== */
   --iconmark-bg: #0d1117;
   --iconmark-border: #ffffff;
   --iconmark-icon-fg: #ffffff;
   --iconmark-hover-bg: #ffffff;
   --iconmark-hover-border: #ffffff;
   --iconmark-hover-icon-fg: #0d1117;
+
+  /* (Opcional) tamaños globales del IconMark */
+  --iconmark-size-xs: 30px;
+  --iconmark-size-sm: 36px;
+  --iconmark-size-md: 44px;
+  --iconmark-size-lg: 52px;
+  --iconmark-size-xl: 72px;
+  --iconmark-size-xxl: 420px;
+
+  /* Preset para el “medallón” central (hero) */
+  --iconmark-hero-bg: var(--brand);
+  --iconmark-hero-border: rgba(0, 0, 0, 0.75);
+  --iconmark-hero-icon-fg: #0d1117;
+  --iconmark-hero-shadow: 0 18px 40px rgba(0, 0, 0, 0.2);
 
   /* ==== Login (colores) ==== */
   --login-right-bg: #010409;
@@ -61,10 +75,7 @@ html[data-theme="dark"] {
   --login-panel-bg-for-ring: var(--login-panel-bg);
 
   /* ==== ParticleBg (colores) ==== */
-  /* Columna izquierda por defecto (desktop) */
   --pl-left-bg: #e2e5ea;
-
-  /* Tokens del efecto (puedes overridearlos por panel con style={{"--pl-...":""}}) */
   --pl-bg: var(--pl-left-bg);
   --pl-link-color: #3a3a3a;
   --pl-link-alpha: 0.16;
@@ -72,4 +83,20 @@ html[data-theme="dark"] {
   --pl-point-alpha: 0.85;
   --pl-ring-alpha: 0.1;
   --pl-ring-stroke-alpha: 0.6;
+}
+
+/* Preset para el medallón central (solo una regla) */
+.iconmark-hero {
+  --iconmark-bg: var(--iconmark-hero-bg);
+  --iconmark-border: var(--iconmark-hero-border);
+  --iconmark-icon-fg: var(--iconmark-hero-icon-fg);
+  --iconmark-border-width: 8px; /* borde grueso del medallón */
+  box-shadow: var(--iconmark-hero-shadow);
+}
+
+/* Evita cambios de color en :hover si lo aplicas junto a iconmark-hero */
+.iconmark-static:hover {
+  --mark-bg: var(--iconmark-bg);
+  --mark-border: var(--iconmark-border);
+  --mark-fg: var(--iconmark-icon-fg);
 }

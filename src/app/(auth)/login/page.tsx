@@ -54,26 +54,31 @@ function LoginPage() {
       const fd = new FormData(e.currentTarget);
       const usuario = String(fd.get("usuario") || "").trim();
       const password = String(fd.get("password") || "").trim();
+
       if (!usuario || !password) {
         setError("Introduce usuario y contraseña.");
         return;
       }
+
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ login: usuario, password }),
         credentials: "include",
       });
+
       let data: unknown = null;
       try {
         data = await res.json();
       } catch {}
+
       if (!res.ok) {
         setError(
           extractErrorMessage(data) ?? "Usuario o contraseña incorrectos."
         );
         return;
       }
+
       const next = new URLSearchParams(window.location.search).get("next");
       window.location.assign(next || "/");
     } catch {
@@ -98,6 +103,7 @@ function LoginPage() {
 
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[7fr_5fr] relative">
+      {/* Switch de tema */}
       <IconMark
         asButton
         onClick={toggleTheme}
@@ -118,14 +124,34 @@ function LoginPage() {
       {/* IZQUIERDA (desktop) */}
       <section className="relative hidden lg:block z-0">
         <ParticleBg fill style={leftBgStyle} />
+
+        {/* Medallón centrado sobre el ParticleBg (sin hover ni botón) */}
+        <IconMark
+          size={500}
+          iconSize={400}
+          asButton={false}
+          interactive={false}
+          hoverAnim="none"
+          icon={
+            <img
+              src={
+                isLight ? "/LogoPanelLoginLight.svg" : "/LogoPanelLoginDark.svg"
+              }
+              alt="MJ Devs"
+            />
+          }
+          className="
+    iconmark-hero iconmark-static
+    absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+    rounded-full pointer-events-none select-none
+  "
+          ariaLabel="MJ Devs"
+          title="MJ Devs"
+        />
       </section>
 
       {/* DERECHA */}
-      <section
-        className={
-          "relative flex items-center justify-center p-6 lg:p-12 bg-[var(--login-right-bg)]"
-        }
-      >
+      <section className="relative flex items-center justify-center p-6 lg:p-12 bg-[var(--login-right-bg)]">
         {/* Fondo móvil (overlay) */}
         <div className="absolute inset-0 lg:hidden">
           <ParticleBg fill style={mobileOverlayStyle} />

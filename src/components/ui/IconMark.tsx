@@ -2,7 +2,7 @@
 import * as React from "react";
 
 type Shape = "circle" | "rounded" | "square" | "pill";
-type SizeKey = "xs" | "sm" | "md" | "lg";
+type SizeKey = "xs" | "sm" | "md" | "lg" | "xl" | "xxl";
 type HoverAnim = "none" | "zoom" | "cycle";
 
 /** Variables CSS internas del componente (sin any) */
@@ -51,9 +51,10 @@ export type IconMarkProps = {
   zoomScale?: number;
 
   /** Parámetros del efecto “cycle” */
-  cycleOffset?: number; // desplazamiento en px
-  cycleAngleDeg?: number; // ángulo del arco (0=→, 90=↑)
-  cycleRotateDeg?: number; // rotación del icono saliente
+  cycleOffset?: number;
+  cycleAngleDeg?: number;
+  cycleRotateDeg?: number;
+
   className?: string;
   style?: React.CSSProperties;
 };
@@ -65,13 +66,19 @@ function sizeToVar(size: SizeKey | number | undefined) {
       return "var(--iconmark-size-xs, 30px)";
     case "sm":
       return "var(--iconmark-size-sm, 36px)";
+    case "md":
+      return "var(--iconmark-size-md, 44px)";
     case "lg":
       return "var(--iconmark-size-lg, 52px)";
-    case "md":
+    case "xl":
+      return "var(--iconmark-size-xl, 72px)";
+    case "xxl":
+      return "var(--iconmark-size-xxl, 420px)";
     default:
       return "var(--iconmark-size-md, 44px)";
   }
 }
+
 function iconSizeFor(size: SizeKey | number | undefined) {
   if (typeof size === "number") return Math.max(14, Math.round(size * 0.45));
   switch (size) {
@@ -79,9 +86,14 @@ function iconSizeFor(size: SizeKey | number | undefined) {
       return 14;
     case "sm":
       return 16;
+    case "md":
+      return 20;
     case "lg":
       return 24;
-    case "md":
+    case "xl":
+      return 32;
+    case "xxl":
+      return 210;
     default:
       return 20;
   }
@@ -95,7 +107,6 @@ function radiusFor(shape: Shape | undefined) {
       return "6px";
     case "rounded":
     default:
-      /* map a var del componente, que a su vez mapea a fondacional */
       return "var(--iconmark-radius, 12px)";
   }
 }
@@ -166,14 +177,13 @@ export default function IconMark({
   const hoverIconNode =
     hoverIcon != null ? normalizeIcon(hoverIcon, evenIconPx) : null;
 
-  /* ancho de borde: si no se pasa prop, usa var del componente */
+  /* ancho de borde: si no se pasa prop, usa var del tema o fondacional */
   const bw =
     borderWidth != null
       ? `${borderWidth}px`
-      : "var(--iconmark-border-width, 2px)";
+      : "var(--iconmark-border-width, var(--border-strong, 2px))";
 
   // ==== Variables para animación "cycle"
-  // Saliente → DERECHA y ABAJO; Entrante ← IZQUIERDA y ABAJO.
   const rad = (cycleAngleDeg * Math.PI) / 180;
   const dx = Math.cos(rad) * cycleOffset; // +x = derecha
   const dy = Math.sin(rad) * cycleOffset; // +y = abajo
@@ -266,8 +276,7 @@ export default function IconMark({
           --mark-border: var(--iconmark-border);
           --mark-fg: var(--iconmark-icon-fg);
 
-          /* Mapear fondacionales → vars del componente (ajustables por-screen) */
-          --iconmark-border-width: var(--border-strong, 2px);
+          /* Fondacionales → solo el radio aquí (NO fijamos border-width) */
           --iconmark-radius: var(--radius-control, 12px);
         }
         .mj-iconmark:hover {
@@ -316,7 +325,7 @@ export default function IconMark({
           transform: scale(var(--mark-hov-scale-hover, 1));
         }
 
-        /* cycle: saliente → derecha/abajo (+rot), entrante ← izquierda/abajo (-rot) */
+        /* cycle */
         .mj-iconmark[data-anim="cycle"] .icon-default {
           opacity: 1;
           transform: translate(0, 0) rotate(0deg) scale(1);
