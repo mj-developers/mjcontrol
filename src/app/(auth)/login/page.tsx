@@ -186,7 +186,7 @@ function LoginPage() {
               header={
                 <div className="flex justify-center">
                   <Logo
-                    size={180}
+                    size={100}
                     rounded={0}
                     theme={isLight ? "light" : "dark"}
                     showText={false}
@@ -197,18 +197,14 @@ function LoginPage() {
             >
               <Heading
                 size={32}
-                style={{ marginTop: 80, marginBottom: 30 }}
+                style={{ marginTop: 20, marginBottom: 30 }}
                 level={1}
                 align="center"
                 fontFamily="var(--font-heading, ui-sans-serif)"
                 weight={700}
                 tracking="-0.01em"
-                fill="gradient"
-                gradientShape="linear"
-                gradientFrom="#8e2434"
-                gradientTo="#E6812A"
-                gradientDirection="to right"
-                gradientStops={[40, 100]}
+                fill="solid"
+                color="var(--fg)" // color sólido
                 strokeWidth={0}
                 strokeColor="rgba(0,0,0,.45)"
                 underline={false}
@@ -293,8 +289,22 @@ function LoginPage() {
 
                 {error && <p className="text-sm text-red-400">{error}</p>}
 
-                <Button type="submit" fullWidth loading={loading}>
-                  {loading ? "Entrando..." : "LOGIN"}
+                <Button
+                  type="submit"
+                  width={"100%"}
+                  height={40}
+                  bg="var(--brand)"
+                  fg="#fff"
+                  borderColor="#fff"
+                  hoverBg="#fff"
+                  hoverFg="var(--brand)"
+                  hoverBorderColor="#fff"
+                  fontFamily="var(--font-heading)"
+                  labelWeight={700}
+                  labelTracking="-0.01em"
+                  textHoverScale={1.7}
+                >
+                  LOG IN
                 </Button>
               </form>
             </Panel>

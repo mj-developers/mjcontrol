@@ -28,8 +28,8 @@ export type LogoProps = {
 export default function Logo({
   size = 40,
   theme = "dark",
-  lightSrc = "/LogoMJDevsLight.svg",
-  darkSrc = "/LogoMJDevsDark.svg",
+  lightSrc = "/LogoMJDevsSinTextoLight.svg",
+  darkSrc = "/LogoMJDevsSinTextoDark.svg",
   text = "MJ Control CRM",
   showText = true,
   rounded = true,
