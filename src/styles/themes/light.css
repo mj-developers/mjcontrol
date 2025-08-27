@@ -1,61 +1,264 @@
 html[data-theme="light"] {
-  /* Base */
-  --bg: #f6f8fa;
-  --fg: #0b0b0d;
-  --muted-fg: #4b5563;
-  --border: #d1d5db;
+  /* =========================================================
+   *  🎨 PALETA BASE (solo cambia estos para crear otro tema)
+   * ======================================================= */
+  --color-bg: #f6f8fa;
+  --color-fg: #0b0b0d;
+  --color-muted-fg: #4b5563;
+  --color-border: #d1d5db;
 
-  --surface-1: #ffffff;
-  --surface-2: #e2e5ea;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #e2e5ea;
 
-  --input-bg: #f6f8fa;
-  --input-border: #d1d5db;
-  --placeholder: #6b7280;
+  --color-input-bg: #f6f8fa;
+  --color-input-border: #d1d5db;
+  --color-placeholder: #6b7280;
 
-  --shell-bg: #e2e5ea;
-  --shell-border: #0b0b0d;
-  --shell-fg: #0b0b0d;
+  --color-shell-bg: #e2e5ea;
+  --color-shell-fg: #0b0b0d;
+  --color-shell-border: #0b0b0d;
 
-  /* IconMark */
-  --iconmark-bg: #0d1117;
-  --iconmark-border: #0d1117;
-  --iconmark-icon-fg: #ffffff;
-  --iconmark-hover-bg: #ffffff;
-  --iconmark-hover-border: #0d1117;
-  --iconmark-hover-icon-fg: #0d1117;
+  /* Marca */
+  --color-brand: #8e2434;
+  --color-brand-600: #9b2e40;
+  --color-brand-rgb: 142 36 52;
 
-  /* Login */
-  --login-right-bg: #f6f8fa;
+  /* Login (página) */
+  --color-login-right-bg: #dcdcdc;
+  --color-login-panel-bg: #ffffff;
+  --color-login-panel-border: #e5e7eb;
+  --color-login-panel-fg: #000000;
 
-  --login-panel-bg: #ffffff;
-  --login-panel-border: #e5e7eb; /* ≈ zinc-200 */
-  --login-panel-fg: #000000;
-
-  --brand: #8e2434;
-  --brand-600: #9b2e40;
-  --brand-rgb: 142 36 52;
-
-  --login-btn-fg: #ffffff;
-  --login-btn-border: transparent;
-  --login-btn-bg: linear-gradient(to bottom, var(--brand-600), var(--brand));
-  --login-btn-hover: var(--brand);
-  --login-btn-shadow: 0 12px 24px rgba(var(--brand-rgb), 0.2);
-  --login-btn-shadow-hover: 0 16px 28px rgba(var(--brand-rgb), 0.28);
-  --login-btn-glow: radial-gradient(
-    120% 80% at 50% -20%,
-    rgba(255, 255, 255, 0.45),
-    transparent 40%
-  );
-
-  --login-panel-bg-for-ring: var(--login-panel-bg);
+  /* IconMark (intercambio normal/hover) */
+  /* Normal = lo que antes era hover */
+  --color-iconmark-bg: #ffffff;
+  --color-iconmark-border: #0d1117;
+  --color-iconmark-icon-fg: #0d1117;
+  /* Hover = lo que antes era normal */
+  --color-iconmark-hover-bg: #0d1117;
+  --color-iconmark-hover-border: #0d1117;
+  --color-iconmark-hover-icon-fg: #ffffff;
 
   /* ParticleBg */
-  --pl-left-bg: #ffffff;
+  --color-pl-left-bg: #ffffff;
+  --color-pl-link: #3a3a3a;
+
+  /* =========================================================
+   *  ⚙️ TOKENS SEMÁNTICOS (mapean a la paleta)
+   * ======================================================= */
+  --bg: var(--color-bg);
+  --fg: var(--color-fg);
+  --muted-fg: var(--color-muted-fg);
+  --border: var(--color-border);
+
+  --surface-1: var(--color-surface-1);
+  --surface-2: var(--color-surface-2);
+
+  --input-bg: var(--color-input-bg);
+  --input-border: var(--color-input-border);
+  --placeholder: var(--color-placeholder);
+
+  --shell-bg: var(--color-shell-bg);
+  --shell-fg: var(--color-shell-fg);
+  --shell-border: var(--color-shell-border);
+
+  --brand: var(--color-brand);
+  --brand-600: var(--color-brand-600);
+  --brand-rgb: var(--color-brand-rgb);
+
+  /* Login (semánticos) */
+  --login-right-bg: var(--color-login-right-bg);
+  --login-panel-bg: var(--color-login-panel-bg);
+  --login-panel-border: var(--color-login-panel-border);
+  --login-panel-fg: var(--color-login-panel-fg);
+
+  /* IconMark (semánticos) */
+  --iconmark-bg: var(--color-iconmark-bg);
+  --iconmark-border: var(--color-iconmark-border);
+  --iconmark-icon-fg: var(--color-iconmark-icon-fg);
+  --iconmark-hover-bg: var(--color-iconmark-hover-bg);
+  --iconmark-hover-border: var(--color-iconmark-hover-border);
+  --iconmark-hover-icon-fg: var(--color-iconmark-hover-icon-fg);
+
+  /* ParticleBg (semánticos) */
+  --pl-left-bg: var(--color-pl-left-bg);
   --pl-bg: var(--pl-left-bg);
-  --pl-link-color: #3a3a3a;
+  --pl-link-color: var(--color-pl-link);
   --pl-link-alpha: 0.16;
   --pl-accent: var(--brand);
   --pl-point-alpha: 0.85;
   --pl-ring-alpha: 0.1;
   --pl-ring-stroke-alpha: 0.6;
+
+  /* =========================================================
+   *  🧱 FUNDACIONALES (sombra, radios…)
+   * ======================================================= */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.25);
+  --border-strong: 2px;
+  --radius-control: 12px;
+
+  /* =========================================================
+   *  🛠️ MAPAS POR COMPONENTE
+   * ======================================================= */
+
+  /* ========= IconMark ========= */
+  --iconmark-size-xs: 30px;
+  --iconmark-size-sm: 36px;
+  --iconmark-size-md: 44px;
+  --iconmark-size-lg: 52px;
+  --iconmark-size-xl: 72px;
+  --iconmark-size-xxl: 420px;
+
+  /* Medallón hero (borde blanco en light) */
+  --iconmark-hero-bg: var(--brand);
+  --iconmark-hero-border: #ffffff; /* ← borde blanco */
+  --iconmark-hero-icon-fg: #0d1117;
+  --iconmark-hero-shadow: 0 18px 40px rgba(0, 0, 0, 0.2);
+
+  /* ========= Panel ========= */
+  --panel-bg: var(--login-panel-bg);
+  --panel-fg: var(--login-panel-fg);
+  --panel-border: var(--login-panel-border);
+  --panel-radius: var(--radius-control);
+  --panel-shadow: var(--shadow-md);
+
+  --panel-shadow-hover: 0 18px 40px rgba(0, 0, 0, 0.28);
+  --panel-gradient: radial-gradient(
+    120% 80% at 50% -20%,
+    rgba(0, 0, 0, 0.04),
+    transparent 55%
+  );
+  --panel-gloss: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.04),
+    rgba(0, 0, 0, 0)
+  );
+  --panel-outline: rgba(0, 0, 0, 0.06);
+  --panel-glass-bg: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.8),
+    rgba(255, 255, 255, 0.4)
+  );
+  --panel-glass-border: rgba(0, 0, 0, 0.08);
+  --panel-blur: 10px;
+
+  --panel-vignette-color: rgba(0, 0, 0, 0.12);
+  --panel-vignette-strong: rgba(0, 0, 0, 0.18);
+  --panel-pattern-color: rgba(0, 0, 0, 0.06);
+  --panel-pattern-opacity: 0.6;
+  --panel-pattern-blend: normal;
+  --panel-pattern-gap: 28px;
+  --panel-pattern-thickness: 1px;
+
+  /* ========= TextField ========= */
+  --field-bg: var(--input-bg);
+  --field-fg: var(--fg);
+  --field-border: var(--input-border);
+  --field-placeholder: var(--placeholder);
+  --field-radius: var(--radius-control);
+  --field-h-sm: 36px;
+  --field-h-md: 44px;
+  --field-h-lg: 52px;
+  --label-fg: var(--muted-fg);
+  --hint-fg: var(--muted-fg);
+
+  /* ========= Button ========= */
+  --btn-radius: var(--radius-control);
+  --btn-h-sm: 36px;
+  --btn-h-md: 48px;
+  --btn-h-lg: 56px;
+
+  /* Base: fondo brand; TEXTO blanco; BORDE negro */
+  --btn-primary-bg: linear-gradient(to bottom, var(--brand-600), var(--brand));
+  --btn-primary-fg: #ffffff;
+  --btn-primary-border: #000000; /* ← borde negro */
+  --btn-primary-shadow: 0 12px 24px rgba(var(--brand-rgb), 0.28);
+
+  /* Hover: fondo MUY oscuro, texto blanco, borde negro */
+  --btn-primary-hover-bg: #01040a; /* ← hover oscuro */
+  --btn-primary-hover-fg: #ffffff;
+  --btn-primary-hover-border: #000000; /* ← borde negro */
+  --btn-primary-shadow-hover: 0 16px 28px rgba(var(--brand-rgb), 0.36);
+  --btn-primary-hover-scale: 1.06;
+  --btn-primary-active-scale: 0.99;
+
+  /* Glow por defecto del primario */
+  --btn-primary-glow-color: rgba(var(--brand-rgb), 0.28);
+  --btn-primary-glow-size: 12px;
+  --btn-primary-glow-size-hover: 20px;
+  --btn-primary-glow-opacity: 1;
+
+  /* Outline */
+  --btn-outline-bg: transparent;
+  --btn-outline-fg: var(--fg);
+  --btn-outline-border: #0b0b0d;
+  --btn-outline-hover-bg: rgba(0, 0, 0, 0.06);
+  --btn-outline-hover-fg: var(--fg);
+  --btn-outline-hover-border: #0b0b0d;
+  --btn-outline-shadow: none;
+  --btn-outline-shadow-hover: none;
+
+  /* Ghost */
+  --btn-ghost-bg: transparent;
+  --btn-ghost-fg: var(--fg);
+  --btn-ghost-border: #0b0b0d;
+  --btn-ghost-hover-bg: rgba(0, 0, 0, 0.06);
+  --btn-ghost-hover-fg: var(--fg);
+  --btn-ghost-hover-border: #0b0b0d;
+  --btn-ghost-shadow: none;
+  --btn-ghost-shadow-hover: none;
+
+  /* ========= Heading ========= */
+  --heading-font: var(--font-heading, var(--font-display, ui-sans-serif));
+  --heading-color: #0b0b0d; /* ← headings en negro en light */
+  --heading-grad-from: var(--brand-600);
+  --heading-grad-to: var(--brand);
+  --heading-grad-angle: 180deg;
+
+  --heading-stroke-width: 0;
+  --heading-stroke-color: rgba(0, 0, 0, 0);
+
+  --h1-size: clamp(1.9rem, 2.6vw, 2.4rem);
+  --h1-weight: 700;
+  --h1-tracking: 0.015em;
+
+  --h2-size: clamp(1.5rem, 2.3vw, 2rem);
+  --h2-weight: 700;
+  --h2-tracking: 0.01em;
+
+  --h3-size: clamp(1.25rem, 2vw, 1.5rem);
+  --h3-weight: 700;
+  --h3-tracking: 0.005em;
+}
+
+/* =========================================================
+ *  📄 REGLAS/UTILIDADES ESPECÍFICAS
+ * ======================================================= */
+
+/* Preset para el medallón central */
+.iconmark-hero {
+  --iconmark-bg: var(--iconmark-hero-bg);
+  --iconmark-border: var(--iconmark-hero-border);
+  --iconmark-icon-fg: var(--iconmark-hero-icon-fg);
+  --iconmark-border-width: 8px;
+  box-shadow: var(--iconmark-hero-shadow);
+}
+
+/* Evita cambios de color en :hover si lo aplicas junto a iconmark-hero */
+.iconmark-static:hover {
+  --mark-bg: var(--iconmark-bg);
+  --mark-border: var(--iconmark-border);
+  --mark-fg: var(--iconmark-icon-fg);
+}
+
+/* Reset: asegura headings sólidos (sin gradient-clip) en light */
+html[data-theme="light"] .login-scope h1,
+html[data-theme="light"] .login-scope h2,
+html[data-theme="light"] .login-scope h3 {
+  background: none !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  color: var(--heading-color) !important;
+  text-shadow: none !important;
 }

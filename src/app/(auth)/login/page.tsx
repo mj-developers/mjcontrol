@@ -296,9 +296,6 @@ function LoginPage() {
                   bg="var(--brand)"
                   fg="#fff"
                   borderColor="#fff"
-                  hoverBg="#fff"
-                  hoverFg="var(--brand)"
-                  hoverBorderColor="#fff"
                   fontFamily="var(--font-heading)"
                   labelWeight={700}
                   labelTracking="-0.01em"

@@ -1,45 +1,112 @@
 :root,
 html[data-theme="dark"] {
-  /* ==== Base semántica ==== */
-  --bg: #0b0b0d;
-  --fg: #ffffff;
-  --muted-fg: #9ca3af;
-  --border: #27272a;
+  /* =========================================================
+   *  🎨 PALETA BASE (solo cambia estos para crear otro tema)
+   * ======================================================= */
+  --color-bg: #0b0b0d;
+  --color-fg: #ffffff;
+  --color-muted-fg: #9ca3af;
+  --color-border: #27272a;
 
-  /* Superficies */
-  --surface-1: #0d1117;
-  --surface-2: #0b0b0d;
+  --color-surface-1: #0d1117;
+  --color-surface-2: #0b0b0d;
 
-  /* Inputs (tokens base) */
-  --input-bg: #0d1117;
-  --input-border: #374151;
-  --placeholder: #9ca3af;
+  --color-input-bg: #0d1117;
+  --color-input-border: #374151;
+  --color-placeholder: #9ca3af;
 
-  /* Contenedor/nav */
-  --shell-bg: #0d1117;
-  --shell-border: #ffffff;
-  --shell-fg: #ffffff;
+  --color-shell-bg: #0d1117;
+  --color-shell-fg: #ffffff;
+  --color-shell-border: #ffffff;
 
-  /* ==== Fondacionales (globales) ==== */
+  /* Marca */
+  --color-brand: #8e2434;
+  --color-brand-600: #9b2e40;
+  --color-brand-rgb: 142 36 52; /* para rgba(var(--brand-rgb), .X) */
+
+  /* Login (página) */
+  --color-login-right-bg: #010409;
+  --color-login-panel-bg: #0d1117;
+  --color-login-panel-border: #27272a;
+  --color-login-panel-fg: #ffffff;
+
+  /* IconMark */
+  --color-iconmark-bg: #0d1117;
+  --color-iconmark-border: #ffffff;
+  --color-iconmark-icon-fg: #ffffff;
+  --color-iconmark-hover-bg: #ffffff;
+  --color-iconmark-hover-border: #ffffff;
+  --color-iconmark-hover-icon-fg: #0d1117;
+
+  /* ParticleBg */
+  --color-pl-left-bg: #c0b8b8;
+  --color-pl-link: #272727;
+
+  /* =========================================================
+   *  ⚙️ TOKENS SEMÁNTICOS (mapean a la paleta)
+   *  − No cambies nombres aquí si ya los usas en tu app −
+   * ======================================================= */
+  --bg: var(--color-bg);
+  --fg: var(--color-fg);
+  --muted-fg: var(--color-muted-fg);
+  --border: var(--color-border);
+
+  --surface-1: var(--color-surface-1);
+  --surface-2: var(--color-surface-2);
+
+  --input-bg: var(--color-input-bg);
+  --input-border: var(--color-input-border);
+  --placeholder: var(--color-placeholder);
+
+  --shell-bg: var(--color-shell-bg);
+  --shell-fg: var(--color-shell-fg);
+  --shell-border: var(--color-shell-border);
+
+  --brand: var(--color-brand);
+  --brand-600: var(--color-brand-600);
+  --brand-rgb: var(--color-brand-rgb);
+
+  /* Login (semánticos) */
+  --login-right-bg: var(--color-login-right-bg);
+  --login-panel-bg: var(--color-login-panel-bg);
+  --login-panel-border: var(--color-login-panel-border);
+  --login-panel-fg: var(--color-login-panel-fg);
+
+  /* IconMark (semánticos) */
+  --iconmark-bg: var(--color-iconmark-bg);
+  --iconmark-border: var(--color-iconmark-border);
+  --iconmark-icon-fg: var(--color-iconmark-icon-fg);
+  --iconmark-hover-bg: var(--color-iconmark-hover-bg);
+  --iconmark-hover-border: var(--color-iconmark-hover-border);
+  --iconmark-hover-icon-fg: var(--color-iconmark-hover-icon-fg);
+
+  /* ParticleBg (semánticos) */
+  --pl-left-bg: var(--color-pl-left-bg);
+  --pl-bg: var(--pl-left-bg);
+  --pl-link-color: var(--color-pl-link);
+  --pl-link-alpha: 0.16;
+  --pl-accent: var(--brand);
+  --pl-point-alpha: 0.85;
+  --pl-ring-alpha: 0.1;
+  --pl-ring-stroke-alpha: 0.6;
+
+  /* =========================================================
+   *  🧱 FUNDACIONALES (sombra, radios…)
+   * ======================================================= */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
   --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.25);
   --border-strong: 2px;
   --radius-control: 12px;
 
-  /* ==== Marca / acentos ==== */
-  --brand: #8e2434;
-  --brand-600: #9b2e40;
-  --brand-rgb: 142 36 52;
+  /* =========================================================
+   *  🛠️ MAPAS POR COMPONENTE
+   * ======================================================= */
 
-  /* ==== IconMark (colores por defecto) ==== */
-  --iconmark-bg: #0d1117;
-  --iconmark-border: #ffffff;
-  --iconmark-icon-fg: #ffffff;
-  --iconmark-hover-bg: #ffffff;
-  --iconmark-hover-border: #ffffff;
-  --iconmark-hover-icon-fg: #0d1117;
+  /* ========= Shell / Contenedores ========= */
+  /* (ya cubierto por --shell-*) */
 
-  /* (Opcional) tamaños globales del IconMark */
+  /* ========= IconMark ========= */
+  /* Tamaños por defecto */
   --iconmark-size-xs: 30px;
   --iconmark-size-sm: 36px;
   --iconmark-size-md: 44px;
@@ -47,51 +114,20 @@ html[data-theme="dark"] {
   --iconmark-size-xl: 72px;
   --iconmark-size-xxl: 420px;
 
-  /* Preset para el “medallón” central (hero) */
+  /* Preset “medallón” central (hero) */
   --iconmark-hero-bg: var(--brand);
   --iconmark-hero-border: rgba(0, 0, 0, 0.75);
   --iconmark-hero-icon-fg: #0d1117;
   --iconmark-hero-shadow: 0 18px 40px rgba(0, 0, 0, 0.2);
 
-  /* ==== Login (colores) ==== */
-  --login-right-bg: #010409;
-  --login-panel-bg: #0d1117;
-  --login-panel-border: #27272a;
-  --login-panel-fg: #ffffff;
-
-  /* (legacy de login, puedes borrar si no se usa) */
-  --login-btn-fg: #ffffff;
-  --login-btn-border: transparent;
-  --login-btn-bg: linear-gradient(to bottom, var(--brand-600), var(--brand));
-  --login-btn-hover: var(--brand);
-  --login-btn-shadow: 0 12px 24px rgba(var(--brand-rgb), 0.28);
-  --login-btn-shadow-hover: 0 16px 28px rgba(var(--brand-rgb), 0.36);
-  --login-btn-glow: radial-gradient(
-    120% 80% at 50% -20%,
-    rgba(255, 255, 255, 0.35),
-    transparent 40%
-  );
-
-  --login-panel-bg-for-ring: var(--login-panel-bg);
-
-  /* ==== ParticleBg (colores) ==== */
-  --pl-left-bg: #c0b8b8;
-  --pl-bg: var(--pl-left-bg);
-  --pl-link-color: #272727;
-  --pl-link-alpha: 0.16;
-  --pl-accent: var(--brand);
-  --pl-point-alpha: 0.85;
-  --pl-ring-alpha: 0.1;
-  --pl-ring-stroke-alpha: 0.6;
-
-  /* ===== Panel ===== */
+  /* ========= Panel ========= */
   --panel-bg: var(--login-panel-bg);
   --panel-fg: var(--login-panel-fg);
   --panel-border: var(--login-panel-border);
   --panel-radius: var(--radius-control);
   --panel-shadow: var(--shadow-md);
 
-  /* Panel (opcionales “soft deluxe”) */
+  /* “Soft deluxe” */
   --panel-shadow-hover: 0 18px 40px rgba(0, 0, 0, 0.28);
   --panel-gradient: radial-gradient(
     120% 80% at 50% -20%,
@@ -112,17 +148,16 @@ html[data-theme="dark"] {
   --panel-glass-border: rgba(255, 255, 255, 0.16);
   --panel-blur: 10px;
 
-  /* Panel (efectos nuevos: viñeta + entramado) */
+  /* Efectos nuevos: viñeta + entramado */
   --panel-vignette-color: rgba(0, 0, 0, 0.28);
   --panel-vignette-strong: rgba(0, 0, 0, 0.42);
   --panel-pattern-color: rgba(255, 255, 255, 0.06);
   --panel-pattern-opacity: 0.6;
   --panel-pattern-blend: normal;
-  /* Defaults opcionales por si el componente no define via props */
   --panel-pattern-gap: 28px;
   --panel-pattern-thickness: 1px;
 
-  /* ===== TextField ===== */
+  /* ========= TextField ========= */
   --field-bg: var(--input-bg);
   --field-fg: var(--fg);
   --field-border: var(--input-border);
@@ -134,7 +169,7 @@ html[data-theme="dark"] {
   --label-fg: var(--muted-fg);
   --hint-fg: var(--muted-fg);
 
-  /* ================== Button (tokens por defecto) ================== */
+  /* ========= Button ========= */
   --btn-radius: var(--radius-control);
   --btn-h-sm: 36px;
   --btn-h-md: 48px;
@@ -146,12 +181,12 @@ html[data-theme="dark"] {
   --btn-primary-border: #ffffff;
   --btn-primary-shadow: 0 12px 24px rgba(var(--brand-rgb), 0.28);
 
-  /* Hover primario: blanco con texto brand + mismo borde blanco */
+  /* Hover primario */
   --btn-primary-hover-bg: #ffffff;
   --btn-primary-hover-fg: var(--brand);
   --btn-primary-hover-border: #ffffff;
   --btn-primary-shadow-hover: 0 16px 28px rgba(var(--brand-rgb), 0.36);
-  --btn-primary-hover-scale: 1.06;
+  --btn-primary-hover-scale: 1.06; /* (el contenedor no escala; el label sí) */
   --btn-primary-active-scale: 0.99;
 
   /* Glow por defecto del primario */
@@ -160,7 +195,7 @@ html[data-theme="dark"] {
   --btn-primary-glow-size-hover: 20px;
   --btn-primary-glow-opacity: 1;
 
-  /* Outline (por si lo usas) */
+  /* Outline */
   --btn-outline-bg: transparent;
   --btn-outline-fg: var(--fg);
   --btn-outline-border: #ffffff;
@@ -170,7 +205,7 @@ html[data-theme="dark"] {
   --btn-outline-shadow: none;
   --btn-outline-shadow-hover: none;
 
-  /* Ghost (por si lo usas) */
+  /* Ghost */
   --btn-ghost-bg: transparent;
   --btn-ghost-fg: var(--fg);
   --btn-ghost-border: #ffffff;
@@ -180,8 +215,8 @@ html[data-theme="dark"] {
   --btn-ghost-shadow: none;
   --btn-ghost-shadow-hover: none;
 
-  /* ==== Heading tokens (usados por <Heading/>) ==== */
-  /* Prioriza Sora desde el layout (--font-heading) */
+  /* ========= Heading (usado por <Heading/>) ========= */
+  /* Prioriza Sora del layout (--font-heading); cae a --font-display/ui */
   --heading-font: var(--font-heading, var(--font-display, ui-sans-serif));
 
   /* Colores por defecto */
@@ -190,7 +225,7 @@ html[data-theme="dark"] {
   --heading-grad-to: var(--brand);
   --heading-grad-angle: 180deg;
 
-  /* Contorno por defecto (0 si no quieres) */
+  /* Contorno por defecto */
   --heading-stroke-width: 0;
   --heading-stroke-color: rgba(0, 0, 0, 0);
 
@@ -207,6 +242,11 @@ html[data-theme="dark"] {
   --h3-weight: 700;
   --h3-tracking: 0.005em;
 }
+
+/* =========================================================
+ *  📄 REGLAS/UTILIDADES ESPECÍFICAS
+ *  (clases que ya usas en la app)
+ * ======================================================= */
 
 /* Preset para el medallón central (solo una regla) */
 .iconmark-hero {
