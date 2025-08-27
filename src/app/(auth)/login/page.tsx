@@ -205,14 +205,12 @@ function LoginPage() {
                 tracking="-0.01em"
                 fill="gradient"
                 gradientShape="linear"
-                gradientFrom="#E0364F"
+                gradientFrom="#8e2434"
                 gradientTo="#E6812A"
                 gradientDirection="to right"
                 gradientStops={[40, 100]}
                 strokeWidth={0}
                 strokeColor="rgba(0,0,0,.45)"
-                shadow="custom"
-                shadowCustom="0 10px 24px rgba(0,0,0,.35), 0 2px 0 rgba(0,0,0,.25)"
                 underline={false}
                 className="mb-10"
               >
@@ -220,10 +218,29 @@ function LoginPage() {
               </Heading>
 
               <form className="space-y-4" onSubmit={onSubmit} noValidate>
+                {/* ==== Usuario ==== */}
+                <Heading
+                  id="hl-usuario"
+                  level={2}
+                  size={15} // o 20 si lo quieres un pelín mayor
+                  align="left"
+                  fontFamily="var(--font-heading, ui-sans-serif)"
+                  weight={300}
+                  tracking="-0.01em"
+                  fill="solid"
+                  color="var(--fg)" // color sólido
+                  shadow="soft" // sutil
+                  underline={false}
+                  className="mb-2"
+                >
+                  Usuario
+                </Heading>
+
                 <TextField
                   id="usuario"
                   name="usuario"
-                  label="Usuario"
+                  label="" // sin label visible dentro del componente
+                  aria-labelledby="hl-usuario"
                   autoComplete="username"
                   placeholder="MJ Devs"
                   required
@@ -236,11 +253,31 @@ function LoginPage() {
                     (e.currentTarget as HTMLInputElement).setCustomValidity("")
                   }
                 />
+
+                {/* ==== Contraseña ==== */}
+                <Heading
+                  id="hl-password"
+                  level={2}
+                  size={15} // o 20 si lo quieres un pelín mayor
+                  align="left"
+                  fontFamily="var(--font-heading, ui-sans-serif)"
+                  weight={300}
+                  tracking="-0.01em"
+                  fill="solid"
+                  color="var(--fg)" // color sólido
+                  shadow="soft" // sutil
+                  underline={false}
+                  className="mb-2"
+                >
+                  Contraseña
+                </Heading>
+
                 <TextField
                   id="password"
                   name="password"
                   type="password"
-                  label="Contraseña"
+                  label=""
+                  aria-labelledby="hl-password"
                   autoComplete="current-password"
                   placeholder="••••••••"
                   required
