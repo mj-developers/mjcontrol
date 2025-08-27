@@ -1,13 +1,17 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import Panel from "@/components/ui/Panel";
 import Button from "@/components/ui/Button";
 import TextField from "@/components/ui/TextField";
 import ParticleBg from "@/components/ParticleBg";
 import { getInitialTheme, setThemeGlobal, type Theme } from "@/lib/theme";
 import { Sun, Moon } from "lucide-react";
 import IconMark from "@/components/ui/IconMark";
+import Logo from "@/components/Logo";
+import Heading from "@/components/ui/Heading";
 
 /* helpers parseo */
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -20,7 +24,7 @@ function extractErrorMessage(v: unknown): string | null {
 }
 
 /* Tipado para overrides de ParticleBg */
-type PBVars = React.CSSProperties & {
+type PBVars = CSSProperties & {
   ["--pl-bg"]?: string;
   ["--pl-link-color"]?: string;
   ["--pl-link-alpha"]?: string;
@@ -89,7 +93,6 @@ function LoginPage() {
   }
 
   const isLight = theme === "light";
-  const tone = isLight ? "light" : "dark";
 
   /* ParticleBg: columna izquierda usa el token del tema */
   const leftBgStyle: PBVars = {
@@ -141,10 +144,10 @@ function LoginPage() {
             />
           }
           className="
-    iconmark-hero iconmark-static
-    absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
-    rounded-full pointer-events-none select-none
-  "
+            iconmark-hero iconmark-static
+            absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+            rounded-full pointer-events-none select-none
+          "
           ariaLabel="MJ Devs"
           title="MJ Devs"
         />
@@ -158,95 +161,115 @@ function LoginPage() {
         </div>
 
         <div className="w-full max-w-md relative z-10 login-scope">
+          {/* === Soft Deluxe wrapper (borde degradado + brillo sutil) === */}
           <div
             className={[
-              "rounded-2xl p-8 shadow-2xl min-h-[600px] border",
-              "bg-[var(--login-panel-bg)]",
-              "border-[var(--login-panel-border)]",
-              "text-[var(--login-panel-fg)]",
+              "relative rounded-[var(--panel-radius,12px)] p-[1.25px]",
+              "[background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,0))]",
+              "shadow-[0_0_0_1px_rgba(255,255,255,.06)]",
             ].join(" ")}
           >
-            <div className="mb-4 flex justify-center">
-              <img
-                src={isLight ? "/LogoMJDevsLight.svg" : "/LogoMJDevsDark.svg"}
-                alt="mj-devs"
-                className="h-16 w-auto"
-              />
-            </div>
-
-            <h1 className="mb-6 text-center text-3xl font-display font-semibold">
-              Iniciar sesión
-            </h1>
-
-            <form className="space-y-4" onSubmit={onSubmit} noValidate>
-              <TextField
-                tone={tone}
-                id="usuario"
-                name="usuario"
-                label="Usuario"
-                autoComplete="username"
-                placeholder="MJ Devs"
-                required
-                onInvalid={(e) =>
-                  (e.currentTarget as HTMLInputElement).setCustomValidity(
-                    "Introduce tu usuario."
-                  )
-                }
-                onInput={(e) =>
-                  (e.currentTarget as HTMLInputElement).setCustomValidity("")
-                }
-              />
-              <TextField
-                tone={tone}
-                id="password"
-                name="password"
-                type="password"
-                label="Contraseña"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                required
-                onInvalid={(e) =>
-                  (e.currentTarget as HTMLInputElement).setCustomValidity(
-                    "Introduce tu contraseña."
-                  )
-                }
-                onInput={(e) =>
-                  (e.currentTarget as HTMLInputElement).setCustomValidity("")
-                }
-              />
-
-              {error && <p className="text-sm text-red-400">{error}</p>}
-
-              <Button
-                type="submit"
-                disabled={loading}
-                className={[
-                  "relative w-full mt-2 inline-flex items-center justify-center h-12 rounded-xl px-6",
-                  "font-semibold tracking-[.12em]",
-                  "text-[var(--login-btn-fg)]",
-                  "border border-[var(--login-btn-border)]",
-                  "bg-[var(--login-btn-bg)]",
-                  "hover:bg-[var(--login-btn-hover)] hover:bg-none",
-                  "before:absolute before:inset-0 before:rounded-xl",
-                  "before:bg-[linear-gradient(to_bottom,rgba(255,255,255,.14),rgba(0,0,0,0))] before:pointer-events-none",
-                  "after:absolute after:inset-0 after:rounded-xl after:opacity-0",
-                  "after:bg-[var(--login-btn-glow)]",
-                  "hover:after:opacity-100",
-                  "transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0 active:scale-[.99]",
-                  "shadow-[var(--login-btn-shadow)] hover:shadow-[var(--login-btn-shadow-hover)]",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]/60",
-                  "focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--login-panel-bg-for-ring)]",
-                  loading ? "opacity-70 pointer-events-none" : "cursor-pointer",
-                ].join(" ")}
+            <Panel
+              variant="soft"
+              padding="lg"
+              elevated
+              bordered
+              /* SIN lift ni desplazamiento */
+              hoverLift={false}
+              vignette="strong" /* "off" | "soft" | "strong" */
+              pattern="diag" /* "none" | "grid" | "diag" */
+              patternOpacity={0.2} /* menos marcado */
+              patternGap={26} /* separación del entramado */
+              patternThickness={1} /* grosor de líneas */
+              /* 👉 Centrado VERTICAL del bloque completo dentro del panel */
+              className="min-h-[600px] flex flex-col justify-center"
+              header={
+                <div className="flex justify-center">
+                  <Logo
+                    size={180}
+                    rounded={0}
+                    theme={isLight ? "light" : "dark"}
+                    showText={false}
+                    alt="mj-devs"
+                  />
+                </div>
+              }
+            >
+              <Heading
+                size={32}
+                style={{ marginTop: 80, marginBottom: 30 }}
+                level={1}
+                align="center"
+                fontFamily="var(--font-heading, ui-sans-serif)"
+                weight={700}
+                tracking="-0.01em"
+                fill="gradient"
+                gradientShape="linear"
+                gradientFrom="#E0364F"
+                gradientTo="#E6812A"
+                gradientDirection="to right"
+                gradientStops={[40, 100]}
+                strokeWidth={0}
+                strokeColor="rgba(0,0,0,.45)"
+                shadow="custom"
+                shadowCustom="0 10px 24px rgba(0,0,0,.35), 0 2px 0 rgba(0,0,0,.25)"
+                underline={false}
+                className="mb-10"
               >
-                {loading ? "Entrando..." : "LOGIN"}
-              </Button>
-            </form>
+                INICIAR SESIÓN
+              </Heading>
+
+              <form className="space-y-4" onSubmit={onSubmit} noValidate>
+                <TextField
+                  id="usuario"
+                  name="usuario"
+                  label="Usuario"
+                  autoComplete="username"
+                  placeholder="MJ Devs"
+                  required
+                  onInvalid={(e) =>
+                    (e.currentTarget as HTMLInputElement).setCustomValidity(
+                      "Introduce tu usuario."
+                    )
+                  }
+                  onInput={(e) =>
+                    (e.currentTarget as HTMLInputElement).setCustomValidity("")
+                  }
+                />
+                <TextField
+                  id="password"
+                  name="password"
+                  type="password"
+                  label="Contraseña"
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  required
+                  onInvalid={(e) =>
+                    (e.currentTarget as HTMLInputElement).setCustomValidity(
+                      "Introduce tu contraseña."
+                    )
+                  }
+                  onInput={(e) =>
+                    (e.currentTarget as HTMLInputElement).setCustomValidity("")
+                  }
+                />
+
+                {error && <p className="text-sm text-red-400">{error}</p>}
+
+                <Button type="submit" fullWidth loading={loading}>
+                  {loading ? "Entrando..." : "LOGIN"}
+                </Button>
+              </form>
+            </Panel>
           </div>
 
-          <p className="mt-6 text-center text-xs text-[var(--muted-fg)]">
+          {/* === Footer debajo del panel (como antes) === */}
+          <footer
+            className="mt-6 text-center text-xs text-[var(--muted-fg)]"
+            role="contentinfo"
+          >
             © {new Date().getFullYear()} MJ Devs
-          </p>
+          </footer>
         </div>
       </section>
     </div>

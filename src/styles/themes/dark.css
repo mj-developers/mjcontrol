@@ -1,5 +1,6 @@
 :root,
 html[data-theme="dark"] {
+  --heading-font: var(--font-heading, ui-sans-serif);
   /* ==== Base semántica ==== */
   --bg: #0b0b0d;
   --fg: #ffffff;
@@ -10,7 +11,7 @@ html[data-theme="dark"] {
   --surface-1: #0d1117;
   --surface-2: #0b0b0d;
 
-  /* Inputs */
+  /* Inputs (tokens base) */
   --input-bg: #0d1117;
   --input-border: #374151;
   --placeholder: #9ca3af;
@@ -55,7 +56,6 @@ html[data-theme="dark"] {
 
   /* ==== Login (colores) ==== */
   --login-right-bg: #010409;
-
   --login-panel-bg: #0d1117;
   --login-panel-border: #27272a;
   --login-panel-fg: #ffffff;
@@ -75,14 +75,102 @@ html[data-theme="dark"] {
   --login-panel-bg-for-ring: var(--login-panel-bg);
 
   /* ==== ParticleBg (colores) ==== */
-  --pl-left-bg: #e2e5ea;
+  --pl-left-bg: #c0b8b8;
   --pl-bg: var(--pl-left-bg);
-  --pl-link-color: #3a3a3a;
+  --pl-link-color: #272727;
   --pl-link-alpha: 0.16;
   --pl-accent: var(--brand);
   --pl-point-alpha: 0.85;
   --pl-ring-alpha: 0.1;
   --pl-ring-stroke-alpha: 0.6;
+
+  /* ===== Mapas para los componentes genéricos ===== */
+  /* Panel (usa los tokens de login por defecto) */
+  --panel-bg: var(--login-panel-bg);
+  --panel-fg: var(--login-panel-fg);
+  --panel-border: var(--login-panel-border);
+  --panel-radius: var(--radius-control);
+  --panel-shadow: var(--shadow-md);
+
+  /* Panel (opcionales de estilo “soft deluxe”) */
+  --panel-shadow-hover: 0 18px 40px rgba(0, 0, 0, 0.28);
+  --panel-gradient: radial-gradient(
+    120% 80% at 50% -20%,
+    rgba(255, 255, 255, 0.06),
+    transparent 55%
+  );
+  --panel-gloss: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0)
+  );
+  --panel-outline: rgba(255, 255, 255, 0.08);
+  --panel-glass-bg: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.03)
+  );
+  --panel-glass-border: rgba(255, 255, 255, 0.16);
+  --panel-blur: 10px; /* usado si variante=glass */
+
+  /* Panel (efectos nuevos: viñeta + entramado) */
+  --panel-vignette-color: rgba(0, 0, 0, 0.28); /* soft */
+  --panel-vignette-strong: rgba(0, 0, 0, 0.42); /* strong */
+  --panel-pattern-color: rgba(255, 255, 255, 0.06);
+  --panel-pattern-opacity: 0.6;
+  --panel-pattern-blend: normal; /* prueba 'overlay' si lo quieres más marcado */
+  /* Defaults opcionales por si el componente no define via props */
+  --panel-pattern-gap: 28px;
+  --panel-pattern-thickness: 1px;
+
+  /* TextField */
+  --field-bg: var(--input-bg);
+  --field-fg: var(--fg);
+  --field-border: var(--input-border);
+  --field-placeholder: var(--placeholder);
+  --field-radius: var(--radius-control);
+  --field-h-sm: 36px;
+  --field-h-md: 44px;
+  --field-h-lg: 52px;
+  --label-fg: var(--muted-fg);
+  --hint-fg: var(--muted-fg);
+
+  /* Button (primary por defecto) */
+  --btn-radius: var(--radius-control);
+  --btn-h-sm: 36px;
+  --btn-h-md: 48px;
+  --btn-h-lg: 56px;
+  --btn-primary-bg: linear-gradient(to bottom, var(--brand-600), var(--brand));
+  --btn-primary-hover-bg: var(--brand);
+  --btn-primary-fg: #ffffff;
+  --btn-primary-border: transparent;
+  --btn-primary-shadow: 0 12px 24px rgba(var(--brand-rgb), 0.28);
+  --btn-primary-shadow-hover: 0 16px 28px rgba(var(--brand-rgb), 0.36);
+
+  /* ==== Heading tokens (usados por <Heading/>) ==== */
+  --heading-font: var(--font-display, ui-sans-serif);
+  /* Colores por defecto */
+  --heading-color: #ffffff;
+  --heading-grad-from: var(--brand-600);
+  --heading-grad-to: var(--brand);
+  --heading-grad-angle: 180deg;
+
+  /* Contorno (stroke) por defecto (puedes dejar en 0 si no quieres contorno) */
+  --heading-stroke-width: 0; /* ej: 1 */
+  --heading-stroke-color: rgba(0, 0, 0, 0);
+
+  /* Sizing & tipografía por nivel */
+  --h1-size: clamp(1.9rem, 2.6vw, 2.4rem);
+  --h1-weight: 700;
+  --h1-tracking: 0.015em;
+
+  --h2-size: clamp(1.5rem, 2.3vw, 2rem);
+  --h2-weight: 700;
+  --h2-tracking: 0.01em;
+
+  --h3-size: clamp(1.25rem, 2vw, 1.5rem);
+  --h3-weight: 700;
+  --h3-tracking: 0.005em;
 }
 
 /* Preset para el medallón central (solo una regla) */
