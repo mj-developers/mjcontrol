@@ -2,10 +2,9 @@
 import * as React from "react";
 
 type Shape = "circle" | "rounded" | "square" | "pill";
-type SizeKey = "xs" | "sm" | "md" | "lg" | "xl" | "xxl";
+type SizeKey = "xs" | "sm" | "md" | "lg" | "xl" | "xxl" | "hero" | "xxxl";
 type HoverAnim = "none" | "zoom" | "cycle";
 
-/** Variables CSS internas del componente (sin any) */
 type IconMarkCSSVars =
   | "--mark-bg"
   | "--mark-border"
@@ -36,7 +35,6 @@ export type IconMarkProps = {
   iconSize?: number;
   shape?: Shape;
 
-  /** Override de ancho de borde (px). Si no lo pasas, usa tokens del tema */
   borderWidth?: number;
 
   interactive?: boolean;
@@ -50,7 +48,6 @@ export type IconMarkProps = {
   hoverAnim?: HoverAnim;
   zoomScale?: number;
 
-  /** Parámetros del efecto “cycle” */
   cycleOffset?: number;
   cycleAngleDeg?: number;
   cycleRotateDeg?: number;
@@ -74,6 +71,10 @@ function sizeToVar(size: SizeKey | number | undefined) {
       return "var(--iconmark-size-xl, 72px)";
     case "xxl":
       return "var(--iconmark-size-xxl, 420px)";
+    case "hero":
+      return "var(--iconmark-size-hero, 360px)";
+    case "xxxl":
+      return "var(--iconmark-size-xxxl, 500px)";
     default:
       return "var(--iconmark-size-md, 44px)";
   }
@@ -94,10 +95,15 @@ function iconSizeFor(size: SizeKey | number | undefined) {
       return 32;
     case "xxl":
       return 210;
+    case "hero":
+      return 288; // 0.8 de 360 (igual proporción que 400/500)
+    case "xxxl":
+      return 400;
     default:
       return 20;
   }
 }
+
 function radiusFor(shape: Shape | undefined) {
   switch (shape) {
     case "circle":
@@ -110,17 +116,50 @@ function radiusFor(shape: Shape | undefined) {
       return "var(--iconmark-radius, 12px)";
   }
 }
-function normalizeIcon(node: React.ReactNode, px: number) {
+
+/** Normaliza <svg> y <img> para llenar el slot sin baseline/gaps */
+function normalizeIcon(node: React.ReactNode, px: number): React.ReactNode {
   if (!React.isValidElement(node)) return node;
-  type SvgProps = React.ComponentPropsWithoutRef<"svg">;
-  const el = node as React.ReactElement<SvgProps>;
-  return React.cloneElement<SvgProps>(el, {
-    width: px,
-    height: px,
-    focusable: false,
-    "aria-hidden": el.props["aria-label"] ? undefined : true,
-    style: { ...(el.props.style || {}), display: "block" },
-  });
+
+  if (typeof node.type === "string") {
+    const tag = node.type;
+
+    if (tag === "svg") {
+      const el = node as React.ReactElement<
+        React.SVGProps<SVGSVGElement>,
+        "svg"
+      >;
+      return React.cloneElement<React.SVGProps<SVGSVGElement>>(el, {
+        width: px,
+        height: px,
+        focusable: false,
+        "aria-hidden": el.props["aria-label"] ? undefined : true,
+        style: { ...(el.props.style ?? {}), display: "block" },
+      });
+    }
+
+    if (tag === "img") {
+      const img = node as React.ReactElement<
+        React.ImgHTMLAttributes<HTMLImageElement>,
+        "img"
+      >;
+      return React.cloneElement<React.ImgHTMLAttributes<HTMLImageElement>>(
+        img,
+        {
+          draggable: false,
+          style: {
+            ...(img.props.style ?? {}),
+            display: "block",
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+          },
+        }
+      );
+    }
+  }
+
+  return node;
 }
 
 export default function IconMark({
@@ -177,19 +216,14 @@ export default function IconMark({
   const hoverIconNode =
     hoverIcon != null ? normalizeIcon(hoverIcon, evenIconPx) : null;
 
-  /* ancho de borde: si no se pasa prop, usa var del tema o fondacional */
   const bw =
     borderWidth != null
       ? `${borderWidth}px`
       : "var(--iconmark-border-width, var(--border-strong, 2px))";
 
-  // ==== Variables para animación "cycle"
   const rad = (cycleAngleDeg * Math.PI) / 180;
-  const dx = Math.cos(rad) * cycleOffset; // +x = derecha
-  const dy = Math.sin(rad) * cycleOffset; // +y = abajo
-  const right = dx;
-  const left = -dx;
-  const down = dy;
+  const dx = Math.cos(rad) * cycleOffset;
+  const dy = Math.sin(rad) * cycleOffset;
 
   const inlineStyle: StyleWithVars = {
     width: outer,
@@ -203,7 +237,6 @@ export default function IconMark({
     background: "var(--mark-bg, var(--iconmark-bg, transparent))",
     color: "var(--mark-fg, var(--iconmark-icon-fg, currentColor))",
 
-    /* ZOOM vars */
     ["--mark-zoom-scale"]: String(zoomScale),
     ["--mark-def-scale"]: "1",
     ["--mark-hov-scale"]: "1",
@@ -212,23 +245,94 @@ export default function IconMark({
     ["--mark-def-opacity-hover"]: hoverIcon ? "0" : "1",
     ["--mark-hov-opacity-hover"]: hoverIcon ? "1" : "0",
 
-    /* CYCLE vars */
-    ["--mark-def-out-x"]: `${right}px`,
-    ["--mark-def-out-y"]: `${down}px`,
-    ["--mark-hov-in-x"]: `${left}px`,
-    ["--mark-hov-in-y"]: `${down}px`,
+    ["--mark-def-out-x"]: `${dx}px`,
+    ["--mark-def-out-y"]: `${dy}px`,
+    ["--mark-hov-in-x"]: `${-dx}px`,
+    ["--mark-hov-in-y"]: `${dy}px`,
     ["--mark-def-rot-hover"]: `${cycleRotateDeg}deg`,
     ["--mark-hov-rot-init"]: `${-cycleRotateDeg}deg`,
 
     ...style,
   };
 
+  // ===== Autocentrado robusto =====
+  const outerNodeRef = React.useRef<HTMLElement | null>(null);
+  const setOuterNode = React.useCallback(
+    (el: HTMLSpanElement | HTMLButtonElement | null) => {
+      outerNodeRef.current = el ?? null;
+    },
+    []
+  );
+  const defaultSlotRef = React.useRef<HTMLSpanElement | null>(null);
+
+  const recalc = React.useCallback(() => {
+    const node = outerNodeRef.current;
+    if (!node) return;
+
+    const artEl =
+      (node.querySelector(".icon-default > *") as HTMLElement | null) ??
+      defaultSlotRef.current;
+    if (!artEl) return;
+
+    const a = node.getBoundingClientRect();
+    const b = artEl.getBoundingClientRect();
+
+    const ax = a.left + a.width / 2;
+    const ay = a.top + a.height / 2;
+    const bx = b.left + b.width / 2;
+    const by = b.top + b.height / 2;
+
+    node.style.setProperty("--icon-auto-x", `${ax - bx}px`);
+    node.style.setProperty("--icon-auto-y", `${ay - by}px`);
+  }, []);
+
+  React.useLayoutEffect(() => {
+    const node = outerNodeRef.current;
+    if (!node) return;
+
+    // 1) primer cálculo tras montar
+    requestAnimationFrame(() => {
+      requestAnimationFrame(recalc);
+    });
+
+    // 2) recálculo tardío por si entra por media query
+    const t = setTimeout(recalc, 120);
+
+    // 3) si hay imágenes, escuchar su load
+    const imgs = node.querySelectorAll("img");
+    const onLoad = () => recalc();
+    imgs.forEach((img) => {
+      if (img.complete) return;
+      img.addEventListener("load", onLoad);
+    });
+
+    // 4) observar cambios de tamaño
+    const ro = new ResizeObserver(recalc);
+    ro.observe(node);
+    if (defaultSlotRef.current) ro.observe(defaultSlotRef.current);
+
+    // 5) cambios de ventana/orientación
+    window.addEventListener("resize", recalc);
+    window.addEventListener("orientationchange", recalc);
+
+    return () => {
+      clearTimeout(t);
+      imgs.forEach((img) => img.removeEventListener("load", onLoad));
+      ro.disconnect();
+      window.removeEventListener("resize", recalc);
+      window.removeEventListener("orientationchange", recalc);
+    };
+  }, [recalc]);
+
   const Inner = () => (
     <span
       className="relative inline-grid place-items-center"
       style={{ width: `${evenIconPx}px`, height: `${evenIconPx}px` }}
     >
-      <span className="icon-default absolute inset-0 grid place-items-center">
+      <span
+        ref={defaultSlotRef}
+        className="icon-default absolute inset-0 grid place-items-center"
+      >
         {defaultIcon}
       </span>
       {hoverIconNode && (
@@ -239,13 +343,23 @@ export default function IconMark({
     </span>
   );
 
-  const wrapperProps = {
+  type SharedProps = {
+    className: string;
+    style: StyleWithVars;
+    "data-anim": HoverAnim;
+    "aria-label"?: string;
+    title?: string;
+    ref: (el: HTMLSpanElement | HTMLButtonElement | null) => void;
+  };
+
+  const wrapperProps: SharedProps = {
     className: base,
     style: inlineStyle,
     "data-anim": hoverAnim,
     "aria-label": ariaLabel ?? title,
     title,
-  } as const;
+    ref: setOuterNode,
+  };
 
   return (
     <>
@@ -268,16 +382,16 @@ export default function IconMark({
         </span>
       )}
 
-      {/* Mapeos y animaciones (global para poder overridear desde fuera) */}
       <style jsx global>{`
-        /* Mapear tokens del tema → vars locales */
         .mj-iconmark {
           --mark-bg: var(--iconmark-bg);
           --mark-border: var(--iconmark-border);
           --mark-fg: var(--iconmark-icon-fg);
-
-          /* Fondacionales → solo el radio aquí (NO fijamos border-width) */
           --iconmark-radius: var(--radius-control, 12px);
+
+          /* offsets que calcula el componente */
+          --icon-auto-x: 0px;
+          --icon-auto-y: 0px;
         }
         .mj-iconmark:hover {
           --mark-bg: var(--iconmark-hover-bg, var(--iconmark-bg));
@@ -291,7 +405,17 @@ export default function IconMark({
             opacity 0.22s linear;
         }
 
-        /* none */
+        /* El arte rellena el slot y aplica el offset de autocentrado */
+        .mj-iconmark .icon-default > *,
+        .mj-iconmark .icon-hover > * {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          transform: translate(var(--icon-auto-x), var(--icon-auto-y));
+        }
+
+        /* animaciones */
         .mj-iconmark[data-anim="none"] .icon-default {
           opacity: 1;
           transform: none;
@@ -307,7 +431,6 @@ export default function IconMark({
           opacity: var(--mark-hov-opacity-hover, 0);
         }
 
-        /* zoom */
         .mj-iconmark[data-anim="zoom"] .icon-default {
           opacity: 1;
           transform: scale(var(--mark-def-scale, 1));
@@ -325,7 +448,6 @@ export default function IconMark({
           transform: scale(var(--mark-hov-scale-hover, 1));
         }
 
-        /* cycle */
         .mj-iconmark[data-anim="cycle"] .icon-default {
           opacity: 1;
           transform: translate(0, 0) rotate(0deg) scale(1);

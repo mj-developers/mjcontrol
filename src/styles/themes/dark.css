@@ -1,8 +1,5 @@
 :root,
 html[data-theme="dark"] {
-  /* =========================================================
-   *  🎨 PALETA BASE (solo cambia estos para crear otro tema)
-   * ======================================================= */
   --color-bg: #0b0b0d;
   --color-fg: #ffffff;
   --color-muted-fg: #9ca3af;
@@ -22,7 +19,7 @@ html[data-theme="dark"] {
   /* Marca */
   --color-brand: #8e2434;
   --color-brand-600: #9b2e40;
-  --color-brand-rgb: 142 36 52; /* para rgba(var(--brand-rgb), .X) */
+  --color-brand-rgb: 142 36 52;
 
   /* Login (página) */
   --color-login-right-bg: #010409;
@@ -186,7 +183,7 @@ html[data-theme="dark"] {
   --btn-primary-hover-fg: var(--brand);
   --btn-primary-hover-border: #ffffff;
   --btn-primary-shadow-hover: 0 16px 28px rgba(var(--brand-rgb), 0.36);
-  --btn-primary-hover-scale: 1.06; /* (el contenedor no escala; el label sí) */
+  --btn-primary-hover-scale: 1.06;
   --btn-primary-active-scale: 0.99;
 
   /* Glow por defecto del primario */

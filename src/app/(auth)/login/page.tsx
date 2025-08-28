@@ -95,17 +95,150 @@ function LoginPage() {
   const isLight = theme === "light";
 
   /* ParticleBg: columna izquierda usa el token del tema */
-  const leftBgStyle: PBVars = {
-    ["--pl-bg"]: "var(--pl-left-bg)",
-  };
+  const leftBgStyle: PBVars = { ["--pl-bg"]: "var(--pl-left-bg)" };
 
   /* Overlay móvil: queremos transparencia */
-  const mobileOverlayStyle: PBVars = {
-    ["--pl-bg"]: "transparent",
-  };
+  const mobileOverlayStyle: PBVars = { ["--pl-bg"]: "transparent" };
 
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[7fr_5fr] relative">
+    <div className="login-grid min-h-[100svh] grid relative">
+      {/* —— CSS de layout y tweaks por orientación —— */}
+      <style jsx global>{`
+        /* Base: una columna */
+        .login-grid {
+          grid-template-columns: 1fr;
+        }
+
+        /* Desktop y tablet landscape: 2 columnas 7/5 */
+        @media (min-width: 1024px) and (orientation: landscape) {
+          .login-grid {
+            grid-template-columns: 7fr 5fr;
+          }
+        }
+
+        /* Tablet portrait: apilar, centrar y usar hero pequeño */
+        @media (min-width: 768px) and (orientation: portrait) {
+          .login-grid {
+            grid-template-columns: 1fr;
+            grid-template-rows: 35vh 65vh;
+          }
+
+          .login-left {
+            order: 1;
+            position: relative;
+          }
+
+          .login-right {
+            order: 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding-block: 16px;
+          }
+
+          .panel-wrap {
+            margin-inline: auto !important;
+          }
+
+          /* Mostrar hero pequeño, ocultar grande */
+          .hero-lg {
+            display: none !important;
+          }
+          .hero-sm {
+            display: block !important;
+          }
+        }
+
+        /* Móvil portrait: panel un poco más alto y márgenes equilibrados */
+        @media (max-width: 767px) and (orientation: portrait) {
+          .login-right {
+            padding-block: 26px;
+          }
+          .panel-base {
+            min-height: min(640px, calc(100svh - 140px));
+          }
+        }
+
+        /* Móvil landscape (alto pequeño): ocultar hero y usar solo el panel; sin scroll */
+        @media (orientation: landscape) and (max-height: 480px) {
+          .login-left {
+            display: none !important;
+          }
+          .login-grid {
+            grid-template-columns: 1fr;
+          }
+          .login-right {
+            padding: 12px 16px;
+            justify-content: center;
+            align-items: center;
+          }
+
+          /* Partículas dentro del panel derecho */
+          .login-right .mobile-overlay {
+            display: block !important;
+          }
+
+          /* panel un poco más ancho */
+          .panel-wrap {
+            width: min(96vw, 840px);
+            margin-inline: auto;
+          }
+
+          .panel-base {
+            min-height: min(520px, calc(100svh - 110px));
+            max-height: calc(100svh - 110px);
+            overflow: hidden;
+          }
+
+          /* 2 columnas dentro del panel + más separación */
+          .panel-content {
+            display: grid !important;
+            grid-template-columns: 1fr 1.1fr;
+            align-items: center;
+            gap: 24px;
+          }
+          .panel-left-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+          }
+          .panel-right-col {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+          .panel-logo {
+            transform: scale(0.85);
+          }
+          .panel-title {
+            margin-top: 0 !important;
+            margin-bottom: 12px !important;
+            font-size: clamp(20px, 4.2vh, 28px) !important;
+          }
+        }
+
+        /* Desktop / tablet landscape: el panel vuelve a una sola columna */
+        @media (min-width: 768px) and (orientation: landscape) {
+          .panel-content {
+            display: block;
+          }
+        }
+
+        /* ====== Centrado del hero en todas las vistas ====== */
+        .hero-center {
+          position: absolute;
+          inset: 0;
+          display: grid;
+          place-items: center;
+          pointer-events: none;
+        }
+        .hero-sm {
+          display: none; /* por defecto escondido; se muestra en tablet portrait */
+        }
+      `}</style>
+
       {/* Switch de tema */}
       <IconMark
         asButton
@@ -124,44 +257,67 @@ function LoginPage() {
         className="fixed top-4 right-4 z-50"
       />
 
-      {/* IZQUIERDA (desktop) */}
-      <section className="relative hidden lg:block z-0">
+      {/* IZQUIERDA / ARRIBA (hero) */}
+      <section className="login-left relative hidden md:block z-0">
         <ParticleBg fill style={leftBgStyle} />
 
-        {/* Medallón centrado sobre el ParticleBg (sin hover ni botón) */}
-        <IconMark
-          size={500}
-          iconSize={400}
-          asButton={false}
-          interactive={false}
-          hoverAnim="none"
-          icon={
-            <img
-              src={
-                isLight ? "/LogoPanelLoginLight.svg" : "/LogoPanelLoginDark.svg"
-              }
-              alt="MJ Devs"
-            />
-          }
-          className="
-            iconmark-hero iconmark-static
-            absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
-            rounded-full pointer-events-none select-none
-          "
-          ariaLabel="MJ Devs"
-          title="MJ Devs"
-        />
+        {/* Contenedor que centra siempre el contenido */}
+        <div className="hero-center">
+          {/* Variante GRANDE (desktop + tablet landscape) */}
+          <IconMark
+            size="xxxl" // <-- nuevo tamaño grande
+            iconSize={400}
+            asButton={false}
+            interactive={false}
+            hoverAnim="none"
+            icon={
+              <img
+                src={
+                  isLight
+                    ? "/LogoPanelLoginLight.svg"
+                    : "/LogoPanelLoginDark.svg"
+                }
+                alt="MJ Devs"
+              />
+            }
+            className="hero-lg iconmark-hero iconmark-static rounded-full select-none"
+            ariaLabel="MJ Devs"
+            title="MJ Devs"
+          />
+
+          {/* Variante PEQUEÑA (solo tablet portrait) */}
+          <IconMark
+            size="hero" // <-- nuevo tamaño para tablet portrait
+            iconSize={280}
+            asButton={false}
+            interactive={false}
+            hoverAnim="none"
+            icon={
+              <img
+                src={
+                  isLight
+                    ? "/LogoPanelLoginLight.svg"
+                    : "/LogoPanelLoginDark.svg"
+                }
+                alt="MJ Devs"
+              />
+            }
+            className="hero-sm iconmark-hero iconmark-static rounded-full select-none"
+            ariaLabel="MJ Devs"
+            title="MJ Devs"
+          />
+        </div>
       </section>
 
-      {/* DERECHA */}
-      <section className="relative flex items-center justify-center p-6 lg:p-12 bg-[var(--login-right-bg)]">
-        {/* Fondo móvil (overlay) */}
-        <div className="absolute inset-0 lg:hidden">
+      {/* DERECHA / ABAJO (panel de login) */}
+      <section className="login-right relative flex items-center justify-center p-6 lg:p-12 bg-[var(--login-right-bg)]">
+        {/* Fondo móvil (overlay) – visible en móvil y forzado en landscape */}
+        <div className="mobile-overlay absolute inset-0 md:hidden">
           <ParticleBg fill style={mobileOverlayStyle} />
         </div>
 
-        <div className="w-full max-w-md relative z-10 login-scope">
-          {/* === Soft Deluxe wrapper (borde degradado + brillo sutil) === */}
+        <div className="w-full max-w-md relative z-10 login-scope panel-wrap">
+          {/* Borde degradado + brillo sutil */}
           <div
             className={[
               "relative rounded-[var(--panel-radius,12px)] p-[1.25px]",
@@ -174,140 +330,150 @@ function LoginPage() {
               padding="lg"
               elevated
               bordered
-              /* SIN lift ni desplazamiento */
               hoverLift={false}
-              vignette="strong" /* "off" | "soft" | "strong" */
-              pattern="diag" /* "none" | "grid" | "diag" */
-              patternOpacity={0.2} /* menos marcado */
-              patternGap={26} /* separación del entramado */
-              patternThickness={1} /* grosor de líneas */
-              /* 👉 Centrado VERTICAL del bloque completo dentro del panel */
-              className="min-h-[600px] flex flex-col justify-center"
-              header={
-                <div className="flex justify-center">
-                  <Logo
-                    size={100}
-                    rounded={0}
-                    theme={isLight ? "light" : "dark"}
-                    showText={false}
-                    alt="mj-devs"
-                  />
-                </div>
-              }
+              vignette="strong"
+              pattern="diag"
+              patternOpacity={0.2}
+              patternGap={26}
+              patternThickness={1}
+              className="panel-base"
             >
-              <Heading
-                size={32}
-                style={{ marginTop: 20, marginBottom: 30 }}
-                level={1}
-                align="center"
-                fontFamily="var(--font-heading, ui-sans-serif)"
-                weight={700}
-                tracking="-0.01em"
-                fill="solid"
-                color="var(--fg)" // color sólido
-                strokeWidth={0}
-                strokeColor="rgba(0,0,0,.45)"
-                underline={false}
-                className="mb-10"
-              >
-                INICIAR SESIÓN
-              </Heading>
+              {/* Contenido del panel (en móvil landscape pasa a 2 columnas) */}
+              <div className="panel-content">
+                {/* Columna izquierda (logo + título) */}
+                <div className="panel-left-col">
+                  <div className="flex justify-center panel-logo">
+                    <Logo
+                      size={100}
+                      rounded={0}
+                      theme={isLight ? "light" : "dark"}
+                      showText={false}
+                      alt="mj-devs"
+                    />
+                  </div>
 
-              <form className="space-y-4" onSubmit={onSubmit} noValidate>
-                {/* ==== Usuario ==== */}
-                <Heading
-                  id="hl-usuario"
-                  level={2}
-                  size={15} // o 20 si lo quieres un pelín mayor
-                  align="left"
-                  fontFamily="var(--font-heading, ui-sans-serif)"
-                  weight={300}
-                  tracking="-0.01em"
-                  fill="solid"
-                  color="var(--fg)" // color sólido
-                  shadow="soft" // sutil
-                  underline={false}
-                  className="mb-2"
-                >
-                  Usuario
-                </Heading>
+                  <Heading
+                    size={32}
+                    style={{ marginTop: 20, marginBottom: 30 }}
+                    level={1}
+                    align="center"
+                    fontFamily="var(--font-heading, ui-sans-serif)"
+                    weight={700}
+                    tracking="-0.01em"
+                    fill="solid"
+                    color="var(--fg)"
+                    strokeWidth={0}
+                    underline={false}
+                    className="mb-10 panel-title"
+                  >
+                    INICIAR SESIÓN
+                  </Heading>
+                </div>
 
-                <TextField
-                  id="usuario"
-                  name="usuario"
-                  label="" // sin label visible dentro del componente
-                  aria-labelledby="hl-usuario"
-                  autoComplete="username"
-                  placeholder="MJ Devs"
-                  required
-                  onInvalid={(e) =>
-                    (e.currentTarget as HTMLInputElement).setCustomValidity(
-                      "Introduce tu usuario."
-                    )
-                  }
-                  onInput={(e) =>
-                    (e.currentTarget as HTMLInputElement).setCustomValidity("")
-                  }
-                />
+                {/* Columna derecha (formulario) */}
+                <div className="panel-right-col">
+                  <form className="space-y-4" onSubmit={onSubmit} noValidate>
+                    {/* Usuario */}
+                    <Heading
+                      id="hl-usuario"
+                      level={2}
+                      size={15}
+                      align="left"
+                      fontFamily="var(--font-heading, ui-sans-serif)"
+                      weight={300}
+                      tracking="-0.01em"
+                      fill="solid"
+                      color="var(--fg)"
+                      shadow="soft"
+                      underline={false}
+                      className="mb-2"
+                    >
+                      Usuario
+                    </Heading>
 
-                {/* ==== Contraseña ==== */}
-                <Heading
-                  id="hl-password"
-                  level={2}
-                  size={15} // o 20 si lo quieres un pelín mayor
-                  align="left"
-                  fontFamily="var(--font-heading, ui-sans-serif)"
-                  weight={300}
-                  tracking="-0.01em"
-                  fill="solid"
-                  color="var(--fg)" // color sólido
-                  shadow="soft" // sutil
-                  underline={false}
-                  className="mb-2"
-                >
-                  Contraseña
-                </Heading>
+                    <TextField
+                      id="usuario"
+                      name="usuario"
+                      label=""
+                      aria-labelledby="hl-usuario"
+                      autoComplete="username"
+                      placeholder="MJ Devs"
+                      required
+                      onInvalid={(e) =>
+                        (e.currentTarget as HTMLInputElement).setCustomValidity(
+                          "Introduce tu usuario."
+                        )
+                      }
+                      onInput={(e) =>
+                        (e.currentTarget as HTMLInputElement).setCustomValidity(
+                          ""
+                        )
+                      }
+                    />
 
-                <TextField
-                  id="password"
-                  name="password"
-                  type="password"
-                  label=""
-                  aria-labelledby="hl-password"
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  required
-                  onInvalid={(e) =>
-                    (e.currentTarget as HTMLInputElement).setCustomValidity(
-                      "Introduce tu contraseña."
-                    )
-                  }
-                  onInput={(e) =>
-                    (e.currentTarget as HTMLInputElement).setCustomValidity("")
-                  }
-                />
+                    {/* Contraseña */}
+                    <Heading
+                      id="hl-password"
+                      level={2}
+                      size={15}
+                      align="left"
+                      fontFamily="var(--font-heading, ui-sans-serif)"
+                      weight={300}
+                      tracking="-0.01em"
+                      fill="solid"
+                      color="var(--fg)"
+                      shadow="soft"
+                      underline={false}
+                      className="mb-2"
+                    >
+                      Contraseña
+                    </Heading>
 
-                {error && <p className="text-sm text-red-400">{error}</p>}
+                    <TextField
+                      id="password"
+                      name="password"
+                      type="password"
+                      label=""
+                      aria-labelledby="hl-password"
+                      autoComplete="current-password"
+                      placeholder="••••••••"
+                      required
+                      onInvalid={(e) =>
+                        (e.currentTarget as HTMLInputElement).setCustomValidity(
+                          "Introduce tu contraseña."
+                        )
+                      }
+                      onInput={(e) =>
+                        (e.currentTarget as HTMLInputElement).setCustomValidity(
+                          ""
+                        )
+                      }
+                    />
 
-                <Button
-                  type="submit"
-                  width={"100%"}
-                  height={40}
-                  bg="var(--brand)"
-                  fg="#fff"
-                  borderColor="#fff"
-                  fontFamily="var(--font-heading)"
-                  labelWeight={700}
-                  labelTracking="-0.01em"
-                  textHoverScale={1.7}
-                >
-                  LOG IN
-                </Button>
-              </form>
+                    {error && <p className="text-sm text-red-400">{error}</p>}
+
+                    <Button
+                      type="submit"
+                      width={"100%"}
+                      height={40}
+                      bg="var(--brand)"
+                      fg="#fff"
+                      borderColor="#fff"
+                      fontFamily="var(--font-heading)"
+                      labelWeight={700}
+                      labelTracking="-0.01em"
+                      textHoverScale={1.7}
+                      loading={loading}
+                    >
+                      LOG IN
+                    </Button>
+                  </form>
+                </div>
+              </div>
             </Panel>
           </div>
 
-          {/* === Footer debajo del panel (como antes) === */}
+          {/* Footer */}
           <footer
             className="mt-6 text-center text-xs text-[var(--muted-fg)]"
             role="contentinfo"

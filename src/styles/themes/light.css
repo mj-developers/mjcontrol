@@ -112,7 +112,7 @@ html[data-theme="light"] {
 
   /* Medallón hero (borde blanco en light) */
   --iconmark-hero-bg: var(--brand);
-  --iconmark-hero-border: #ffffff; /* ← borde blanco */
+  --iconmark-hero-border: #ffffff;
   --iconmark-hero-icon-fg: #0d1117;
   --iconmark-hero-shadow: 0 18px 40px rgba(0, 0, 0, 0.2);
 
@@ -176,9 +176,9 @@ html[data-theme="light"] {
   --btn-primary-shadow: 0 12px 24px rgba(var(--brand-rgb), 0.28);
 
   /* Hover: fondo MUY oscuro, texto blanco, borde negro */
-  --btn-primary-hover-bg: #01040a; /* ← hover oscuro */
+  --btn-primary-hover-bg: #01040a;
   --btn-primary-hover-fg: #ffffff;
-  --btn-primary-hover-border: #000000; /* ← borde negro */
+  --btn-primary-hover-border: #000000;
   --btn-primary-shadow-hover: 0 16px 28px rgba(var(--brand-rgb), 0.36);
   --btn-primary-hover-scale: 1.06;
   --btn-primary-active-scale: 0.99;
@@ -211,7 +211,7 @@ html[data-theme="light"] {
 
   /* ========= Heading ========= */
   --heading-font: var(--font-heading, var(--font-display, ui-sans-serif));
-  --heading-color: #0b0b0d; /* ← headings en negro en light */
+  --heading-color: #0b0b0d;
   --heading-grad-from: var(--brand-600);
   --heading-grad-to: var(--brand);
   --heading-grad-angle: 180deg;
