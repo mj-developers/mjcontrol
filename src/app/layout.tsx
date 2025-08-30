@@ -8,8 +8,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-
-// Fuente para headings (REVER-style): pesos altos y variable CSS --font-heading
 const sora = Sora({
   variable: "--font-heading",
   subsets: ["latin"],
@@ -30,30 +28,30 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
-        {/* No-flash: fija data-theme y vars antes de hidratar */}
+        {/* No-flash: fija tema antes de hidratar */}
         <script
           dangerouslySetInnerHTML={{
             __html: `(function () {
-  var t = 'dark';
   try {
-    var s = localStorage.getItem('mj_theme');
-    if (s === 'light' || s === 'dark') t = s;
-    else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) t = 'light';
-  } catch {}
-  var html = document.documentElement;
-  html.setAttribute('data-theme', t);
-  if (t === 'dark') html.classList.add('dark'); else html.classList.remove('dark');
-  // base por si algo externo mira --bg/--fg
-  html.style.setProperty('--bg', t === 'light' ? '#ffffff' : '#0B0B0D');
-  html.style.setProperty('--fg', t === 'light' ? '#0a0a0a' : '#ffffff');
-  window.__MJ_THEME__ = t;
+    var k = 'mj_theme';
+    var t;
+    var s = localStorage.getItem(k);
+    if (s === 'light' || s === 'dark') {
+      t = s;
+    } else {
+      t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+    }
+    var html = document.documentElement;
+    html.setAttribute('data-theme', t);
+    html.classList.toggle('dark', t === 'dark');
+    window.__MJ_THEME__ = t;
+  } catch (e) {}
 })();`,
           }}
         />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${sora.variable} antialiased`}
-        style={{ background: "var(--bg)", color: "var(--fg)" }}
       >
         {children}
       </body>

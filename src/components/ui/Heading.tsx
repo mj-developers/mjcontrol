@@ -3,79 +3,70 @@ import * as React from "react";
 
 /** Alineación del texto */
 type Align = "left" | "center" | "right";
-
 /** Tipo de relleno del texto */
-type Fill = "solid" | "gradient" | "effect"; // "effect" reservado
-
+type Fill = "solid" | "gradient" | "effect";
 /** Niveles soportados (h1/h2/h3) */
 type Level = 1 | 2 | 3;
-
 /** Sombras predefinidas o personalizada */
 type Shadow = "none" | "soft" | "brand" | "soft+brand" | "custom";
-
 /** Props del gradient */
 type GradientShape = "linear" | "radial";
 
 export type HeadingProps<T extends React.ElementType = "h1"> = {
-  /** Nivel semántico (h1/h2/h3). Si también pasas `as`, este manda para el tag. */
   level?: Level;
-
-  /** Tag a renderizar (por si quieres <div role="heading">, etc.) */
   as?: T;
-
-  /** Contenido del heading */
   children: React.ReactNode;
 
   /** Estética general */
-  fill?: Fill; // solid | gradient | effect
-  color?: string; // para fill=solid (por defecto var(--heading-color))
+  fill?: Fill;
+  color?: string; // p.ej. "var(--fg)"
   fontFamily?: string; // por defecto var(--heading-font)
-  weight?: number; // 300..900 (por defecto var(--hN-weight))
-  tracking?: string; // letter-spacing (por defecto var(--hN-tracking))
-  lineHeight?: number | string; // por defecto 1.15
+  weight?: number; // 300..900
+  tracking?: string; // letter-spacing
+  lineHeight?: number | string;
 
-  /** Tamaño: número px o usa tokens por nivel (--h1-size, --h2-size, --h3-size) */
+  /** Tamaño: número px o tokens (--h1-size, ...) */
   size?: number | string;
 
-  /** Alineación (por defecto left) */
+  /** Alineación */
   align?: Align;
 
-  /** Sombra del texto */
-  shadow?: Shadow; // predefinidas
-  shadowCustom?: string; // si shadow="custom"
+  /** Sombras */
+  shadow?: Shadow;
+  shadowCustom?: string;
 
-  /** Trazo (contorno) del texto */
-  strokeWidth?: number; // px (por defecto var(--heading-stroke-width) ~ 0/1)
+  /** Contorno (stroke) */
+  strokeWidth?: number; // si no lo pasas, usamos var(--heading-stroke-width)
   strokeColor?: string; // por defecto var(--heading-stroke-color)
-  strokeOpacity?: number; // 0..1 (si tu color ya lleva alpha, puedes omitir)
-  /** Futuro: “background del borde” (placeholder) */
-  strokeBackground?: string; // (presentado, sin implementación compleja)
+  strokeOpacity?: number; // si pasas color con alpha puedes omitir
+  strokeBackground?: string;
 
   /** Degradado (si fill="gradient") */
-  gradientShape?: GradientShape; // linear | radial
+  gradientShape?: GradientShape;
   gradientFrom?: string; // por defecto var(--heading-grad-from)
   gradientTo?: string; // por defecto var(--heading-grad-to)
-  gradientDirection?: string; // "to right" | "180deg" ... (por defecto var(--heading-grad-angle))
-  gradientStops?: [number, number]; // % de cada color, ej [40,60]
+  gradientDirection?: string; // por defecto var(--heading-grad-angle)
+  gradientStops?: [number, number];
 
-  /** Subrayado (toggle sencillo) */
+  /** Subrayado */
   underline?: boolean;
-  underlineOpacity?: number; // 0..1
-  underlineWidth?: string; // ej "64%"
-  underlineHeight?: number; // px
+  underlineOpacity?: number;
+  underlineWidth?: string;
+  underlineHeight?: number;
 
-  /** Overlay perla (leve brillo encima) */
+  /** Overlay perla */
   pearl?: boolean;
 
-  /** Extras */
   className?: string;
   style?: React.CSSProperties;
+
+  /** Nombre del evento de tema (por si lo cambiaste) */
+  themeEventName?: string; // default "mj:theme"
 } & Omit<
   React.ComponentPropsWithoutRef<T>,
   "as" | "children" | "style" | "className"
 >;
 
-/* === Defaults por nivel: mapean a tokens del tema === */
 const levelToDefaults = (level: Level) => {
   if (level === 1) {
     return {
@@ -92,24 +83,23 @@ const levelToDefaults = (level: Level) => {
     };
   }
   return {
-    // h3
     sizeVar: "var(--h3-size, clamp(1.25rem, 2vw, 1.5rem))",
     weightVar: "var(--h3-weight, 700)",
     trackingVar: "var(--h3-tracking, 0.005em)",
   };
 };
 
-/* construye CSS para degradado */
-function buildGradientCSS(
+/* CSS para el degradado (sin computar colores en JS) */
+function gradientCSS(
   shape: GradientShape,
   from: string,
   to: string,
   direction: string,
   stops?: [number, number]
 ): React.CSSProperties {
+  const stopA = stops ? `${stops[0]}%` : "0%";
+  const stopB = stops ? `${stops[1]}%` : "100%";
   if (shape === "radial") {
-    const stopA = stops ? `${stops[0]}%` : "0%";
-    const stopB = stops ? `${stops[1]}%` : "100%";
     return {
       background: `radial-gradient(circle at 50% 50%, ${from} ${stopA}, ${to} ${stopB})`,
       WebkitBackgroundClip: "text",
@@ -117,9 +107,6 @@ function buildGradientCSS(
       color: "transparent",
     };
   }
-  // linear
-  const stopA = stops ? `${stops[0]}%` : "0%";
-  const stopB = stops ? `${stops[1]}%` : "100%";
   return {
     background: `linear-gradient(${direction}, ${from} ${stopA}, ${to} ${stopB})`,
     WebkitBackgroundClip: "text",
@@ -128,62 +115,39 @@ function buildGradientCSS(
   };
 }
 
-/* construye un contorno (stroke) con webkit-text-stroke + fallback via text-shadow */
-function buildStrokeShadow(
-  width: number,
-  color: string,
-  opacity?: number
-): string {
-  const col = opacity != null ? toRgba(color, opacity) : color;
-  // 8 direcciones + un par de diagonales extras si el stroke >1
-  const offsets = [
-    [0, 1],
-    [1, 0],
-    [0, -1],
-    [-1, 0],
-    [1, 1],
-    [-1, 1],
-    [1, -1],
-    [-1, -1],
-  ];
-  const parts: string[] = [];
-  const px = Math.max(1, Math.round(width));
-  for (let i = 0; i < offsets.length; i++) {
-    const [ox, oy] = offsets[i];
-    parts.push(`${ox * px}px ${oy * px}px 0 ${col}`);
+/* utilidad: mezcla alpha si te pasan strokeOpacity */
+function withAlpha(color: string, alpha?: number) {
+  if (alpha == null) return color;
+  // soporta rgb(), var(), #rrggbb…
+  if (color.startsWith("var(")) {
+    // browsers modernos aceptan color-mix con var()
+    return `color-mix(in srgb, ${color} ${Math.round(
+      alpha * 100
+    )}%, transparent)`;
   }
-  // si es grueso, añadimos un anillo más suave
-  if (px > 1) {
-    const ring = Math.ceil(px / 2);
-    parts.push(
-      `0 ${ring}px 0 ${col}`,
-      `${ring}px 0 0 ${col}`,
-      `0 -${ring}px 0 ${col}`,
-      `-${ring}px 0 0 ${col}`
+  if (color.startsWith("#")) {
+    const hex = color.slice(1);
+    const r = parseInt(
+      hex.length === 3 ? hex[0] + hex[0] : hex.slice(0, 2),
+      16
     );
+    const g = parseInt(
+      hex.length === 3 ? hex[1] + hex[1] : hex.slice(2, 4),
+      16
+    );
+    const b = parseInt(
+      hex.length === 3 ? hex[2] + hex[2] : hex.slice(4, 6),
+      16
+    );
+    return `rgba(${r},${g},${b},${alpha})`;
   }
-  return parts.join(", ");
-}
-
-/* convierte un color CSS simple a rgba con opacidad (si ya tiene alpha, lo devuelve tal cual) */
-function toRgba(color: string, alpha: number): string {
-  // heurística: si ya viene con "rgba(" o tiene "hsla(", lo devolvemos
-  const c = color.trim().toLowerCase();
-  if (c.startsWith("rgba(") || c.startsWith("hsla(")) return color;
-  if (c.startsWith("#")) {
-    // #rgb, #rgba, #rrggbb, #rrggbbaa
-    if (c.length === 4 || c.length === 5) {
-      const r = parseInt(c[1] + c[1], 16);
-      const g = parseInt(c[2] + c[2], 16);
-      const b = parseInt(c[3] + c[3], 16);
-      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    }
-    const r = parseInt(c.slice(1, 3), 16);
-    const g = parseInt(c.slice(3, 5), 16);
-    const b = parseInt(c.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  if (color.startsWith("rgb(")) {
+    const nums = color
+      .slice(4, -1)
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10));
+    return `rgba(${nums[0]},${nums[1]},${nums[2]},${alpha})`;
   }
-  // fallback: usa color tal cual con alpha mediante color-mix (soporta navegadores modernos)
   return `color-mix(in srgb, ${color} ${Math.round(
     alpha * 100
   )}%, transparent)`;
@@ -195,36 +159,31 @@ export default function Heading<T extends React.ElementType = "h1">({
   children,
   className = "",
   style,
-  // estética
   fill = "solid",
   color, // por defecto tema
   fontFamily,
   weight,
   tracking,
   lineHeight = 1.15,
-  // layout
   size,
   align = "left",
-  // sombras
   shadow = "soft+brand",
   shadowCustom,
-  // stroke
-  strokeWidth,
+  strokeWidth, // si no lo pasas, usamos var(--heading-stroke-width)
   strokeColor,
   strokeOpacity,
   strokeBackground,
-  // gradient
   gradientShape = "linear",
   gradientFrom,
   gradientTo,
   gradientDirection,
   gradientStops,
-  // detalles
   underline = false,
   underlineOpacity = 0.7,
   underlineWidth = "64%",
   underlineHeight = 1,
   pearl = false,
+  themeEventName = "mj:theme",
   ...rest
 }: HeadingProps<T>) {
   // decide tag
@@ -238,7 +197,7 @@ export default function Heading<T extends React.ElementType = "h1">({
   // defaults por nivel
   const d = levelToDefaults(level);
 
-  // font-size
+  // tamaño
   const fontSize =
     typeof size === "number" ||
     (typeof size === "string" && size.trim().endsWith("px"))
@@ -250,10 +209,13 @@ export default function Heading<T extends React.ElementType = "h1">({
   // tipografía
   const ff =
     fontFamily ?? "var(--heading-font, var(--font-display, ui-sans-serif))";
-  const fw = weight != null ? weight : d.weightVar;
-  const ls = tracking ?? d.trackingVar;
+  const fw = (
+    weight != null ? weight : d.weightVar
+  ) as React.CSSProperties["fontWeight"];
+  const ls = (tracking ??
+    d.trackingVar) as React.CSSProperties["letterSpacing"];
 
-  // sombras predefinidas
+  // sombras predefinidas (no dependen del tema en JS; usan vars cuando toca)
   const shadowPreset =
     shadow === "none"
       ? "none"
@@ -265,47 +227,28 @@ export default function Heading<T extends React.ElementType = "h1">({
       ? "0 6px 18px rgba(0,0,0,0.35), 0 4px 14px rgba(var(--brand-rgb,142 36 52),0.18)"
       : shadowCustom ?? "none";
 
-  // fill styles
+  // relleno
   const solidColor = color ?? "var(--heading-color, #fff)";
   const gradFrom =
     gradientFrom ?? "var(--heading-grad-from, var(--brand-600,#9b2e40))";
   const gradTo = gradientTo ?? "var(--heading-grad-to, var(--brand,#8e2434))";
   const gradDir = gradientDirection ?? "var(--heading-grad-angle, 180deg)";
-
   const fillStyles: React.CSSProperties =
     fill === "gradient"
-      ? buildGradientCSS(
-          gradientShape,
-          gradFrom,
-          gradTo,
-          gradDir,
-          gradientStops
-        )
+      ? gradientCSS(gradientShape, gradFrom, gradTo, gradDir, gradientStops)
       : fill === "solid"
       ? { color: solidColor }
-      : {
-          // effect: placeholder
-          color: solidColor,
-          // aquí podrás montar efectos custom más adelante
-        };
+      : { color: solidColor }; // placeholder para "effect"
 
-  // stroke (contorno)
-  const sw =
-    strokeWidth ??
-    (Number(
-      getComputedStyle?.(document.documentElement).getPropertyValue(
-        "--heading-stroke-width"
-      )
-    ) ||
-      0);
-  const sc = strokeColor ?? "var(--heading-stroke-color, rgba(0,0,0,0.0))";
-
-  // text-shadow final = contour + sombra preset
-  const strokeShadow = sw > 0 ? buildStrokeShadow(sw, sc, strokeOpacity) : "";
-  const textShadow =
-    strokeShadow && shadowPreset !== "none"
-      ? `${strokeShadow}, ${shadowPreset}`
-      : strokeShadow || shadowPreset;
+  // stroke: si no pasas strokeWidth, delega en CSS var (reactiva al tema)
+  const strokeW =
+    strokeWidth != null
+      ? `${Math.max(0, Math.round(strokeWidth))}px`
+      : "var(--heading-stroke-width, 0px)";
+  const strokeCol = withAlpha(
+    strokeColor ?? "var(--heading-stroke-color, rgba(0,0,0,0))",
+    strokeOpacity
+  );
 
   // alineación
   const alignClass =
@@ -320,20 +263,18 @@ export default function Heading<T extends React.ElementType = "h1">({
       className={["relative leading-[1.15]", alignClass, className].join(" ")}
       style={{
         fontFamily: ff,
-        fontWeight: fw as React.CSSProperties["fontWeight"],
-        letterSpacing: ls as React.CSSProperties["letterSpacing"],
-        fontSize: fontSize as React.CSSProperties["fontSize"],
+        fontWeight: fw,
+        letterSpacing: ls,
+        fontSize,
         lineHeight,
-        textShadow,
-        WebkitTextStrokeWidth: sw ? `${sw}px` : undefined,
-        WebkitTextStrokeColor:
-          strokeOpacity != null ? toRgba(sc, strokeOpacity) : sc,
+        textShadow: shadowPreset,
+        WebkitTextStrokeWidth: strokeW,
+        WebkitTextStrokeColor: strokeCol,
         ...fillStyles,
         ...style,
       }}
       {...rest}
     >
-      {/* “background del borde” – placeholder, sin implementación compleja */}
       {strokeBackground && (
         <span
           aria-hidden
@@ -344,7 +285,6 @@ export default function Heading<T extends React.ElementType = "h1">({
 
       {children}
 
-      {/* subrayado sencillo */}
       {underline && (
         <span
           aria-hidden
@@ -365,7 +305,6 @@ export default function Heading<T extends React.ElementType = "h1">({
         />
       )}
 
-      {/* overlay “perla” (leve) */}
       {pearl && (
         <span
           aria-hidden

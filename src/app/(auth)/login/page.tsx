@@ -32,22 +32,18 @@ type PBVars = CSSProperties & {
 };
 
 function LoginPage() {
+  // ✅ Inicializa el estado YA con el tema real (sin parpadeos)
+  const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [theme, setTheme] = useState<Theme>("dark");
 
+  // ✅ Aplica el tema global cuando `theme` cambie (y solo entonces)
   useEffect(() => {
-    const t = getInitialTheme();
-    setTheme(t);
-    setThemeGlobal(t);
-  }, []);
+    setThemeGlobal(theme);
+  }, [theme]);
 
   function toggleTheme() {
-    setTheme((prev) => {
-      const next: Theme = prev === "dark" ? "light" : "dark";
-      setThemeGlobal(next);
-      return next;
-    });
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -265,7 +261,7 @@ function LoginPage() {
         <div className="hero-center">
           {/* Variante GRANDE (desktop + tablet landscape) */}
           <IconMark
-            size="xxxl" // <-- nuevo tamaño grande
+            size="xxxl"
             iconSize={400}
             asButton={false}
             interactive={false}
@@ -286,7 +282,6 @@ function LoginPage() {
           />
 
           {/* Variante PEQUEÑA (solo tablet portrait) */}
-          {/* Variante PEQUEÑA (solo tablet portrait) */}
           <IconMark
             size="heroSm"
             asButton={false}
@@ -304,9 +299,8 @@ function LoginPage() {
             }
             className="hero-sm iconmark-hero iconmark-static rounded-full select-none"
             style={{
-              // micro-ajuste para centrar en tablet portrait (toca a ojo si hace falta)
-              ["--iconmark-img-nudge-x"]: "30px", // → derecha (+) / izquierda (-)
-              ["--iconmark-img-nudge-y"]: "35px", // → arriba (-) / abajo (+)
+              ["--iconmark-img-nudge-x"]: "30px",
+              ["--iconmark-img-nudge-y"]: "35px",
             }}
           />
         </div>
@@ -319,8 +313,11 @@ function LoginPage() {
           <ParticleBg fill style={mobileOverlayStyle} />
         </div>
 
-        <div className="w-full max-w-md relative z-10 login-scope panel-wrap">
-          {/* Borde degradado + brillo sutil */}
+        {/* 👉 si quieres forzar re-montaje de todo el panel al cambiar tema, deja el key */}
+        <div
+          key={theme}
+          className="w-full max-w-md relative z-10 login-scope panel-wrap"
+        >
           <div
             className={[
               "relative rounded-[var(--panel-radius,12px)] p-[1.25px]",
@@ -341,7 +338,6 @@ function LoginPage() {
               patternThickness={1}
               className="panel-base"
             >
-              {/* Contenido del panel (en móvil landscape pasa a 2 columnas) */}
               <div className="panel-content">
                 {/* Columna izquierda (logo + título) */}
                 <div className="panel-left-col">
