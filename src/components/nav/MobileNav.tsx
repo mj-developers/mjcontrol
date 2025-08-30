@@ -16,8 +16,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
-import IconCircle from "@/components/ui/IconMark";
-import type { Theme } from "./DesktopNav";
+import IconMark from "@/components/ui/IconMark";
+import type { Theme } from "@/lib/theme";
 
 const ACCENT: Record<string, string> = {
   "/": "#6366F1",
@@ -32,6 +32,15 @@ type StyleWithVars = CSSProperties & {
   ["--shell-bg"]?: string;
   ["--shell-fg"]?: string;
   ["--shell-border"]?: string;
+};
+
+type MarkVars = CSSProperties & {
+  ["--mark-bg"]?: string;
+  ["--mark-border"]?: string;
+  ["--mark-fg"]?: string;
+  ["--iconmark-hover-bg"]?: string;
+  ["--iconmark-hover-border"]?: string;
+  ["--iconmark-hover-icon-fg"]?: string;
 };
 
 export default function MobileNav({
@@ -61,47 +70,33 @@ export default function MobileNav({
     };
   }, [mounted]);
 
-  // vars del shell (colores del contenedor)
+  // shell contenedor
   const SHELL_BG = theme === "light" ? "#e2e5ea" : "#0d1117";
   const SHELL_BORDER = theme === "light" ? "#0b0b0d" : "#ffffff";
   const SHELL_FG = theme === "light" ? "#0b0b0d" : "#ffffff";
-
   const shell =
     "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]";
 
-  // paleta de círculos (estado normal)
+  // paleta de círculos
   const NORMAL_BORDER = theme === "light" ? "#0e1117" : "#ffffff";
   const NORMAL_BG = theme === "light" ? "#e2e5ea" : "#0b0b0d";
-  const circleBaseProps = {
-    theme,
-    size: "md" as const,
-    borderWidth: 2,
-    borderColor: { light: NORMAL_BORDER, dark: NORMAL_BORDER },
-    bg: { light: NORMAL_BG, dark: NORMAL_BG },
-    fillOnHover: true,
-    hoverEffect: "none" as const,
-    zoomOnHover: false,
-  };
+
+  function markStyle(active: boolean, accent: string): MarkVars {
+    const fgNormal = theme === "light" ? "#010409" : "#ffffff";
+    const fgActive = theme === "light" ? "#ffffff" : "#0b0b0d";
+    return {
+      "--mark-bg": active ? accent : NORMAL_BG,
+      "--mark-border": active ? accent : NORMAL_BORDER,
+      "--mark-fg": active ? fgActive : fgNormal,
+      "--iconmark-hover-bg": accent,
+      "--iconmark-hover-border": accent,
+      "--iconmark-hover-icon-fg": fgActive,
+    };
+  }
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
     return pathname === href || pathname.startsWith(href + "/");
-  }
-  function iconCls(active: boolean) {
-    const zoom = active ? "" : "transition-transform group-hover:scale-[1.15]";
-    if (theme === "light")
-      return [
-        "block",
-        zoom,
-        active ? "text-white" : "text-[#010409]",
-        active ? "" : "group-hover:text-white",
-      ].join(" ");
-    return [
-      "block",
-      zoom,
-      active ? "text-[#0b0b0d]" : "text-white",
-      active ? "" : "group-hover:text-[#0b0b0d]",
-    ].join(" ");
   }
 
   const Item = ({
@@ -116,14 +111,20 @@ export default function MobileNav({
     const active = isActive(href);
     return (
       <Link href={href} className="group grid place-items-center">
-        <IconCircle {...circleBaseProps} accent={accent} active={active}>
-          <Icon className={iconCls(active)} />
-        </IconCircle>
+        <IconMark
+          size="md"
+          borderWidth={2}
+          interactive
+          hoverAnim={active ? "none" : "zoom"}
+          style={markStyle(active, accent)}
+        >
+          <Icon />
+        </IconMark>
       </Link>
     );
   };
 
-  // Shell vacío durante SSR/primer render del cliente (sin vars de tema)
+  // Shell vacío durante SSR/primer render del cliente
   if (!mounted) {
     return (
       <nav
@@ -144,7 +145,7 @@ export default function MobileNav({
       className={[
         "fixed inset-x-0 bottom-0 z-40",
         "h-[72px] border-t",
-        "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]",
+        shell,
         "px-3",
       ].join(" ")}
       style={
@@ -165,59 +166,35 @@ export default function MobileNav({
       >
         {settingsOpen ? (
           <>
-            {/* Tema */}
+            {/* Tema (animación cycle, icono dinámico) */}
             <button
               type="button"
               onClick={() => setTheme(theme === "light" ? "dark" : "light")}
               aria-label="Cambiar tema"
               className="group grid place-items-center"
             >
-              <IconCircle
-                {...circleBaseProps}
-                fillOnHover={false}
-                className={
-                  theme === "dark"
-                    ? "group-hover:bg-white group-hover:border-white"
-                    : "group-hover:bg-[#18181b] group-hover:border-[#18181b]"
-                }
-              >
-                <span
-                  className="relative transition-transform group-hover:scale-[1.15]"
-                  style={{
-                    width: "var(--icon-size)",
-                    height: "var(--icon-size)",
-                  }}
-                >
-                  <Sun
-                    className={[
-                      "absolute inset-0 block w-full h-full transition-opacity",
-                      theme === "light"
-                        ? "opacity-100 group-hover:opacity-0 text-[#010409]"
-                        : "opacity-0 group-hover:opacity-100 text-black",
-                    ].join(" ")}
-                  />
-                  <Moon
-                    className={[
-                      "absolute inset-0 block w-full h-full transition-opacity",
-                      theme === "dark"
-                        ? "opacity-100 group-hover:opacity-0 text-white"
-                        : "opacity-0 group-hover:opacity-100 text-white",
-                    ].join(" ")}
-                  />
-                </span>
-              </IconCircle>
+              <IconMark
+                size="md"
+                borderWidth={2}
+                interactive
+                hoverAnim="cycle"
+                style={markStyle(false, BRAND)}
+                icon={theme === "dark" ? <Moon /> : <Sun />}
+                hoverIcon={theme === "dark" ? <Sun /> : <Moon />}
+              />
             </button>
 
-            {/* Logout */}
+            {/* Logout (zoom) */}
             <Link href="/logout" className="group grid place-items-center">
-              <IconCircle
-                {...circleBaseProps}
-                fillOnHover={false}
-                bg={BRAND}
-                className="group-hover:border-[#8E2434]"
+              <IconMark
+                size="md"
+                borderWidth={2}
+                interactive
+                hoverAnim="zoom"
+                style={markStyle(true, BRAND)}
               >
-                <LogOut className="block text-white transition-transform group-hover:scale-[1.15]" />
-              </IconCircle>
+                <LogOut />
+              </IconMark>
             </Link>
 
             {/* Volver */}
@@ -227,9 +204,15 @@ export default function MobileNav({
               className="group grid place-items-center"
               onClick={() => setSettingsOpen(false)}
             >
-              <IconCircle {...circleBaseProps} accent={BRAND} active={false}>
-                <ArrowLeft className={iconCls(false)} />
-              </IconCircle>
+              <IconMark
+                size="md"
+                borderWidth={2}
+                interactive
+                hoverAnim="zoom"
+                style={markStyle(false, BRAND)}
+              >
+                <ArrowLeft />
+              </IconMark>
             </button>
           </>
         ) : (
@@ -254,9 +237,15 @@ export default function MobileNav({
               className="group grid place-items-center"
               onClick={() => setSettingsOpen(true)}
             >
-              <IconCircle {...circleBaseProps} accent={BRAND} active={false}>
-                <Settings className={iconCls(false)} />
-              </IconCircle>
+              <IconMark
+                size="md"
+                borderWidth={2}
+                interactive
+                hoverAnim="zoom"
+                style={markStyle(false, BRAND)}
+              >
+                <Settings />
+              </IconMark>
             </button>
           </>
         )}

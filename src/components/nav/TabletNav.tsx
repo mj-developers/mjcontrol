@@ -14,8 +14,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { CSSProperties, ReactNode, useEffect, useState } from "react";
-import IconCircle from "@/components/ui/IconMark";
-import type { Theme } from "./DesktopNav";
+import IconMark from "@/components/ui/IconMark";
+import type { Theme } from "@/lib/theme";
 
 const ACCENT: Record<string, string> = {
   "/": "#6366F1",
@@ -32,6 +32,15 @@ type StyleWithVars = CSSProperties & {
   ["--shell-bg"]?: string;
   ["--shell-fg"]?: string;
   ["--shell-border"]?: string;
+};
+
+type MarkVars = CSSProperties & {
+  ["--mark-bg"]?: string;
+  ["--mark-border"]?: string;
+  ["--mark-fg"]?: string;
+  ["--iconmark-hover-bg"]?: string;
+  ["--iconmark-hover-border"]?: string;
+  ["--iconmark-hover-icon-fg"]?: string;
 };
 
 export default function TabletNav({
@@ -66,16 +75,19 @@ export default function TabletNav({
 
   const NORMAL_BORDER = theme === "light" ? "#0e1117" : "#ffffff";
   const NORMAL_BG = theme === "light" ? "#e2e5ea" : "#0b0b0d";
-  const circleBaseProps = {
-    theme,
-    size: "md" as const,
-    borderWidth: 2,
-    borderColor: { light: NORMAL_BORDER, dark: NORMAL_BORDER },
-    bg: { light: NORMAL_BG, dark: NORMAL_BG },
-    fillOnHover: true,
-    hoverEffect: "none" as const,
-    zoomOnHover: false,
-  };
+
+  function markStyle(active: boolean, accent: string): MarkVars {
+    const fgNormal = theme === "light" ? "#010409" : "#ffffff";
+    const fgActive = theme === "light" ? "#ffffff" : "#0b0b0d";
+    return {
+      "--mark-bg": active ? accent : NORMAL_BG,
+      "--mark-border": active ? accent : NORMAL_BORDER,
+      "--mark-fg": active ? fgActive : fgNormal,
+      "--iconmark-hover-bg": accent,
+      "--iconmark-hover-border": accent,
+      "--iconmark-hover-icon-fg": fgActive,
+    };
+  }
 
   const rowBase = "group flex items-center justify-center h-16";
   const IconRail = ({ children }: { children: ReactNode }) => (
@@ -85,23 +97,6 @@ export default function TabletNav({
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
     return pathname === href || pathname.startsWith(href + "/");
-  }
-  function iconCls(active: boolean) {
-    const zoom = active ? "" : "transition-transform group-hover:scale-[1.15]";
-    if (theme === "light") {
-      return [
-        "block",
-        zoom,
-        active ? "text-white" : "text-[#010409]",
-        active ? "" : "group-hover:text-white",
-      ].join(" ");
-    }
-    return [
-      "block",
-      zoom,
-      active ? "text-[#0b0b0d]" : "text-white",
-      active ? "" : "group-hover:text-[#0b0b0d]",
-    ].join(" ");
   }
 
   const Item = ({
@@ -121,15 +116,21 @@ export default function TabletNav({
         style={{ "--item-accent": accent } as StyleWithVars}
       >
         <IconRail>
-          <IconCircle {...circleBaseProps} accent={accent} active={active}>
-            <Icon className={iconCls(active)} />
-          </IconCircle>
+          <IconMark
+            size="md"
+            borderWidth={2}
+            interactive
+            hoverAnim={active ? "none" : "zoom"}
+            style={markStyle(active, accent)}
+          >
+            <Icon />
+          </IconMark>
         </IconRail>
       </Link>
     );
   };
 
-  // Skeleton en SSR sin vars de tema
+  // Skeleton SSR
   if (!mounted) {
     return (
       <aside
@@ -174,59 +175,35 @@ export default function TabletNav({
         </div>
 
         <div className="px-0 py-3 grid place-items-center gap-2">
-          {/* Tema */}
+          {/* Tema (cycle) */}
           <button
             type="button"
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}
             aria-label="Cambiar tema"
             className="group"
           >
-            <IconCircle
-              {...circleBaseProps}
-              fillOnHover={false}
-              className={
-                theme === "dark"
-                  ? "group-hover:bg-white group-hover:border-white"
-                  : "group-hover:bg-[#18181b] group-hover:border-[#18181b]"
-              }
-            >
-              <span
-                className="relative"
-                style={{
-                  width: "var(--icon-size)",
-                  height: "var(--icon-size)",
-                }}
-              >
-                <Sun
-                  className={[
-                    "absolute inset-0 block w-full h-full transition-opacity",
-                    theme === "light"
-                      ? "opacity-100 group-hover:opacity-0 text-[#010409]"
-                      : "opacity-0 group-hover:opacity-100 text-black",
-                  ].join(" ")}
-                />
-                <Moon
-                  className={[
-                    "absolute inset-0 block w-full h-full transition-opacity",
-                    theme === "dark"
-                      ? "opacity-100 group-hover:opacity-0 text-white"
-                      : "opacity-0 group-hover:opacity-100 text-white",
-                  ].join(" ")}
-                />
-              </span>
-            </IconCircle>
+            <IconMark
+              size="md"
+              borderWidth={2}
+              interactive
+              hoverAnim="cycle"
+              style={markStyle(false, BRAND)}
+              icon={theme === "dark" ? <Moon /> : <Sun />}
+              hoverIcon={theme === "dark" ? <Sun /> : <Moon />}
+            />
           </button>
 
-          {/* Logout */}
+          {/* Logout (zoom) */}
           <Link href="/logout" className="group">
-            <IconCircle
-              {...circleBaseProps}
-              fillOnHover={false}
-              bg={BRAND}
-              className="group-hover:border-[var(--item-accent)]"
+            <IconMark
+              size="md"
+              borderWidth={2}
+              interactive
+              hoverAnim="zoom"
+              style={markStyle(true, BRAND)}
             >
-              <LogOut className="block text-white transition-transform group-hover:scale-[1.15]" />
-            </IconCircle>
+              <LogOut />
+            </IconMark>
           </Link>
         </div>
       </nav>

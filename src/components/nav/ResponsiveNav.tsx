@@ -1,22 +1,24 @@
 "use client";
 
+import { useState, type Dispatch, type SetStateAction } from "react";
 import DesktopNav from "@/components/nav/DesktopNav";
 import TabletNav from "@/components/nav/TabletNav";
 import MobileNav from "@/components/nav/MobileNav";
-import type { Theme } from "@/components/nav/DesktopNav";
-import type { Dispatch, SetStateAction } from "react";
+import type { Theme } from "@/lib/theme";
 
+/**
+ * Arranca con el menú plegado en desktop (open=false).
+ * Si prefieres controlar open desde fuera, puedes volver a exponerlo por props.
+ */
 export default function ResponsiveNav({
   theme,
   setTheme,
-  open,
-  setOpen,
 }: {
   theme: Theme;
   setTheme: (t: Theme) => void;
-  open: boolean;
-  setOpen: Dispatch<SetStateAction<boolean>>;
 }) {
+  const [open, setOpen] = useState<boolean>(false); // ← plegado por defecto
+
   return (
     <>
       {/* Desktop */}

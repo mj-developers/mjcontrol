@@ -1,3 +1,4 @@
+// src/components/nav/DesktopNav.tsx
 "use client";
 
 import Link from "next/link";
@@ -22,9 +23,8 @@ import {
   ReactNode,
   useState,
 } from "react";
-import IconCircle from "@/components/ui/IconMark";
-
-export type Theme = "light" | "dark";
+import IconMark from "@/components/ui/IconMark";
+import type { Theme } from "@/lib/theme";
 
 type Props = {
   theme: Theme;
@@ -41,6 +41,7 @@ const ACCENT: Record<string, string> = {
   "/licenses": "#10B981",
 };
 const BRAND = "#8E2434";
+const ZOOM_SCALE = 1.5;
 
 function isRouteActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
@@ -56,38 +57,42 @@ type StyleWithVars = CSSProperties & {
   ["--shell-border"]?: string;
 };
 
+/** Vars que entiende <IconMark/> */
+type MarkVars = CSSProperties & {
+  ["--mark-bg"]?: string;
+  ["--mark-border"]?: string;
+  ["--mark-fg"]?: string;
+  ["--hover-bg"]?: string;
+  ["--hover-border"]?: string;
+  ["--hover-fg"]?: string;
+};
+
 export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // margen fijo del contenido
+  // Solo publicamos --nav-w (no tocamos márgenes del body)
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--content-gap", "2rem");
-    document.body.style.paddingLeft = "var(--content-gap)";
+    root.style.setProperty("--nav-w", open ? "14rem" : "5rem");
     return () => {
-      document.body.style.paddingLeft = "";
-      root.style.removeProperty("--content-gap");
+      root.style.removeProperty("--nav-w");
     };
-  }, []);
+  }, [open]);
 
-  // Variables de shell por tema
+  // contenedor/rail por tema
   const SHELL_BG = theme === "light" ? "#e2e5ea" : "#0d1117";
   const SHELL_BORDER = theme === "light" ? "#0b0b0d" : "#ffffff";
   const SHELL_FG = theme === "light" ? "#0b0b0d" : "#ffffff";
-
   const shell =
     "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]";
 
   const RAIL = "5rem";
-
-  // Base (independiente del tema)
   const baseVars: StyleWithVars = {
     "--nav-w": open ? "14rem" : RAIL,
     "--label-max": open ? `calc(var(--nav-w) - ${RAIL} - 0.5rem)` : "0px",
   };
-  // Sólo añadimos vars de tema cuando está montado (evita hydration mismatch)
   const themeVars: Partial<StyleWithVars> = mounted
     ? {
         ["--shell-bg"]: SHELL_BG,
@@ -98,7 +103,7 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
   const navVars: StyleWithVars = { ...baseVars, ...themeVars };
 
   const rowBase =
-    "group flex items-center rounded-xl h-12 transition-colors focus:outline-none";
+    "group mj-navlink flex items-center rounded-xl h-12 transition-colors focus:outline-none";
   const IconRail = ({ children }: { children: ReactNode }) => (
     <div className="w-20 flex-none grid place-items-center">{children}</div>
   );
@@ -118,29 +123,66 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
 
   const NORMAL_BORDER = theme === "light" ? "#0e1117" : "#ffffff";
   const NORMAL_BG = theme === "light" ? "#e2e5ea" : "#0b0b0d";
+  const FG_NORMAL = theme === "light" ? "#010409" : "#ffffff";
+  const FG_ACTIVE = theme === "light" ? "#ffffff" : "#0b0b0d";
 
-  function iconCls(active: boolean): string {
-    const zoom = active ? "" : "transition-transform group-hover:scale-[1.15]";
-    if (theme === "light") {
-      const base = active ? "text-white" : "text-[#010409]";
-      const hover = active ? "" : "group-hover:text-white";
-      return ["block", zoom, base, hover].filter(Boolean).join(" ");
-    }
-    const base = active ? "text-[#0b0b0d]" : "text-white";
-    const hover = active ? "" : "group-hover:text-[#0b0b0d]";
-    return ["block", zoom, base, hover].filter(Boolean).join(" ");
+  /** estilo base (sin acento) -> para Tema y Toggle */
+  function markBase(): MarkVars {
+    return {
+      "--mark-bg": NORMAL_BG,
+      "--mark-border": NORMAL_BORDER,
+      "--mark-fg": FG_NORMAL,
+      "--hover-bg": NORMAL_BG,
+      "--hover-border": NORMAL_BORDER,
+      "--hover-fg": FG_NORMAL,
+    };
   }
 
-  const circleBaseProps = {
-    theme,
-    size: "md" as const,
-    borderWidth: 2,
-    borderColor: { light: NORMAL_BORDER, dark: NORMAL_BORDER },
-    bg: { light: NORMAL_BG, dark: NORMAL_BG },
-    fillOnHover: true,
-    hoverEffect: "none" as const,
-    zoomOnHover: false,
-  };
+  /** estilo para items de menú */
+  function markForItem(active: boolean, accent: string): MarkVars {
+    return {
+      "--mark-bg": active ? accent : NORMAL_BG,
+      "--mark-border": active ? accent : NORMAL_BORDER,
+      "--mark-fg": active ? FG_ACTIVE : FG_NORMAL,
+      "--hover-bg": accent,
+      "--hover-border": accent,
+      "--hover-fg": FG_ACTIVE,
+    };
+  }
+
+  /** estilo logout: siempre brand */
+  function markLogout(): MarkVars {
+    return {
+      "--mark-bg": BRAND,
+      "--mark-border": BRAND,
+      "--mark-fg": "#fff",
+      "--hover-bg": BRAND,
+      "--hover-border": BRAND,
+      "--hover-fg": "#fff",
+    };
+  }
+
+  const NavMark = ({
+    active,
+    accent,
+    children,
+  }: {
+    active: boolean;
+    accent: string;
+    children: React.ReactNode;
+  }) => (
+    <IconMark
+      size="md"
+      borderWidth={2}
+      interactive
+      hoverAnim="zoom"
+      zoomScale={ZOOM_SCALE}
+      className={active ? "is-active" : undefined}
+      style={markForItem(active, accent)}
+    >
+      {children}
+    </IconMark>
+  );
 
   const NavLink = ({
     href,
@@ -162,9 +204,9 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
         style={{ "--item-accent": accent } as StyleWithVars}
       >
         <IconRail>
-          <IconCircle {...circleBaseProps} accent={accent} active={active}>
-            <Icon className={iconCls(active)} />
-          </IconCircle>
+          <NavMark active={active} accent={accent}>
+            <Icon />
+          </NavMark>
         </IconRail>
         <Label>
           <span
@@ -180,7 +222,6 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
     );
   };
 
-  // SSR/skeleton sin vars de tema (mismo HTML que el server)
   if (!mounted) {
     return (
       <aside
@@ -211,7 +252,36 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
       style={navVars}
       aria-label="Barra de navegación"
     >
-      {/* Toggle */}
+      {/* Hover del Link => pinta el IconMark (y excluye los activos) */}
+      <style jsx global>{`
+        /* color de fondo en hover (cuando pasas por icono o por texto) */
+        .mj-navlink:hover .mj-iconmark:not(.is-active) {
+          --mark-bg: var(--hover-bg) !important;
+          --mark-border: var(--hover-border) !important;
+          --mark-fg: var(--hover-fg) !important;
+        }
+        /* zoom solo del icono cuando haces hover sobre el Link (no el aro) */
+        .mj-navlink:hover
+          .mj-iconmark:not(.is-active)[data-anim="zoom"]
+          .icon-default {
+          transform: scale(
+            var(--mark-def-scale-hover, ${ZOOM_SCALE})
+          ) !important;
+        }
+        .mj-navlink:hover
+          .mj-iconmark:not(.is-active)[data-anim="zoom"]
+          .icon-hover {
+          transform: scale(var(--mark-hov-scale-hover, 1)) !important;
+        }
+        /* el ACTIVO siempre zoom del icono y NO cambia en hover */
+        .mj-iconmark.is-active .icon-default {
+          transform: scale(
+            var(--mark-def-scale-hover, ${ZOOM_SCALE})
+          ) !important;
+        }
+      `}</style>
+
+      {/* Toggle plegar/expandir (sin color de fondo; animación zoom OK) */}
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Contraer menú" : "Expandir menú"}
@@ -223,16 +293,22 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
         ].join(" ")}
         type="button"
       >
-        <IconCircle {...circleBaseProps} fillOnHover={false} accent={BRAND}>
+        <IconMark
+          size="md"
+          borderWidth={2}
+          interactive
+          hoverAnim="zoom"
+          zoomScale={ZOOM_SCALE}
+          style={markBase()}
+        >
           <ChevronLeft
             className={[
-              "block",
-              "transition-transform group-hover:scale-[1.15]",
+              "block transition-transform group-hover:scale-[1.15]",
               "h-5 w-5",
               open ? "rotate-0" : "rotate-180",
             ].join(" ")}
           />
-        </IconCircle>
+        </IconMark>
       </button>
 
       <nav className="flex h-full min-h-0 flex-col">
@@ -272,7 +348,7 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
         </div>
 
         <div className="px-0 py-3 space-y-2">
-          {/* Tema */}
+          {/* Tema => animación cycle (no zoom) y sin color de fondo */}
           <button
             type="button"
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}
@@ -280,40 +356,15 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
             className="group flex items-center rounded-xl h-12 w-full text-left cursor-pointer"
           >
             <div className="w-20 flex-none grid place-items-center">
-              <IconCircle
-                {...circleBaseProps}
-                fillOnHover={false}
-                className={
-                  theme === "dark"
-                    ? "group-hover:bg-white group-hover:border-white"
-                    : "group-hover:bg-[#18181b] group-hover:border-[#18181b]"
-                }
-              >
-                <span
-                  className="relative"
-                  style={{
-                    width: "var(--icon-size)",
-                    height: "var(--icon-size)",
-                  }}
-                >
-                  <Sun
-                    className={[
-                      "absolute inset-0 block w-full h-full transition-opacity",
-                      theme === "light"
-                        ? "opacity-100 group-hover:opacity-0 text-[#010409]"
-                        : "opacity-0 group-hover:opacity-100 text-black",
-                    ].join(" ")}
-                  />
-                  <Moon
-                    className={[
-                      "absolute inset-0 block w-full h-full transition-opacity",
-                      theme === "dark"
-                        ? "opacity-100 group-hover:opacity-0 text-white"
-                        : "opacity-0 group-hover:opacity-100 text-white",
-                    ].join(" ")}
-                  />
-                </span>
-              </IconCircle>
+              <IconMark
+                size="md"
+                borderWidth={2}
+                interactive
+                hoverAnim="cycle"
+                style={markBase()}
+                icon={theme === "dark" ? <Moon /> : <Sun />}
+                hoverIcon={theme === "dark" ? <Sun /> : <Moon />}
+              />
             </div>
             <span
               className="overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin,color,text-decoration-color] duration-300 ease-out ml-2"
@@ -323,29 +374,29 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
             </span>
           </button>
 
-          {/* Logout */}
+          {/* Logout (siempre brand) */}
           <Link
             href="/logout"
-            className={rowBase}
+            className={`${rowBase} mj-navlink`}
             style={{ "--item-accent": BRAND } as StyleWithVars}
           >
             <div className="w-20 flex-none grid place-items-center">
-              <IconCircle
-                {...circleBaseProps}
-                fillOnHover={false}
-                bg={BRAND}
-                className="group-hover:border-[var(--item-accent)]"
+              <IconMark
+                size="md"
+                borderWidth={2}
+                interactive
+                hoverAnim="zoom"
+                zoomScale={ZOOM_SCALE}
+                style={markLogout()}
               >
-                <LogOut className="block text-white transition-transform group-hover:scale-[1.15]" />
-              </IconCircle>
+                <LogOut />
+              </IconMark>
             </div>
             <span
               className="overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin,color,text-decoration-color] duration-300 ease-out ml-2"
               style={{ maxWidth: "var(--label-max)" }}
             >
-              <span className="group-hover:text-[var(--item-accent)] group-hover:underline">
-                Logout
-              </span>
+              Logout
             </span>
           </Link>
         </div>
