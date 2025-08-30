@@ -1,3 +1,4 @@
+// src/app/(app)/layout.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -6,24 +7,13 @@ import { getInitialTheme, setThemeGlobal, type Theme } from "@/lib/theme";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>("dark");
-  const [open, setOpen] = useState(true); // ancho 14rem en desktop cuando está abierto
 
-  // hidrata con el tema inicial y aplica al <html>
+  // Tema inicial + sincroniza con <html>
   useEffect(() => {
     const t = getInitialTheme();
     setTheme(t);
     setThemeGlobal(t);
   }, []);
-
-  // sincroniza el ancho de nav con una CSS var global para desplazar el contenido en desktop
-  useEffect(() => {
-    const root = document.documentElement;
-    // Desktop: 14rem si abierto, 5rem si contraído.
-    root.style.setProperty("--nav-w", open ? "14rem" : "5rem");
-    return () => {
-      root.style.removeProperty("--nav-w");
-    };
-  }, [open]);
 
   const setThemeBoth = (t: Theme) => {
     setTheme(t);
@@ -32,36 +22,55 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-shell">
-      <ResponsiveNav
-        theme={theme}
-        setTheme={setThemeBoth}
-        open={open}
-        setOpen={setOpen}
-      />
+      <ResponsiveNav theme={theme} setTheme={setThemeBoth} />
       <main className="app-content">{children}</main>
 
-      {/* padding responsivo para el contenido (tablet/desktop). 
-          En móvil no aplicamos padding-left, la MobileNav ya reserva bottom. */}
       <style jsx global>{`
         .app-shell {
           min-height: 100svh;
         }
-        @media (min-width: 768px) {
-          /* Tablet (rail fijo 5rem) */
+
+        /* ====== Valores base (móvil) ====== */
+        .app-shell .app-content {
+          /* base para móvil */
+          --gap-md: 16px;
+          padding-top: var(--gap-md);
+          padding-right: var(--gap-md);
+          padding-bottom: var(--gap-md);
+          padding-left: var(--gap-md);
+        }
+
+        /* Móvil landscape: fuerza también margen izquierdo (antes se pegaba) */
+        @media (max-width: 767px) and (orientation: landscape) {
           .app-shell .app-content {
-            padding-left: 5rem;
+            --gap-md: 16px;
+            padding-left: var(--gap-md);
+            padding-right: var(--gap-md);
           }
         }
+
+        /* ====== Tablet (rail fijo 5rem) ====== */
+        @media (min-width: 768px) and (max-width: 1023px) {
+          .app-shell .app-content {
+            --tab-gap: 20px;
+            padding-top: var(--tab-gap);
+            padding-right: var(--tab-gap);
+            padding-bottom: var(--tab-gap);
+            /* Rail 5rem + margen extra */
+            padding-left: calc(5rem + var(--tab-gap));
+          }
+        }
+
+        /* ====== Desktop (usa --nav-w dinámico) ====== */
         @media (min-width: 1024px) {
-          /* Desktop (usa --nav-w dinámico) */
           .app-shell .app-content {
-            padding-left: var(--nav-w, 5rem);
-          }
-        }
-        @media (max-width: 767px) {
-          /* Mobile: la barra inferior ya deja hueco con padding-bottom propio */
-          .app-shell .app-content {
-            padding-left: 0;
+            --gap-lg: 24px;
+            /* Ajusta aquí el “aire” respecto al menú */
+            --page-left-extra: 36px; /* súbelo si quieres aún más separación */
+            padding-top: var(--gap-lg);
+            padding-right: var(--gap-lg);
+            padding-bottom: var(--gap-lg);
+            padding-left: calc(var(--nav-w, 5rem) + var(--page-left-extra));
           }
         }
       `}</style>
