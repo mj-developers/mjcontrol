@@ -1,15 +1,38 @@
+// src/components/nav/ResponsiveNav.tsx
 "use client";
 
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useState } from "react";
 import DesktopNav from "@/components/nav/DesktopNav";
 import TabletNav from "@/components/nav/TabletNav";
 import MobileNav from "@/components/nav/MobileNav";
 import type { Theme } from "@/lib/theme";
 
-/**
- * Arranca con el menú plegado en desktop (open=false).
- * Si prefieres controlar open desde fuera, puedes volver a exponerlo por props.
- */
+type Variant = "desktop" | "tablet" | "mobile";
+
+function computeVariant(): Variant {
+  if (typeof window === "undefined") return "desktop"; // SSR placeholder
+  const w = window.innerWidth;
+  const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+  if (w >= 1024 && isLandscape) return "desktop";
+  if (w >= 768) return "tablet";
+  return "mobile";
+}
+
+/** Soporte a Safari (addListener) sin usar `any` */
+function attachMqlChange(mql: MediaQueryList, fn: () => void): () => void {
+  const handler = () => fn();
+  if ("addEventListener" in mql) {
+    mql.addEventListener("change", handler as EventListener);
+    return () => mql.removeEventListener("change", handler as EventListener);
+  }
+  // @ts-expect-error Safari antiguo usa addListener/removeListener
+  mql.addListener(handler);
+  return () => {
+    // @ts-expect-error Safari antiguo
+    mql.removeListener(handler);
+  };
+}
+
 export default function ResponsiveNav({
   theme,
   setTheme,
@@ -17,29 +40,44 @@ export default function ResponsiveNav({
   theme: Theme;
   setTheme: (t: Theme) => void;
 }) {
-  const [open, setOpen] = useState<boolean>(false); // ← plegado por defecto
+  // Menú desktop plegado por defecto
+  const [open, setOpen] = useState(false);
 
-  return (
-    <>
-      {/* Desktop */}
-      <div className="hidden lg:block">
-        <DesktopNav
-          theme={theme}
-          setTheme={setTheme}
-          open={open}
-          setOpen={setOpen}
-        />
-      </div>
+  const [mounted, setMounted] = useState(false);
+  const [variant, setVariant] = useState<Variant>("desktop");
 
-      {/* Tablet (rail fijo) */}
-      <div className="hidden md:block lg:hidden">
-        <TabletNav theme={theme} setTheme={setTheme} />
-      </div>
+  useEffect(() => {
+    setMounted(true);
+    const update = () => setVariant(computeVariant());
+    const mql = window.matchMedia("(orientation: landscape)");
 
-      {/* Mobile (barra inferior) */}
-      <div className="block md:hidden">
-        <MobileNav theme={theme} setTheme={setTheme} />
-      </div>
-    </>
-  );
+    update();
+    window.addEventListener("resize", update);
+    const detach = attachMqlChange(mql, update);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      detach();
+    };
+  }, []);
+
+  // Evitamos parpadeos/hydration mismatch
+  if (!mounted) return null;
+
+  if (variant === "desktop") {
+    return (
+      <DesktopNav
+        theme={theme}
+        setTheme={setTheme}
+        open={open}
+        setOpen={setOpen}
+      />
+    );
+  }
+
+  if (variant === "tablet") {
+    return <TabletNav theme={theme} setTheme={setTheme} />;
+  }
+
+  return <MobileNav theme={theme} setTheme={setTheme} />;
 }

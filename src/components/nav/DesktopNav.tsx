@@ -57,7 +57,7 @@ type StyleWithVars = CSSProperties & {
   ["--shell-border"]?: string;
 };
 
-/** Vars que entiende <IconMark/> */
+/** Vars que entiende <IconMark/> (nuestro wrapper) */
 type MarkVars = CSSProperties & {
   ["--mark-bg"]?: string;
   ["--mark-border"]?: string;
@@ -72,7 +72,7 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // Solo publicamos --nav-w (no tocamos márgenes del body)
+  // Publicamos --nav-w (no tocamos márgenes del body)
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("--nav-w", open ? "14rem" : "5rem");
@@ -121,44 +121,68 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
     </span>
   );
 
-  const NORMAL_BORDER = theme === "light" ? "#0e1117" : "#ffffff";
-  const NORMAL_BG = theme === "light" ? "#e2e5ea" : "#0b0b0d";
-  const FG_NORMAL = theme === "light" ? "#010409" : "#ffffff";
-  const FG_ACTIVE = theme === "light" ? "#ffffff" : "#0b0b0d";
+  // Paletas base por tema actual
+  const LIGHT = {
+    BORDER: "#0b0b0d",
+    BG: "#e2e5ea",
+    FG: "#010409",
+    FG_ACTIVE: "#ffffff",
+  };
+  const DARK = {
+    BORDER: "#ffffff",
+    BG: "#0b0b0d",
+    FG: "#ffffff",
+    FG_ACTIVE: "#0b0b0d",
+  };
 
-  /** estilo base (sin acento) -> para Tema y Toggle */
+  const P = theme === "light" ? LIGHT : DARK;
+  const OPP = theme === "light" ? DARK : LIGHT;
+
+  /** Estilo base (sin acento) -> para Tema y Toggle */
   function markBase(): MarkVars {
     return {
-      "--mark-bg": NORMAL_BG,
-      "--mark-border": NORMAL_BORDER,
-      "--mark-fg": FG_NORMAL,
-      "--hover-bg": NORMAL_BG,
-      "--hover-border": NORMAL_BORDER,
-      "--hover-fg": FG_NORMAL,
+      "--mark-bg": P.BG,
+      "--mark-border": P.BORDER,
+      "--mark-fg": P.FG,
+      "--hover-bg": P.BG,
+      "--hover-border": P.BORDER,
+      "--hover-fg": P.FG,
     };
   }
 
-  /** estilo para items de menú */
+  /** Estilo del botón de Tema: hover = paleta opuesta */
+  function markTheme(): MarkVars {
+    return {
+      "--mark-bg": P.BG,
+      "--mark-border": P.BORDER,
+      "--mark-fg": P.FG,
+      "--hover-bg": OPP.BG,
+      "--hover-border": OPP.BORDER,
+      "--hover-fg": OPP.FG,
+    };
+  }
+
+  /** Estilo para items de menú con acento */
   function markForItem(active: boolean, accent: string): MarkVars {
     return {
-      "--mark-bg": active ? accent : NORMAL_BG,
-      "--mark-border": active ? accent : NORMAL_BORDER,
-      "--mark-fg": active ? FG_ACTIVE : FG_NORMAL,
+      "--mark-bg": active ? accent : P.BG,
+      "--mark-border": active ? accent : P.BORDER,
+      "--mark-fg": active ? P.FG_ACTIVE : P.FG,
       "--hover-bg": accent,
       "--hover-border": accent,
-      "--hover-fg": FG_ACTIVE,
+      "--hover-fg": P.FG_ACTIVE,
     };
   }
 
-  /** estilo logout: siempre brand */
+  /** Logout: siempre brand */
   function markLogout(): MarkVars {
     return {
       "--mark-bg": BRAND,
       "--mark-border": BRAND,
-      "--mark-fg": "#fff",
+      "--mark-fg": "#ffffff",
       "--hover-bg": BRAND,
       "--hover-border": BRAND,
-      "--hover-fg": "#fff",
+      "--hover-fg": "#ffffff",
     };
   }
 
@@ -254,13 +278,13 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
     >
       {/* Hover del Link => pinta el IconMark (y excluye los activos) */}
       <style jsx global>{`
-        /* color de fondo en hover (cuando pasas por icono o por texto) */
+        /* Color de fondo cuando pasas por icono O texto del link */
         .mj-navlink:hover .mj-iconmark:not(.is-active) {
           --mark-bg: var(--hover-bg) !important;
           --mark-border: var(--hover-border) !important;
           --mark-fg: var(--hover-fg) !important;
         }
-        /* zoom solo del icono cuando haces hover sobre el Link (no el aro) */
+        /* Zoom solo del ICONO (no el aro) al hacer hover en el link */
         .mj-navlink:hover
           .mj-iconmark:not(.is-active)[data-anim="zoom"]
           .icon-default {
@@ -273,11 +297,18 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
           .icon-hover {
           transform: scale(var(--mark-hov-scale-hover, 1)) !important;
         }
-        /* el ACTIVO siempre zoom del icono y NO cambia en hover */
+        /* El ACTIVO: icono siempre con zoom y no reacciona al hover */
         .mj-iconmark.is-active .icon-default {
           transform: scale(
             var(--mark-def-scale-hover, ${ZOOM_SCALE})
           ) !important;
+        }
+
+        /* Tema: queremos que el hover se dispare también al pasar por el texto */
+        .mj-theme-row:hover .mj-iconmark {
+          --mark-bg: var(--hover-bg) !important;
+          --mark-border: var(--hover-border) !important;
+          --mark-fg: var(--hover-fg) !important;
         }
       `}</style>
 
@@ -348,12 +379,12 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
         </div>
 
         <div className="px-0 py-3 space-y-2">
-          {/* Tema => animación cycle (no zoom) y sin color de fondo */}
+          {/* Tema: animación "cycle" y hover con paleta opuesta + icono opuesto */}
           <button
             type="button"
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}
             aria-label="Cambiar tema"
-            className="group flex items-center rounded-xl h-12 w-full text-left cursor-pointer"
+            className="mj-theme-row group flex items-center rounded-xl h-12 w-full text-left cursor-pointer"
           >
             <div className="w-20 flex-none grid place-items-center">
               <IconMark
@@ -361,7 +392,7 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
                 borderWidth={2}
                 interactive
                 hoverAnim="cycle"
-                style={markBase()}
+                style={markTheme()}
                 icon={theme === "dark" ? <Moon /> : <Sun />}
                 hoverIcon={theme === "dark" ? <Sun /> : <Moon />}
               />
@@ -377,7 +408,7 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
           {/* Logout (siempre brand) */}
           <Link
             href="/logout"
-            className={`${rowBase} mj-navlink`}
+            className={rowBase}
             style={{ "--item-accent": BRAND } as StyleWithVars}
           >
             <div className="w-20 flex-none grid place-items-center">
