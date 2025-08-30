@@ -2,7 +2,16 @@
 import * as React from "react";
 
 type Shape = "circle" | "rounded" | "square" | "pill";
-type SizeKey = "xs" | "sm" | "md" | "lg" | "xl" | "xxl" | "hero" | "xxxl";
+type SizeKey =
+  | "xs"
+  | "sm"
+  | "md"
+  | "lg"
+  | "xl"
+  | "xxl"
+  | "heroSm"
+  | "hero"
+  | "xxxl";
 type HoverAnim = "none" | "zoom" | "cycle";
 
 type IconMarkCSSVars =
@@ -21,7 +30,10 @@ type IconMarkCSSVars =
   | "--mark-hov-in-x"
   | "--mark-hov-in-y"
   | "--mark-def-rot-hover"
-  | "--mark-hov-rot-init";
+  | "--mark-hov-rot-init"
+  /* 👇 nudge opcional para <img> (p. ej., SVG vía src) */
+  | "--iconmark-img-nudge-x"
+  | "--iconmark-img-nudge-y";
 
 type StyleWithVars = React.CSSProperties &
   Partial<Record<IconMarkCSSVars, string>>;
@@ -53,7 +65,7 @@ export type IconMarkProps = {
   cycleRotateDeg?: number;
 
   className?: string;
-  style?: React.CSSProperties;
+  style?: StyleWithVars; // 👈 acepta las CSS vars
 };
 
 function sizeToVar(size: SizeKey | number | undefined) {
@@ -71,6 +83,8 @@ function sizeToVar(size: SizeKey | number | undefined) {
       return "var(--iconmark-size-xl, 72px)";
     case "xxl":
       return "var(--iconmark-size-xxl, 420px)";
+    case "heroSm":
+      return "var(--iconmark-size-hero-sm, 360px)";
     case "hero":
       return "var(--iconmark-size-hero, 360px)";
     case "xxxl":
@@ -95,8 +109,10 @@ function iconSizeFor(size: SizeKey | number | undefined) {
       return 32;
     case "xxl":
       return 210;
+    case "heroSm":
+      return 280;
     case "hero":
-      return 288; // 0.8 de 360 (igual proporción que 400/500)
+      return 288;
     case "xxxl":
       return 400;
     default:
@@ -117,46 +133,48 @@ function radiusFor(shape: Shape | undefined) {
   }
 }
 
+/* ---------- type guards sin any/JSX ---------- */
+function isSvgElement(
+  el: React.ReactElement
+): el is React.ReactElement<React.SVGProps<SVGSVGElement>, "svg"> {
+  return typeof el.type === "string" && el.type === "svg";
+}
+function isImgElement(
+  el: React.ReactElement
+): el is React.ReactElement<React.ImgHTMLAttributes<HTMLImageElement>, "img"> {
+  return typeof el.type === "string" && el.type === "img";
+}
+
 /** Normaliza <svg> y <img> para llenar el slot sin baseline/gaps */
 function normalizeIcon(node: React.ReactNode, px: number): React.ReactNode {
   if (!React.isValidElement(node)) return node;
+  const el = node as React.ReactElement;
 
-  if (typeof node.type === "string") {
-    const tag = node.type;
+  if (isSvgElement(el)) {
+    return React.cloneElement<React.SVGProps<SVGSVGElement>>(el, {
+      width: px,
+      height: px,
+      focusable: false,
+      "aria-hidden": el.props["aria-label"] ? undefined : true,
+      style: { ...(el.props.style ?? {}), display: "block" },
+    });
+  }
 
-    if (tag === "svg") {
-      const el = node as React.ReactElement<
-        React.SVGProps<SVGSVGElement>,
-        "svg"
-      >;
-      return React.cloneElement<React.SVGProps<SVGSVGElement>>(el, {
-        width: px,
-        height: px,
-        focusable: false,
-        "aria-hidden": el.props["aria-label"] ? undefined : true,
-        style: { ...(el.props.style ?? {}), display: "block" },
-      });
-    }
-
-    if (tag === "img") {
-      const img = node as React.ReactElement<
-        React.ImgHTMLAttributes<HTMLImageElement>,
-        "img"
-      >;
-      return React.cloneElement<React.ImgHTMLAttributes<HTMLImageElement>>(
-        img,
-        {
-          draggable: false,
-          style: {
-            ...(img.props.style ?? {}),
-            display: "block",
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-          },
-        }
-      );
-    }
+  if (isImgElement(el)) {
+    // ⬇️ centrado estable para SVG servido como <img src="...">
+    return React.cloneElement<React.ImgHTMLAttributes<HTMLImageElement>>(el, {
+      draggable: false,
+      style: {
+        ...(el.props.style ?? {}),
+        display: "block",
+        width: "auto",
+        height: "100%",
+        maxWidth: "100%",
+        objectFit: "contain",
+        objectPosition: "center",
+        // aspectRatio: "1 / 1", // opcional si lo necesitas
+      },
+    });
   }
 
   return node;
@@ -252,87 +270,19 @@ export default function IconMark({
     ["--mark-def-rot-hover"]: `${cycleRotateDeg}deg`,
     ["--mark-hov-rot-init"]: `${-cycleRotateDeg}deg`,
 
+    // permite nudge opcional en <img>
+    ["--iconmark-img-nudge-x"]: style?.["--iconmark-img-nudge-x"] ?? "0px",
+    ["--iconmark-img-nudge-y"]: style?.["--iconmark-img-nudge-y"] ?? "0px",
+
     ...style,
   };
-
-  // ===== Autocentrado robusto =====
-  const outerNodeRef = React.useRef<HTMLElement | null>(null);
-  const setOuterNode = React.useCallback(
-    (el: HTMLSpanElement | HTMLButtonElement | null) => {
-      outerNodeRef.current = el ?? null;
-    },
-    []
-  );
-  const defaultSlotRef = React.useRef<HTMLSpanElement | null>(null);
-
-  const recalc = React.useCallback(() => {
-    const node = outerNodeRef.current;
-    if (!node) return;
-
-    const artEl =
-      (node.querySelector(".icon-default > *") as HTMLElement | null) ??
-      defaultSlotRef.current;
-    if (!artEl) return;
-
-    const a = node.getBoundingClientRect();
-    const b = artEl.getBoundingClientRect();
-
-    const ax = a.left + a.width / 2;
-    const ay = a.top + a.height / 2;
-    const bx = b.left + b.width / 2;
-    const by = b.top + b.height / 2;
-
-    node.style.setProperty("--icon-auto-x", `${ax - bx}px`);
-    node.style.setProperty("--icon-auto-y", `${ay - by}px`);
-  }, []);
-
-  React.useLayoutEffect(() => {
-    const node = outerNodeRef.current;
-    if (!node) return;
-
-    // 1) primer cálculo tras montar
-    requestAnimationFrame(() => {
-      requestAnimationFrame(recalc);
-    });
-
-    // 2) recálculo tardío por si entra por media query
-    const t = setTimeout(recalc, 120);
-
-    // 3) si hay imágenes, escuchar su load
-    const imgs = node.querySelectorAll("img");
-    const onLoad = () => recalc();
-    imgs.forEach((img) => {
-      if (img.complete) return;
-      img.addEventListener("load", onLoad);
-    });
-
-    // 4) observar cambios de tamaño
-    const ro = new ResizeObserver(recalc);
-    ro.observe(node);
-    if (defaultSlotRef.current) ro.observe(defaultSlotRef.current);
-
-    // 5) cambios de ventana/orientación
-    window.addEventListener("resize", recalc);
-    window.addEventListener("orientationchange", recalc);
-
-    return () => {
-      clearTimeout(t);
-      imgs.forEach((img) => img.removeEventListener("load", onLoad));
-      ro.disconnect();
-      window.removeEventListener("resize", recalc);
-      window.removeEventListener("orientationchange", recalc);
-    };
-  }, [recalc]);
 
   const Inner = () => (
     <span
       className="relative inline-grid place-items-center"
       style={{ width: `${evenIconPx}px`, height: `${evenIconPx}px` }}
     >
-      <span
-        ref={defaultSlotRef}
-        className="icon-default absolute inset-0 grid place-items-center"
-      >
+      <span className="icon-default absolute inset-0 grid place-items-center">
         {defaultIcon}
       </span>
       {hoverIconNode && (
@@ -349,7 +299,6 @@ export default function IconMark({
     "data-anim": HoverAnim;
     "aria-label"?: string;
     title?: string;
-    ref: (el: HTMLSpanElement | HTMLButtonElement | null) => void;
   };
 
   const wrapperProps: SharedProps = {
@@ -358,7 +307,6 @@ export default function IconMark({
     "data-anim": hoverAnim,
     "aria-label": ariaLabel ?? title,
     title,
-    ref: setOuterNode,
   };
 
   return (
@@ -388,10 +336,6 @@ export default function IconMark({
           --mark-border: var(--iconmark-border);
           --mark-fg: var(--iconmark-icon-fg);
           --iconmark-radius: var(--radius-control, 12px);
-
-          /* offsets que calcula el componente */
-          --icon-auto-x: 0px;
-          --icon-auto-y: 0px;
         }
         .mj-iconmark:hover {
           --mark-bg: var(--iconmark-hover-bg, var(--iconmark-bg));
@@ -405,17 +349,31 @@ export default function IconMark({
             opacity 0.22s linear;
         }
 
-        /* El arte rellena el slot y aplica el offset de autocentrado */
-        .mj-iconmark .icon-default > *,
-        .mj-iconmark .icon-hover > * {
+        /* ========= arte centrado por tipo ========= */
+        /* SVG inline: llena el slot */
+        .mj-iconmark .icon-default > svg,
+        .mj-iconmark .icon-hover > svg {
           display: block;
           width: 100%;
           height: 100%;
           object-fit: contain;
-          transform: translate(var(--icon-auto-x), var(--icon-auto-y));
+        }
+        /* IMG (incluye SVG via <img>): centrado + micro-ajuste opcional */
+        .mj-iconmark .icon-default > img,
+        .mj-iconmark .icon-hover > img {
+          display: block;
+          width: auto;
+          height: 100%;
+          max-width: 100%;
+          object-fit: contain;
+          object-position: center;
+          transform: translate(
+            var(--iconmark-img-nudge-x, 0px),
+            var(--iconmark-img-nudge-y, 0px)
+          );
         }
 
-        /* animaciones */
+        /* ===== animaciones ===== */
         .mj-iconmark[data-anim="none"] .icon-default {
           opacity: 1;
           transform: none;

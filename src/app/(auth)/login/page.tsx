@@ -286,9 +286,9 @@ function LoginPage() {
           />
 
           {/* Variante PEQUEÑA (solo tablet portrait) */}
+          {/* Variante PEQUEÑA (solo tablet portrait) */}
           <IconMark
-            size="hero" // <-- nuevo tamaño para tablet portrait
-            iconSize={280}
+            size="heroSm"
             asButton={false}
             interactive={false}
             hoverAnim="none"
@@ -303,8 +303,11 @@ function LoginPage() {
               />
             }
             className="hero-sm iconmark-hero iconmark-static rounded-full select-none"
-            ariaLabel="MJ Devs"
-            title="MJ Devs"
+            style={{
+              // micro-ajuste para centrar en tablet portrait (toca a ojo si hace falta)
+              ["--iconmark-img-nudge-x"]: "25px", // → derecha (+) / izquierda (-)
+              ["--iconmark-img-nudge-y"]: "30px", // → arriba (-) / abajo (+)
+            }}
           />
         </div>
       </section>
