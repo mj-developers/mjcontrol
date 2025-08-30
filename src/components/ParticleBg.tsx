@@ -45,8 +45,7 @@ function hexWithAlpha(hex: string, a: number) {
       .split("")
       .map((ch) => ch + ch)
       .join("");
-  // Si no es hex puro (rgb/hsl/var), devolvemos tal cual y dejamos alpha al contexto
-  if (!/^[0-9a-fA-F]{6}$/.test(c)) return hex;
+  if (!/^[0-9a-fA-F]{6}$/.test(c)) return hex; // si no es hex, devuelve tal cual
   const n = parseInt(c, 16);
   const r = (n >> 16) & 255,
     g = (n >> 8) & 255,
@@ -78,7 +77,7 @@ export default function ParticleBg({
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
 
-    // Tokens de color/alpha (colores en el TEMA → --pl-*)
+    // Tokens de color/alpha
     const tokens = {
       bg: "#E2E5EA",
       linkColor: "#3A3A3A",
@@ -108,9 +107,10 @@ export default function ParticleBg({
         ) || tokens.ringStrokeAlpha;
     }
 
+    // Estado interno
     let W = 0,
-      H = 0,
-      raf = 0;
+      H = 0; // tamaño actual en CSS px
+    let raf = 0;
     let running = true;
     const pts: Pt[] = [];
     const mouse = { x: 0, y: 0, has: false };
@@ -120,6 +120,7 @@ export default function ParticleBg({
     const attractStrength = 20;
     const maxSpeed = speed * 1.25;
 
+    // Siembra inicial/forzada
     function seed() {
       pts.length = 0;
       for (let i = 0; i < count; i++) {
@@ -134,27 +135,59 @@ export default function ParticleBg({
       }
     }
 
+    // Ajusta canvas y decide resembrar o reescalar
     function fit() {
       readTokens();
-      const r = wrap.getBoundingClientRect();
-      W = Math.max(1, Math.floor(r.width || window.innerWidth));
-      H = Math.max(1, Math.floor(r.height || window.innerHeight));
 
+      const r = wrap.getBoundingClientRect();
+      const newW = Math.max(1, Math.floor(r.width || window.innerWidth));
+      const newH = Math.max(1, Math.floor(r.height || window.innerHeight));
+
+      // Canvas backing store (DPR cap 2)
       const MAX_DIM = 8192;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const pxW = Math.min(Math.floor(W * dpr), MAX_DIM);
-      const pxH = Math.min(Math.floor(H * dpr), MAX_DIM);
+      const pxW = Math.min(Math.floor(newW * dpr), MAX_DIM);
+      const pxH = Math.min(Math.floor(newH * dpr), MAX_DIM);
 
       canvas.width = pxW;
       canvas.height = pxH;
-      canvas.style.width = `${W}px`;
-      canvas.style.height = `${H}px`;
+      canvas.style.width = `${newW}px`;
+      canvas.style.height = `${newH}px`;
 
-      const sx = pxW / W;
-      const sy = pxH / H;
+      const sx = pxW / newW;
+      const sy = pxH / newH;
       ctx.setTransform(sx, 0, 0, sy, 0, 0);
 
-      if (!pts.length) seed();
+      // Decidir acción sobre las partículas
+      const hadSize = W > 0 && H > 0;
+      const orientationChanged = hadSize ? W > H !== newW > newH : true;
+      const areaChangedRatio = hadSize
+        ? Math.abs(newW * newH - W * H) / (W * H)
+        : 1;
+
+      // guarda tamaño nuevo
+      const prevW = W,
+        prevH = H;
+      W = newW;
+      H = newH;
+
+      if (!hadSize) {
+        seed(); // primera vez
+        return;
+      }
+
+      // Umbral: si cambia orientación o el área cambia mucho, resembramos
+      if (orientationChanged || areaChangedRatio > 0.15) {
+        seed();
+      } else {
+        // Cambio pequeño ⇒ reescala posiciones para cubrir todo ya
+        const kx = prevW ? newW / prevW : 1;
+        const ky = prevH ? newH / prevH : 1;
+        for (const p of pts) {
+          p.x *= kx;
+          p.y *= ky;
+        }
+      }
     }
 
     function step(dt: number) {
@@ -297,9 +330,19 @@ export default function ParticleBg({
       raf = requestAnimationFrame(loop);
     }
 
+    // Observa el wrapper (cambios de tamaño ⇒ fit)
     const ro = new ResizeObserver(fit);
     ro.observe(wrap);
 
+    // Forzar re-seed al cambiar orientación en móviles/tablets
+    const onOrientation = () => {
+      seed();
+      // también ajustamos canvas al nuevo tamaño inmediatamente
+      fit();
+    };
+    window.addEventListener("orientationchange", onOrientation);
+
+    // Eventos de ratón
     function onMouse(e: MouseEvent) {
       const r = canvas.getBoundingClientRect();
       mouse.x = e.clientX - r.left;
@@ -309,10 +352,10 @@ export default function ParticleBg({
     function onLeave() {
       mouse.has = false;
     }
-
     wrap.addEventListener("mousemove", onMouse);
     wrap.addEventListener("mouseleave", onLeave);
 
+    // Pausa/reanuda con la pestaña
     const onVis = () => {
       running = !document.hidden;
       if (running) {
@@ -324,15 +367,18 @@ export default function ParticleBg({
     };
     document.addEventListener("visibilitychange", onVis);
 
+    // Cambios de tema
     const onTheme = () => {
       readTokens();
     };
     window.addEventListener(themeEventName, onTheme as EventListener);
 
+    // Inicializa
     fit();
-    const id = requestAnimationFrame(loop); // const → sin warning
+    const id = requestAnimationFrame(loop);
 
     return () => {
+      window.removeEventListener("orientationchange", onOrientation);
       window.removeEventListener(themeEventName, onTheme as EventListener);
       document.removeEventListener("visibilitychange", onVis);
       wrap.removeEventListener("mousemove", onMouse);

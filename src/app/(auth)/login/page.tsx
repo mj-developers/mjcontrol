@@ -305,8 +305,8 @@ function LoginPage() {
             className="hero-sm iconmark-hero iconmark-static rounded-full select-none"
             style={{
               // micro-ajuste para centrar en tablet portrait (toca a ojo si hace falta)
-              ["--iconmark-img-nudge-x"]: "25px", // → derecha (+) / izquierda (-)
-              ["--iconmark-img-nudge-y"]: "30px", // → arriba (-) / abajo (+)
+              ["--iconmark-img-nudge-x"]: "30px", // → derecha (+) / izquierda (-)
+              ["--iconmark-img-nudge-y"]: "35px", // → arriba (-) / abajo (+)
             }}
           />
         </div>
