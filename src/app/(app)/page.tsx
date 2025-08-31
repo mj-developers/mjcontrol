@@ -13,9 +13,10 @@ import {
   Clock8,
 } from "lucide-react";
 import IconMark from "@/components/ui/IconMark";
+import Heading from "@/components/ui/Heading";
 
 /* =======================================================================
-   Colores utilitarios (evitamos clases tailwind dinámicas)
+   Colores utilitarios
    ======================================================================= */
 const TWC = {
   indigo: { 500: "#6366F1" },
@@ -60,7 +61,7 @@ type Stat = {
 type Range = "total" | "7d" | "30d" | "90d";
 
 /* =======================================================================
-   Helpers de tema para IconMark (sin any)
+   Helpers de tema/usuario (sin any ni regex frágiles)
    ======================================================================= */
 function useIsLightTheme() {
   const [light, setLight] = useState<boolean>(false);
@@ -75,7 +76,84 @@ function useIsLightTheme() {
   return light;
 }
 
-// CSS vars que acepta <IconMark/> (prefijo iconmark-)
+function readCookie(name: string): string | null {
+  const parts = document.cookie.split(";").map((p) => p.trim());
+  for (const part of parts) {
+    if (!part) continue;
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    const key = decodeURIComponent(part.slice(0, eq));
+    if (key === name) {
+      return decodeURIComponent(part.slice(eq + 1));
+    }
+  }
+  return null;
+}
+
+function pickFromObjectString(o: unknown): string | null {
+  if (o && typeof o === "object") {
+    const obj = o as Record<string, unknown>;
+    const cand = ["username", "login", "user", "name", "email"];
+    for (const k of cand) {
+      const v = obj[k];
+      if (typeof v === "string" && v.trim()) return v;
+    }
+  }
+  return null;
+}
+
+function getUsernameFromStorage(): string | null {
+  const keys = [
+    "mj_username",
+    "mj_login",
+    "username",
+    "login",
+    "user",
+    "userLogin",
+  ];
+  for (const store of [localStorage, sessionStorage]) {
+    for (const k of keys) {
+      const v = store.getItem(k);
+      if (!v) continue;
+      try {
+        const parsed = JSON.parse(v);
+        const inside = pickFromObjectString(parsed);
+        if (inside) return inside;
+      } catch {
+        if (v.trim()) return v;
+      }
+    }
+  }
+  for (const k of keys) {
+    const v = readCookie(k);
+    if (!v) continue;
+    try {
+      const parsed = JSON.parse(v);
+      const inside = pickFromObjectString(parsed);
+      if (inside) return inside;
+    } catch {
+      if (v.trim()) return v;
+    }
+  }
+  return null;
+}
+
+function useUsername() {
+  const [name, setName] = useState<string>("Usuario");
+  useEffect(() => {
+    try {
+      const n = getUsernameFromStorage();
+      if (n && n.trim()) setName(n);
+    } catch {
+      // noop
+    }
+  }, []);
+  return name;
+}
+
+/* =======================================================================
+   IconMark helpers
+   ======================================================================= */
 type IconMarkVars = React.CSSProperties & {
   "--iconmark-bg"?: string;
   "--iconmark-border"?: string;
@@ -85,19 +163,16 @@ type IconMarkVars = React.CSSProperties & {
   "--iconmark-hover-icon-fg"?: string;
 };
 
-// En reposo: borde + icono = acento; fondo neutro por tema.
-// En hover: fondo = acento; icono se invierte según tema.
 function iconMarkStyle(accent: string, isLight: boolean): IconMarkVars {
   const NEUTRAL_BG = isLight ? "#e2e5ea" : "#0b0b0d";
-  const FG_ACTIVE = isLight ? "#0b0b0d" : "#ffffff"; // icono cuando fondo es acento
-
+  const FG_ACTIVE = isLight ? "#0b0b0d" : "#ffffff";
   return {
-    "--iconmark-bg": NEUTRAL_BG, // fondo reposo
-    "--iconmark-border": accent, // borde reposo = acento
-    "--iconmark-icon-fg": accent, // icono reposo = acento
-    "--iconmark-hover-bg": accent, // fondo hover
-    "--iconmark-hover-border": accent, // borde hover
-    "--iconmark-hover-icon-fg": FG_ACTIVE, // icono hover (inverso)
+    "--iconmark-bg": NEUTRAL_BG,
+    "--iconmark-border": accent,
+    "--iconmark-icon-fg": accent,
+    "--iconmark-hover-bg": accent,
+    "--iconmark-hover-border": accent,
+    "--iconmark-hover-icon-fg": FG_ACTIVE,
   };
 }
 
@@ -113,7 +188,7 @@ function useCountUp(value: number, duration = 700) {
     let raf = 0;
     const tick = (t: number) => {
       const p = Math.min(1, (t - start) / duration);
-      const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+      const eased = 1 - Math.pow(1 - p, 3);
       setDisplay(Math.round(from + (to - from) * eased));
       if (p < 1) raf = requestAnimationFrame(tick);
     };
@@ -124,7 +199,7 @@ function useCountUp(value: number, duration = 700) {
 }
 
 /* =======================================================================
-   Sparkline simple con SVG
+   Sparkline simple con SVG (renombramos id → svgId)
    ======================================================================= */
 function Sparkline({
   values,
@@ -139,7 +214,7 @@ function Sparkline({
   height?: number;
   strokeWidth?: number;
 }) {
-  const id = useId();
+  const svgId = useId();
   if (!values.length) return null;
 
   const min = Math.min(...values);
@@ -161,7 +236,7 @@ function Sparkline({
       aria-hidden
     >
       <defs>
-        <linearGradient id={`${id}-grad`} x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={`${svgId}-grad`} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor={stroke} stopOpacity="1" />
           <stop offset="100%" stopColor={stroke} stopOpacity="0.2" />
         </linearGradient>
@@ -169,7 +244,7 @@ function Sparkline({
       <path
         d={d}
         fill="none"
-        stroke={`url(#${id}-grad)`}
+        stroke={`url(#${`${svgId}-grad`})`}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -220,8 +295,10 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
 }
 
 /* =======================================================================
-   Tarjeta KPI (sin movimiento del panel, IconMark en el icono)
+   Tarjeta KPI (sin movimiento; hover del panel = hover del IconMark)
    ======================================================================= */
+type KPIStyleVars = React.CSSProperties & { "--kpi-accent"?: string };
+
 function StatCard({ s }: { s: Stat }) {
   const Icon = s.icon;
   const positive = (s.delta ?? 0) >= 0;
@@ -232,12 +309,18 @@ function StatCard({ s }: { s: Stat }) {
   return (
     <div
       className={[
-        "group relative isolate overflow-hidden rounded-2xl border",
-        "bg-white text-zinc-900 border-zinc-200",
-        "dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-800",
-        "transition-shadow", // ← sin translate/hover lift
+        "kpi-card group relative isolate overflow-hidden rounded-2xl border",
+        "bg-[#17181B] text-zinc-100 border-zinc-800", // look dark
+        "transition-shadow", // no translate
+        // borde de color en hover (usamos shadow inset con var)
+        "hover:[box-shadow:0_0_0_1px_var(--kpi-accent)_inset]",
       ].join(" ")}
-      style={{ boxShadow: `0 0 0 1px ${withAlpha(accent, 0.16)} inset` }}
+      style={
+        {
+          "--kpi-accent": accent,
+          boxShadow: `inset 0 0 0 1px ${withAlpha(accent, 0.16)}`,
+        } as KPIStyleVars
+      }
     >
       <div className="p-4 flex items-center gap-3">
         <IconMark
@@ -254,7 +337,7 @@ function StatCard({ s }: { s: Stat }) {
         </IconMark>
 
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+          <p className="text-xs uppercase tracking-wide text-zinc-400">
             {s.label}
           </p>
           <div className="flex items-baseline gap-2">
@@ -265,9 +348,7 @@ function StatCard({ s }: { s: Stat }) {
               <span
                 className={[
                   "inline-flex items-center gap-1 text-xs font-medium",
-                  positive
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-rose-600 dark:text-rose-400",
+                  positive ? "text-emerald-400" : "text-rose-400",
                 ].join(" ")}
                 title="Variación vs. periodo anterior"
               >
@@ -286,12 +367,41 @@ function StatCard({ s }: { s: Stat }) {
           <Sparkline values={s.spark} stroke={accent} />
         </div>
       </div>
+
+      {/* Forzamos el hover del IconMark cuando se hace hover sobre el panel */}
+      <style jsx global>{`
+        .kpi-card:hover .mj-iconmark {
+          --mark-bg: var(--iconmark-hover-bg, var(--iconmark-bg));
+          --mark-border: var(--iconmark-hover-border, var(--iconmark-border));
+          --mark-fg: var(--iconmark-hover-icon-fg, var(--iconmark-icon-fg));
+        }
+        .kpi-card:hover .mj-iconmark[data-anim="zoom"] .icon-default {
+          opacity: var(--mark-def-opacity-hover, 1);
+          transform: scale(var(--mark-def-scale-hover, 1));
+        }
+        .kpi-card:hover .mj-iconmark[data-anim="zoom"] .icon-hover {
+          opacity: var(--mark-hov-opacity-hover, 0);
+          transform: scale(var(--mark-hov-scale-hover, 1));
+        }
+        .kpi-card:hover .mj-iconmark[data-anim="cycle"] .icon-default {
+          opacity: 0;
+          transform: translate(
+              var(--mark-def-out-x, 8px),
+              var(--mark-def-out-y, 8px)
+            )
+            rotate(var(--mark-def-rot-hover, 12deg)) scale(0.92);
+        }
+        .kpi-card:hover .mj-iconmark[data-anim="cycle"] .icon-hover {
+          opacity: 1;
+          transform: translate(0, 0) rotate(0deg) scale(1);
+        }
+      `}</style>
     </div>
   );
 }
 
 /* =======================================================================
-   Donut con estados (dots pulsantes en la leyenda)
+   Donut con estados
    ======================================================================= */
 function DonutLicenses({
   data,
@@ -324,10 +434,10 @@ function DonutLicenses({
         }}
         aria-hidden
       >
-        <div className="absolute inset-4 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800" />
+        <div className="absolute inset-4 rounded-full bg-white dark:bg-zinc-900 border border-zinc-800" />
         <div className="absolute inset-0 grid place-items-center">
           <div className="text-center">
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">Total</p>
+            <p className="text-xs text-zinc-400">Total</p>
             <p className="text-2xl font-semibold">{total}</p>
           </div>
         </div>
@@ -346,9 +456,7 @@ function DonutLicenses({
                 style={{ background: d.color }}
               />
             </span>
-            <span className="text-sm text-zinc-700 dark:text-zinc-300">
-              {d.label}
-            </span>
+            <span className="text-sm text-zinc-300">{d.label}</span>
             <span className="ml-auto text-sm font-medium">{d.value}</span>
           </li>
         ))}
@@ -358,7 +466,7 @@ function DonutLicenses({
 }
 
 /* =======================================================================
-   Actividad reciente (con IconMark pequeño)
+   Actividad reciente (IconMark pequeño)
    ======================================================================= */
 type Activity = {
   t: string;
@@ -452,153 +560,31 @@ const DATA_BY_RANGE: Record<
     activity: ACTIVITY_BASE,
   },
   "7d": {
-    stats: [
-      {
-        label: "Usuarios",
-        value: 42,
-        delta: 6,
-        color: "indigo",
-        icon: Users,
-        spark: [10, 12, 13, 11, 15, 16, 18, 20, 22, 21, 26, 28],
-      },
-      {
-        label: "Clientes",
-        value: 18,
-        delta: -3,
-        color: "cyan",
-        icon: Building2,
-        spark: [5, 5, 6, 7, 6, 6, 7, 8, 9, 9, 8, 7],
-      },
-      {
-        label: "Aplicaciones",
-        value: 9,
-        delta: 2,
-        color: "violet",
-        icon: AppWindow,
-        spark: [3, 3, 4, 4, 4, 5, 5, 6, 6, 7, 7, 9],
-      },
-      {
-        label: "Licencias por vencer",
-        value: 3,
-        color: "emerald",
-        icon: BadgeCheck,
-        spark: [2, 2, 1, 3, 4, 3, 3, 2, 3, 3, 2, 3],
-      },
-    ],
-    donut: [
-      { label: "Activas", value: 62, color: TWC.emerald[500], status: "ok" },
-      {
-        label: "Próximas a expirar",
-        value: 25,
-        color: TWC.amber[500],
-        status: "warn",
-      },
-      { label: "Vencidas", value: 13, color: BRAND, status: "error" },
-    ],
-    activity: ACTIVITY_BASE,
-  },
+    ...ACTIVITY_BASE,
+    stats: [],
+    donut: [],
+  } as unknown as (typeof DATA_BY_RANGE)["total"], // no usado
   "30d": {
-    stats: [
-      {
-        label: "Usuarios",
-        value: 128,
-        delta: 12,
-        color: "indigo",
-        icon: Users,
-        spark: [20, 22, 24, 23, 26, 29, 30, 35, 40, 44, 48, 52],
-      },
-      {
-        label: "Clientes",
-        value: 40,
-        delta: 4,
-        color: "cyan",
-        icon: Building2,
-        spark: [7, 8, 9, 10, 11, 12, 12, 13, 14, 15, 16, 17],
-      },
-      {
-        label: "Aplicaciones",
-        value: 15,
-        delta: 3,
-        color: "violet",
-        icon: AppWindow,
-        spark: [4, 5, 6, 7, 7, 8, 10, 10, 11, 12, 13, 15],
-      },
-      {
-        label: "Licencias por vencer",
-        value: 5,
-        color: "emerald",
-        icon: BadgeCheck,
-        spark: [4, 3, 4, 5, 5, 5, 4, 6, 6, 5, 5, 5],
-      },
-    ],
-    donut: [
-      { label: "Activas", value: 240, color: TWC.emerald[500], status: "ok" },
-      {
-        label: "Próximas a expirar",
-        value: 60,
-        color: TWC.amber[500],
-        status: "warn",
-      },
-      { label: "Vencidas", value: 20, color: BRAND, status: "error" },
-    ],
-    activity: ACTIVITY_BASE,
-  },
+    ...ACTIVITY_BASE,
+    stats: [],
+    donut: [],
+  } as unknown as (typeof DATA_BY_RANGE)["total"],
   "90d": {
-    stats: [
-      {
-        label: "Usuarios",
-        value: 410,
-        delta: 18,
-        color: "indigo",
-        icon: Users,
-        spark: [60, 70, 75, 80, 88, 95, 100, 120, 140, 160, 190, 210],
-      },
-      {
-        label: "Clientes",
-        value: 95,
-        delta: 9,
-        color: "cyan",
-        icon: Building2,
-        spark: [20, 22, 25, 28, 30, 33, 36, 40, 44, 48, 50, 55],
-      },
-      {
-        label: "Aplicaciones",
-        value: 24,
-        delta: 5,
-        color: "violet",
-        icon: AppWindow,
-        spark: [5, 6, 7, 8, 9, 12, 14, 16, 18, 21, 22, 24],
-      },
-      {
-        label: "Licencias por vencer",
-        value: 9,
-        color: "emerald",
-        icon: BadgeCheck,
-        spark: [3, 4, 5, 6, 6, 7, 7, 8, 9, 9, 9, 9],
-      },
-    ],
-    donut: [
-      { label: "Activas", value: 720, color: TWC.emerald[500], status: "ok" },
-      {
-        label: "Próximas a expirar",
-        value: 110,
-        color: TWC.amber[500],
-        status: "warn",
-      },
-      { label: "Vencidas", value: 38, color: BRAND, status: "error" },
-    ],
-    activity: ACTIVITY_BASE,
-  },
+    ...ACTIVITY_BASE,
+    stats: [],
+    donut: [],
+  } as unknown as (typeof DATA_BY_RANGE)["total"],
 };
 
 /* =======================================================================
    Página
    ======================================================================= */
 export default function Dashboard() {
-  const [range, setRange] = useState<Range>("total");
+  const [range] = useState<Range>("total"); // selector oculto
   const [loading, setLoading] = useState(true);
+  const isLight = useIsLightTheme();
+  const username = useUsername();
 
-  // Simulamos carga para skeletons
   useEffect(() => {
     setLoading(true);
     const t = setTimeout(() => setLoading(false), 600);
@@ -607,55 +593,32 @@ export default function Dashboard() {
 
   const current = useMemo(() => DATA_BY_RANGE[range], [range]);
 
-  const chipClass = (active: boolean) =>
-    [
-      "h-8 px-3 rounded-full border text-xs font-medium transition cursor-pointer",
-      active
-        ? "bg-[var(--brand,#8E2434)] text-white border-transparent shadow-sm"
-        : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900",
-    ].join(" ");
-
   const NO_STATS = false;
   const NO_ACTIVITY = false;
 
-  const isLight = useIsLightTheme();
-
   return (
-    <div className="space-y-6">
-      <header className="flex items-end justify-between">
+    <div className="space-y-8 md:space-y-10">
+      <header className="pt-2 md:pt-4">
         <div>
-          <h1 className="text-2xl font-display font-semibold">Dashboard</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="text-xs md:text-sm text-zinc-500 dark:text-zinc-400 mb-2 md:mb-3">
+            Bienvenido, <span className="font-medium">{username}</span>
+          </p>
+
+          <Heading
+            level={1}
+            fill="solid"
+            color="var(--brand, #8E2434)"
+            fontFamily="var(--font-display, Sora, ui-sans-serif)"
+            shadow="soft+brand"
+            size="clamp(1.6rem,3.2vw,2.4rem)"
+            className="mt-2 md:mt-3 uppercase tracking-widest"
+          >
+            Dashboard
+          </Heading>
+
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-3 md:mt-4">
             Resumen general (datos de ejemplo).
           </p>
-        </div>
-
-        {/* Selector de rango: Total | Últimos {7d,30d,90d} */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setRange("total")}
-            aria-pressed={range === "total"}
-            className={chipClass(range === "total")}
-            title="Mostrar todo"
-          >
-            Total
-          </button>
-
-          <span className="text-xs text-zinc-500 dark:text-zinc-400 mx-1 select-none">
-            Últimos
-          </span>
-
-          {(["7d", "30d", "90d"] as const).map((r) => (
-            <button
-              key={r}
-              onClick={() => setRange(r)}
-              aria-pressed={range === r}
-              className={chipClass(range === r)}
-              title={`Rango ${r}`}
-            >
-              {r}
-            </button>
-          ))}
         </div>
       </header>
 
@@ -689,21 +652,13 @@ export default function Dashboard() {
           </>
         ) : (
           <>
-            <section
-              className="rounded-2xl border bg-white text-zinc-900 border-zinc-200 p-5
-                         dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-800"
-            >
+            <section className="rounded-2xl border bg-[#17181B] text-zinc-100 border-zinc-800 p-5">
               <h2 className="text-base font-semibold">Licencias — estado</h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-                Distribución actual.
-              </p>
+              <p className="text-xs text-zinc-400 mb-4">Distribución actual.</p>
               <DonutLicenses data={current.donut} />
             </section>
 
-            <section
-              className="relative rounded-2xl border bg-white text-zinc-900 border-zinc-200 p-5
-                         dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-800"
-            >
+            <section className="relative rounded-2xl border bg-[#17181B] text-zinc-100 border-zinc-800 p-5">
               <h2 className="text-base font-semibold">Actividad reciente</h2>
 
               {NO_ACTIVITY || current.activity.length === 0 ? (
@@ -714,7 +669,7 @@ export default function Dashboard() {
                   />
                 </div>
               ) : (
-                <ul className="mt-3 divide-y divide-zinc-200 dark:divide-zinc-800">
+                <ul className="mt-3 divide-y divide-zinc-800">
                   {current.activity.map((a, i) => {
                     const Ico = a.icon;
                     const color =
@@ -739,7 +694,6 @@ export default function Dashboard() {
                             <Ico />
                           </IconMark>
 
-                          {/* Ping de estado */}
                           <span className="absolute -top-1 -right-1 inline-grid place-items-center">
                             <span
                               className="absolute h-3 w-3 rounded-full animate-ping"
@@ -754,9 +708,7 @@ export default function Dashboard() {
 
                         <div className="min-w-0">
                           <p className="text-sm">{a.t}</p>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {a.ts}
-                          </p>
+                          <p className="text-xs text-zinc-400">{a.ts}</p>
                         </div>
                       </li>
                     );
