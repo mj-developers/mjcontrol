@@ -4,17 +4,10 @@
 import type React from "react";
 import { useEffect, useId, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import {
-  Users,
-  Building2,
-  AppWindow,
-  BadgeCheck,
-  ArrowUpRight,
-  ArrowDownRight,
-  Clock8,
-} from "lucide-react";
+import { Users, Building2, AppWindow, BadgeCheck, Clock8 } from "lucide-react";
 import IconMark from "@/components/ui/IconMark";
 import Heading from "@/components/ui/Heading";
+import Link from "next/link";
 
 /* ===== util colores ===== */
 const TWC = {
@@ -188,7 +181,7 @@ function iconMarkStyle(accent: string, isLight: boolean): IconMarkVars {
   };
 }
 
-/* ===== Surface (relleno total) ===== */
+/* ===== Surface ===== */
 function Surface({
   children,
   className = "",
@@ -351,83 +344,76 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
 
 /* ===== KPI card ===== */
 type KPIStyleVars = React.CSSProperties & { "--kpi-accent"?: string };
-function StatCard({ s }: { s: Stat }) {
+function StatCard({ s, href }: { s: Stat; href?: string }) {
   const Icon = s.icon;
-  const positive = (s.delta ?? 0) >= 0;
   const accent = TWC[s.color][500];
   const displayValue = useCountUp(s.value);
   const isLight = useIsLightTheme();
 
-  return (
-    <div
-      className={[
-        "kpi-card group relative isolate overflow-hidden rounded-[var(--panel-radius,12px)] border",
-        "bg-[var(--panel-bg)] text-[var(--panel-fg)] border-[var(--panel-border)]",
-        "transition-shadow",
-        "hover:[box-shadow:0_0_0_1px_var(--kpi-accent)_inset]",
-        "h-full",
-      ].join(" ")}
-      style={
-        {
-          "--kpi-accent": accent,
-          boxShadow: `inset 0 0 0 1px ${withAlpha(accent, 0.16)}`,
-        } as KPIStyleVars
-      }
-    >
-      <div className="p-4 flex items-center gap-3">
-        <IconMark
-          size="md"
-          shape="rounded"
-          borderWidth={2}
-          interactive
-          hoverAnim="zoom"
-          style={iconMarkStyle(accent, isLight)}
-          title={s.label}
-          ariaLabel={s.label}
-        >
-          <Icon />
-        </IconMark>
+  const cardClass = [
+    "kpi-card group relative isolate overflow-hidden rounded-[var(--panel-radius,12px)] border",
+    "bg-[var(--panel-bg)] text-[var(--panel-fg)] border-[var(--panel-border)]",
+    "transition-shadow h-full",
+    "hover:[box-shadow:0_0_0_1px_var(--kpi-accent)_inset]",
+    href
+      ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--kpi-accent)]/60"
+      : "",
+  ].join(" ");
 
-        <div className="min-w-0">
-          <p className="text-xs uppercase tracking-wide muted">{s.label}</p>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-semibold">
-              {displayValue.toLocaleString()}
-            </h3>
-            {"delta" in s && s.delta !== undefined && (
-              <span
-                className={[
-                  "inline-flex items-center gap-1 text-xs font-medium",
-                  positive ? "text-emerald-500" : "text-rose-500",
-                ].join(" ")}
-              >
-                {positive ? (
-                  <ArrowUpRight className="h-4 w-4" />
-                ) : (
-                  <ArrowDownRight className="h-4 w-4" />
-                )}
-                {Math.abs(s.delta)}%
-              </span>
-            )}
-          </div>
-        </div>
+  const cardStyle: KPIStyleVars = {
+    "--kpi-accent": accent,
+    boxShadow: `inset 0 0 0 1px ${withAlpha(accent, 0.16)}`,
+  };
 
-        <div className="ml-auto opacity-90">
-          <Sparkline values={s.spark} stroke={accent} />
+  const Inner = (
+    <div className="relative p-4 flex items-center gap-3 pr-[136px]">
+      <IconMark
+        size="md"
+        shape="rounded"
+        borderWidth={2}
+        interactive
+        hoverAnim="zoom"
+        zoomScale={1.5}
+        style={iconMarkStyle(accent, isLight)}
+        title={s.label}
+        ariaLabel={s.label}
+      >
+        <Icon />
+      </IconMark>
+
+      <div className="min-w-0">
+        <p className="text-xs uppercase tracking-wide muted">{s.label}</p>
+        <div className="flex items-baseline gap-2">
+          <h3 className="text-2xl font-semibold">
+            {displayValue.toLocaleString()}
+          </h3>
         </div>
       </div>
 
-      <style jsx global>{`
-        .kpi-card:hover .mj-iconmark {
-          --mark-bg: var(--iconmark-hover-bg, var(--iconmark-bg));
-          --mark-border: var(--iconmark-hover-border, var(--iconmark-border));
-          --mark-fg: var(--iconmark-hover-icon-fg, var(--iconmark-icon-fg));
-        }
-        .muted {
-          color: var(--fg);
-          opacity: 0.76;
-        }
-      `}</style>
+      <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 opacity-90">
+        <Sparkline values={s.spark} stroke={accent} />
+      </div>
+    </div>
+  );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        prefetch={false}
+        className={cardClass}
+        style={cardStyle}
+        aria-label={`Ir a ${s.label}`}
+        title={s.label}
+      >
+        {Inner}
+      </Link>
+    );
+  }
+
+  return (
+    <div className={cardClass} style={cardStyle}>
+      {Inner}
     </div>
   );
 }
@@ -454,7 +440,7 @@ function DonutLicenses({
     })
     .join(", ");
   return (
-    <div className="flex items-center gap-6">
+    <div className="donut-layout flex items-center justify-center gap-6">
       <div
         className="relative h-40 w-40 rounded-full"
         style={{
@@ -540,29 +526,26 @@ const DATA_BY_RANGE: Record<Range, RangeData> = {
       {
         label: "Usuarios",
         value: 820,
-        delta: 14,
         color: "indigo",
         icon: Users,
         spark: [80, 120, 160, 200, 260, 320, 420, 520, 620, 700, 760, 820],
       },
       {
-        label: "Clientes",
+        label: "Clientes - Placeholder",
         value: 190,
-        delta: 8,
         color: "cyan",
         icon: Building2,
         spark: [40, 55, 70, 85, 100, 115, 130, 145, 160, 170, 180, 190],
       },
       {
-        label: "Aplicaciones",
+        label: "Aplicaciones - Placeholder",
         value: 32,
-        delta: 5,
         color: "violet",
         icon: AppWindow,
         spark: [6, 8, 10, 12, 15, 18, 20, 22, 25, 27, 30, 32],
       },
       {
-        label: "Licencias por vencer",
+        label: "Licencias por vencer - Placeholder",
         value: 12,
         color: "emerald",
         icon: BadgeCheck,
@@ -586,6 +569,25 @@ const DATA_BY_RANGE: Record<Range, RangeData> = {
   "90d": { ...EMPTY_DATA },
 };
 
+/* ===== fetch JSON + tipos mínimos para la lista ===== */
+type UserListItem = { id: number; login: string };
+async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    ...init,
+  });
+  if (!res.ok) {
+    let msg = res.statusText;
+    try {
+      const j = (await res.json()) as { error?: string };
+      if (j?.error) msg = j.error;
+    } catch {}
+    throw new Error(msg || "Request error");
+  }
+  return (await res.json()) as T;
+}
+
 /* ===== página ===== */
 export default function Dashboard() {
   const [range] = useState<Range>("total");
@@ -594,12 +596,34 @@ export default function Dashboard() {
   const username = useUsername();
   const current = useMemo(() => DATA_BY_RANGE[range], [range]);
 
-  // === Gateo como en Users para evitar flash del nav en el primer frame ===
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     const id = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(id);
   }, []);
+
+  // contador real de usuarios
+  const [userCount, setUserCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!mounted) return;
+    (async () => {
+      try {
+        const data = await fetchJSON<UserListItem[]>("/api/users/list");
+        setUserCount(Array.isArray(data) ? data.length : 0);
+      } catch {}
+    })();
+  }, [mounted]);
+
+  const statsWithUsers = useMemo(
+    () =>
+      current.stats.map((s) =>
+        s.label === "Usuarios" && userCount != null
+          ? { ...s, value: userCount }
+          : s
+      ),
+    [current.stats, userCount]
+  );
+
   if (!mounted) return <div className="p-4 md:p-6" />;
 
   return (
@@ -611,6 +635,68 @@ export default function Dashboard() {
         .dashboard-scope .muted {
           color: var(--fg);
           opacity: 0.76;
+        }
+
+        /* ===== KPI 2×2 en móvil landscape bajo y tablet portrait (incluye 1024px) ===== */
+        @media (orientation: landscape) and (max-height: 480px) {
+          .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 1rem;
+          }
+        }
+        @media (orientation: portrait) and (max-width: 1024px) {
+          .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 1rem;
+          }
+        }
+
+        /* ===== Paneles de abajo: 1×1 en móvil y tablet portrait ===== */
+        @media (orientation: landscape) and (max-height: 480px) {
+          .two-col-section {
+            display: grid;
+            grid-template-columns: 1fr !important;
+            gap: 1rem;
+          }
+        }
+        @media (orientation: portrait) {
+          .two-col-section {
+            display: grid;
+            grid-template-columns: 1fr !important;
+            gap: 1rem;
+          }
+        }
+
+        .donut-layout {
+          min-height: 220px;
+        }
+
+        /* Hover/zoom del IconMark en KPI */
+        .kpi-card:hover .mj-iconmark {
+          --mark-bg: var(--iconmark-hover-bg, var(--iconmark-bg));
+          --mark-border: var(--iconmark-hover-border, var(--iconmark-border));
+          --mark-fg: var(--iconmark-hover-icon-fg, var(--iconmark-icon-fg));
+        }
+        .kpi-card:hover .mj-iconmark[data-anim="zoom"] .icon-default {
+          transform: scale(var(--mark-def-scale-hover, 1.5)) !important;
+        }
+        .kpi-card:hover .mj-iconmark[data-anim="zoom"] .icon-hover {
+          transform: scale(var(--mark-hov-scale-hover, 1)) !important;
+        }
+
+        /* Hover/zoom del IconMark en Actividad */
+        .activity-row:hover .mj-iconmark {
+          --mark-bg: var(--iconmark-hover-bg, var(--iconmark-bg));
+          --mark-border: var(--iconmark-hover-border, var(--iconmark-border));
+          --mark-fg: var(--iconmark-hover-icon-fg, var(--iconmark-icon-fg));
+        }
+        .activity-row:hover .mj-iconmark[data-anim="zoom"] .icon-default {
+          transform: scale(var(--mark-def-scale-hover, 1.5)) !important;
+        }
+        .activity-row:hover .mj-iconmark[data-anim="zoom"] .icon-hover {
+          transform: scale(var(--mark-hov-scale-hover, 1)) !important;
         }
       `}</style>
 
@@ -633,34 +719,41 @@ export default function Dashboard() {
           </Heading>
 
           <p className="text-sm muted mt-3 md:mt-4">
-            Resumen general (datos de ejemplo).
+            Este panel ofrece una vista rápida del estado general del sistema:
+            métricas clave, tendencias y actividad reciente para ayudarte a
+            detectar cambios y priorizar acciones sin tener que navegar por cada
+            sección.
           </p>
         </div>
       </header>
 
       {/* KPIs */}
       {loading ? (
-        <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
+        <div className="kpi-grid grid gap-4 grid-cols-1 sm:grid-cols-2 xl:[grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
           <StatSkeleton />
           <StatSkeleton />
           <StatSkeleton />
           <StatSkeleton />
         </div>
-      ) : current.stats.length === 0 ? (
+      ) : statsWithUsers.length === 0 ? (
         <EmptyState
           title="Sin estadísticas"
           hint="No hay datos para el rango seleccionado."
         />
       ) : (
-        <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
-          {current.stats.map((s) => (
-            <StatCard key={s.label} s={s} />
+        <div className="kpi-grid grid gap-4 grid-cols-1 sm:grid-cols-2 xl:[grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
+          {statsWithUsers.map((s) => (
+            <StatCard
+              key={s.label}
+              s={s}
+              href={s.label === "Usuarios" ? "/users" : undefined}
+            />
           ))}
         </div>
       )}
 
-      {/* Segunda fila – misma altura y relleno completo */}
-      <div className="grid gap-4 md:grid-cols-2 items-stretch min-h-0">
+      {/* Segunda fila */}
+      <div className="two-col-section grid gap-4 md:grid-cols-2 items-stretch min-h-0">
         {loading ? (
           <>
             <BlockSkeleton />
@@ -669,13 +762,19 @@ export default function Dashboard() {
         ) : (
           <>
             <Surface className="p-5 min-h-0" flat>
-              <h2 className="text-base font-semibold">Licencias — estado</h2>
+              <h2 className="text-base font-semibold">
+                Licencias — estado - Placeholder
+              </h2>
               <p className="text-xs muted mb-4">Distribución actual.</p>
-              <DonutLicenses data={current.donut} />
+              <div className="h-full w-full grid place-items-center">
+                <DonutLicenses data={current.donut} />
+              </div>
             </Surface>
 
             <Surface className="p-5 min-h-0" flat>
-              <h2 className="text-base font-semibold">Actividad reciente</h2>
+              <h2 className="text-base font-semibold">
+                Actividad reciente - Placeholder
+              </h2>
               {current.activity.length === 0 ? (
                 <div className="mt-4">
                   <EmptyState
@@ -694,7 +793,10 @@ export default function Dashboard() {
                         ? TWC.amber[500]
                         : BRAND;
                     return (
-                      <li key={i} className="py-3 flex items-center gap-3">
+                      <li
+                        key={i}
+                        className="activity-row py-3 flex items-center gap-3"
+                      >
                         <span className="relative inline-grid place-items-center">
                           <IconMark
                             size="sm"
@@ -702,6 +804,7 @@ export default function Dashboard() {
                             borderWidth={2}
                             interactive
                             hoverAnim="zoom"
+                            zoomScale={1.5}
                             style={iconMarkStyle(color, isLight)}
                             ariaLabel={a.t}
                             title={a.t}
@@ -738,6 +841,8 @@ export default function Dashboard() {
         <Clock8 className="h-4 w-4" />
         Actualizado hace 2 min
       </div>
+
+      <div className="md:hidden h-12" />
     </div>
   );
 }
