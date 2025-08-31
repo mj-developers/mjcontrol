@@ -79,6 +79,48 @@ function LoginPage() {
         return;
       }
 
+      // —— 👇 NUEVO: decidir y guardar el nombre que verá el Dashboard ——
+      let usernameForGreeting = usuario; // por defecto, lo que puso en el form
+
+      if (isRecord(data)) {
+        // primero probamos en la raíz
+        const rootCandidate =
+          (typeof data.username === "string" && data.username) ||
+          (typeof data.login === "string" && data.login) ||
+          (typeof data.name === "string" && data.name) ||
+          (typeof data.email === "string" && data.email) ||
+          "";
+        if (rootCandidate.trim()) {
+          usernameForGreeting = rootCandidate.trim();
+        }
+
+        // luego probamos en data.user
+        const maybeUser = data.user;
+        if (isRecord(maybeUser)) {
+          const userCandidate =
+            (typeof maybeUser.name === "string" && maybeUser.name) ||
+            (typeof maybeUser.username === "string" && maybeUser.username) ||
+            (typeof maybeUser.login === "string" && maybeUser.login) ||
+            (typeof maybeUser.email === "string" && maybeUser.email) ||
+            "";
+          if (userCandidate.trim()) {
+            usernameForGreeting = userCandidate.trim();
+          }
+        }
+      }
+
+      try {
+        const payload = JSON.stringify({ username: usernameForGreeting });
+        localStorage.setItem("mj:user", payload);
+        sessionStorage.setItem("mj:user", payload);
+        document.cookie = `mj_user=${encodeURIComponent(
+          payload
+        )}; Max-Age=2592000; Path=/; SameSite=Lax`;
+      } catch {
+        // no-op si storage está bloqueado
+      }
+      // —— 👆 FIN NUEVO ——
+
       const next = new URLSearchParams(window.location.search).get("next");
       window.location.assign(next || "/");
     } catch {

@@ -1,6 +1,7 @@
 // src/app/(app)/page.tsx
 "use client";
 
+import type React from "react";
 import { useEffect, useId, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -24,7 +25,6 @@ const TWC = {
   violet: { 500: "#8B5CF6" },
   emerald: { 500: "#10B981" },
   amber: { 500: "#F59E0B" },
-  rose: { 500: "#E11D48" },
 };
 const BRAND = "#8E2434";
 
@@ -48,20 +48,20 @@ const withAlpha = (hex: string, a: number) => `rgba(${toRGB(hex)},${a})`;
    Tipos
    ======================================================================= */
 type SvgIcon = LucideIcon;
-
 type Stat = {
   label: string;
   value: number;
-  delta?: number; // % (positivo o negativo)
+  delta?: number;
   color: keyof typeof TWC;
   icon: SvgIcon;
   spark: number[];
 };
 
-type Range = "total" | "7d" | "30d" | "90d";
+/** quitamos selector de rango => solo "total" */
+type Range = "total";
 
 /* =======================================================================
-   Helpers de tema/usuario (sin any ni regex frágiles)
+   Helpers de tema/usuario (sin any)
    ======================================================================= */
 function useIsLightTheme() {
   const [light, setLight] = useState<boolean>(false);
@@ -83,9 +83,7 @@ function readCookie(name: string): string | null {
     const eq = part.indexOf("=");
     if (eq === -1) continue;
     const key = decodeURIComponent(part.slice(0, eq));
-    if (key === name) {
-      return decodeURIComponent(part.slice(eq + 1));
-    }
+    if (key === name) return decodeURIComponent(part.slice(eq + 1));
   }
   return null;
 }
@@ -102,8 +100,10 @@ function pickFromObjectString(o: unknown): string | null {
   return null;
 }
 
+/** lee user de local/sessionStorage y cookies (incluye claves del login) */
 function getUsernameFromStorage(): string | null {
-  const keys = [
+  const STORAGE_KEYS = [
+    "mj:user", // ⬅️ guardado por el login
     "mj_username",
     "mj_login",
     "username",
@@ -111,8 +111,9 @@ function getUsernameFromStorage(): string | null {
     "user",
     "userLogin",
   ];
+
   for (const store of [localStorage, sessionStorage]) {
-    for (const k of keys) {
+    for (const k of STORAGE_KEYS) {
       const v = store.getItem(k);
       if (!v) continue;
       try {
@@ -124,7 +125,9 @@ function getUsernameFromStorage(): string | null {
       }
     }
   }
-  for (const k of keys) {
+
+  const COOKIE_KEYS = ["mj_user", "username", "login", "user"];
+  for (const k of COOKIE_KEYS) {
     const v = readCookie(k);
     if (!v) continue;
     try {
@@ -135,19 +138,27 @@ function getUsernameFromStorage(): string | null {
       if (v.trim()) return v;
     }
   }
+
   return null;
 }
 
 function useUsername() {
   const [name, setName] = useState<string>("Usuario");
+
   useEffect(() => {
-    try {
-      const n = getUsernameFromStorage();
-      if (n && n.trim()) setName(n);
-    } catch {
-      // noop
-    }
+    const refresh = () => {
+      try {
+        const n = getUsernameFromStorage();
+        setName(n && n.trim() ? n : "Usuario");
+      } catch {
+        setName("Usuario");
+      }
+    };
+    refresh();
+    window.addEventListener("storage", refresh);
+    return () => window.removeEventListener("storage", refresh);
   }, []);
+
   return name;
 }
 
@@ -199,7 +210,7 @@ function useCountUp(value: number, duration = 700) {
 }
 
 /* =======================================================================
-   Sparkline simple con SVG (renombramos id → svgId)
+   Sparkline simple con SVG
    ======================================================================= */
 function Sparkline({
   values,
@@ -310,9 +321,8 @@ function StatCard({ s }: { s: Stat }) {
     <div
       className={[
         "kpi-card group relative isolate overflow-hidden rounded-2xl border",
-        "bg-[#17181B] text-zinc-100 border-zinc-800", // look dark
-        "transition-shadow", // no translate
-        // borde de color en hover (usamos shadow inset con var)
+        "bg-[#17181B] text-zinc-100 border-zinc-800",
+        "transition-shadow",
         "hover:[box-shadow:0_0_0_1px_var(--kpi-accent)_inset]",
       ].join(" ")}
       style={
@@ -382,18 +392,6 @@ function StatCard({ s }: { s: Stat }) {
         .kpi-card:hover .mj-iconmark[data-anim="zoom"] .icon-hover {
           opacity: var(--mark-hov-opacity-hover, 0);
           transform: scale(var(--mark-hov-scale-hover, 1));
-        }
-        .kpi-card:hover .mj-iconmark[data-anim="cycle"] .icon-default {
-          opacity: 0;
-          transform: translate(
-              var(--mark-def-out-x, 8px),
-              var(--mark-def-out-y, 8px)
-            )
-            rotate(var(--mark-def-rot-hover, 12deg)) scale(0.92);
-        }
-        .kpi-card:hover .mj-iconmark[data-anim="cycle"] .icon-hover {
-          opacity: 1;
-          transform: translate(0, 0) rotate(0deg) scale(1);
         }
       `}</style>
     </div>
@@ -466,7 +464,7 @@ function DonutLicenses({
 }
 
 /* =======================================================================
-   Actividad reciente (IconMark pequeño)
+   Actividad reciente
    ======================================================================= */
 type Activity = {
   t: string;
@@ -498,7 +496,7 @@ const ACTIVITY_BASE: Activity[] = [
 ];
 
 /* =======================================================================
-   Dataset por rango (demostración)
+   Dataset (solo total)
    ======================================================================= */
 const DATA_BY_RANGE: Record<
   Range,
@@ -559,28 +557,13 @@ const DATA_BY_RANGE: Record<
     ],
     activity: ACTIVITY_BASE,
   },
-  "7d": {
-    ...ACTIVITY_BASE,
-    stats: [],
-    donut: [],
-  } as unknown as (typeof DATA_BY_RANGE)["total"], // no usado
-  "30d": {
-    ...ACTIVITY_BASE,
-    stats: [],
-    donut: [],
-  } as unknown as (typeof DATA_BY_RANGE)["total"],
-  "90d": {
-    ...ACTIVITY_BASE,
-    stats: [],
-    donut: [],
-  } as unknown as (typeof DATA_BY_RANGE)["total"],
 };
 
 /* =======================================================================
    Página
    ======================================================================= */
 export default function Dashboard() {
-  const [range] = useState<Range>("total"); // selector oculto
+  const [range] = useState<Range>("total");
   const [loading, setLoading] = useState(true);
   const isLight = useIsLightTheme();
   const username = useUsername();
