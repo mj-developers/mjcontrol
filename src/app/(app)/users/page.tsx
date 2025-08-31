@@ -1,3 +1,4 @@
+// src/app/(app)/users/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -9,7 +10,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import IconCircle from "@/components/ui/IconMark";
+import IconMark from "@/components/ui/IconMark";
 import { getInitialTheme, type Theme } from "@/lib/theme";
 
 /* ----------------------------- Tipos de datos ----------------------------- */
@@ -41,7 +42,7 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
       const j = (await res.json()) as { error?: string };
       if (j?.error) msg = j.error;
     } catch {
-      /* ignora parse error */
+      /* ignore */
     }
     throw new Error(msg || "Request error");
   }
@@ -57,7 +58,6 @@ function toUpdatePayload(info: UserInfo): UpdatePayload {
     Email: info.email,
   };
 }
-
 function diffUpdatePayload(
   original: UserInfo,
   current: UserInfo
@@ -81,24 +81,46 @@ export default function UsersPage() {
     setMounted(true);
   }, []);
 
-  /* Estilo base de IconCircle */
+  /* --------- helpers de estilo para IconMark (sustituye a IconCircle) -------- */
+  type MarkVars = React.CSSProperties & {
+    ["--iconmark-bg"]?: string;
+    ["--iconmark-border"]?: string;
+    ["--iconmark-icon-fg"]?: string;
+    ["--iconmark-hover-bg"]?: string;
+    ["--iconmark-hover-border"]?: string;
+    ["--iconmark-hover-icon-fg"]?: string;
+  };
+
   const NORMAL_BORDER = theme === "light" ? "#0e1117" : "#ffffff";
   const NORMAL_BG = theme === "light" ? "#e2e5ea" : "#0b0b0d";
-  const circleBaseProps = {
-    theme,
-    size: "md" as const,
-    borderWidth: 2,
-    borderColor: { light: NORMAL_BORDER, dark: NORMAL_BORDER },
-    bg: { light: NORMAL_BG, dark: NORMAL_BG },
-    fillOnHover: true,
-    hoverEffect: "none" as const,
-    zoomOnHover: false,
-  };
+  const FG_NORMAL = theme === "light" ? "#010409" : "#ffffff";
+  const FG_ACTIVE = theme === "light" ? "#0b0b0d" : "#ffffff";
+
+  /** estilo del aro por defecto (gris) y hover neutro */
+  const markBase = (): MarkVars => ({
+    ["--iconmark-bg"]: NORMAL_BG,
+    ["--iconmark-border"]: NORMAL_BORDER,
+    ["--iconmark-icon-fg"]: FG_NORMAL,
+    ["--iconmark-hover-bg"]: NORMAL_BG,
+    ["--iconmark-hover-border"]: NORMAL_BORDER,
+    ["--iconmark-hover-icon-fg"]: FG_NORMAL,
+  });
+
+  /** estilo con acento (para hover en acciones con color) */
+  const markWithAccent = (accent: string): MarkVars => ({
+    ["--iconmark-bg"]: NORMAL_BG,
+    ["--iconmark-border"]: NORMAL_BORDER,
+    ["--iconmark-icon-fg"]: FG_NORMAL,
+    ["--iconmark-hover-bg"]: accent,
+    ["--iconmark-hover-border"]: accent,
+    ["--iconmark-hover-icon-fg"]: FG_ACTIVE,
+  });
 
   /* Acentos */
   const ACC_CREATE = "#10B981";
   const ACC_SAVE = "#6366F1";
   const ACC_DELETE = "#8E2434";
+  const ZOOM = 1.5;
 
   /* Estado UI */
   const [search, setSearch] = useState("");
@@ -127,14 +149,12 @@ export default function UsersPage() {
       setList(data);
       return data;
     } catch (e) {
-      const msg = (e as Error).message;
-      setListError(msg);
+      setListError((e as Error).message);
       return [];
     } finally {
       setLoadingList(false);
     }
   }
-
   useEffect(() => {
     if (!mounted) return;
     void loadList();
@@ -253,9 +273,16 @@ export default function UsersPage() {
           disabled ? "opacity-50 pointer-events-none" : "",
         ].join(" ")}
       >
-        <IconCircle {...circleBaseProps} accent={accent}>
-          <Icon className="block transition-transform group-hover:scale-[1.15]" />
-        </IconCircle>
+        <IconMark
+          size="md"
+          borderWidth={2}
+          interactive
+          hoverAnim="zoom"
+          zoomScale={ZOOM}
+          style={markWithAccent(accent)}
+        >
+          <Icon className="block" />
+        </IconMark>
       </button>
     );
   }
@@ -269,7 +296,6 @@ export default function UsersPage() {
       ? "bg-white border-zinc-300"
       : "bg-[#0D1117] border-zinc-700",
   ].join(" ");
-
   const subtleText = theme === "light" ? "text-zinc-500" : "text-zinc-400";
 
   return (
@@ -446,8 +472,6 @@ export default function UsersPage() {
                   onChange={(v) => setInfo({ ...info, lastName: v })}
                   theme={theme}
                 />
-
-                {/* No mostramos botón "Guardar cambios" aquí: se guarda con el disquete del header */}
                 <input type="submit" hidden />
               </form>
             )}
@@ -526,19 +550,26 @@ function CreateUserModal({
 
   const isLight = theme === "light";
 
-  // Estilo IconCircle (calculado localmente)
+  type MarkVars = React.CSSProperties & {
+    ["--iconmark-bg"]?: string;
+    ["--iconmark-border"]?: string;
+    ["--iconmark-icon-fg"]?: string;
+    ["--iconmark-hover-bg"]?: string;
+    ["--iconmark-hover-border"]?: string;
+    ["--iconmark-hover-icon-fg"]?: string;
+  };
   const NORMAL_BORDER = isLight ? "#0e1117" : "#ffffff";
   const NORMAL_BG = isLight ? "#e2e5ea" : "#0b0b0d";
-  const circleBaseProps = {
-    theme,
-    size: "md" as const,
-    borderWidth: 2,
-    borderColor: { light: NORMAL_BORDER, dark: NORMAL_BORDER },
-    bg: { light: NORMAL_BG, dark: NORMAL_BG },
-    fillOnHover: true,
-    hoverEffect: "none" as const,
-    zoomOnHover: false,
-  };
+  const FG_NORMAL = isLight ? "#010409" : "#ffffff";
+  const FG_ACTIVE = isLight ? "#0b0b0d" : "#ffffff";
+  const markWithAccent = (accent: string): MarkVars => ({
+    ["--iconmark-bg"]: NORMAL_BG,
+    ["--iconmark-border"]: NORMAL_BORDER,
+    ["--iconmark-icon-fg"]: FG_NORMAL,
+    ["--iconmark-hover-bg"]: accent,
+    ["--iconmark-hover-border"]: accent,
+    ["--iconmark-hover-icon-fg"]: FG_ACTIVE,
+  });
 
   function stop(e: React.MouseEvent) {
     e.stopPropagation();
@@ -568,10 +599,7 @@ function CreateUserModal({
         onMouseDown={stop}
       >
         {/* Header */}
-        <div
-          className="flex items-center justify-between px-5 pt-4 pb-3 border-b
-                        border-zinc-200 dark:border-zinc-800 rounded-t-2xl"
-        >
+        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-zinc-200 dark:border-zinc-800 rounded-t-2xl">
           <h2 className="text-lg font-semibold">Crear usuario</h2>
           <button
             type="button"
@@ -587,7 +615,7 @@ function CreateUserModal({
         <form
           className="px-5 pb-5 pt-4 space-y-4"
           onSubmit={handleSubmit}
-          autoComplete="off" // no recordar
+          autoComplete="off"
         >
           <label className="block">
             <span className="block text-sm mb-1 opacity-80">Usuario</span>
@@ -617,7 +645,7 @@ function CreateUserModal({
               }
               placeholder="Contraseña"
               type="password"
-              autoComplete="new-password" // no recordar
+              autoComplete="new-password"
               className={[
                 "w-full h-11 rounded-xl px-3 border outline-none",
                 isLight
@@ -643,9 +671,16 @@ function CreateUserModal({
                   "opacity-60 pointer-events-none",
               ].join(" ")}
             >
-              <IconCircle {...circleBaseProps} accent="#10B981">
+              <IconMark
+                size="md"
+                borderWidth={2}
+                interactive
+                hoverAnim="zoom"
+                zoomScale={1.5}
+                style={markWithAccent("#10B981")}
+              >
                 <UserPlus className="block" />
-              </IconCircle>
+              </IconMark>
               Crear
             </button>
 
