@@ -1,6 +1,7 @@
 // src/app/(app)/users/page.tsx
 "use client";
 
+import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
   Save,
@@ -11,7 +12,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import IconMark from "@/components/ui/IconMark";
+import Heading from "@/components/ui/Heading";
 import { getInitialTheme, type Theme } from "@/lib/theme";
+
+/* --------------------------- Acentos / constantes -------------------------- */
+const ACC_CREATE = "#10B981"; // verde crear
+const ACC_SAVE = "#6366F1"; // header/confirm del modal Guardar
+const ACC_DELETE = "#8E2434"; // brand burdeos (eliminar / cancelar hover)
+const ZOOM = 1.5;
 
 /* ----------------------------- Tipos de datos ----------------------------- */
 type UserListItem = { id: number; login: string };
@@ -28,6 +36,21 @@ type UpdatePayload = Partial<{
   LastName: string;
   Email: string;
 }>;
+
+/* ---------------------- Hook: tema reactivo (sin F5) ---------------------- */
+function useReactiveTheme(): Theme {
+  const [theme, setTheme] = useState<Theme>(getInitialTheme());
+  useEffect(() => {
+    const root = document.documentElement;
+    const compute = () =>
+      (root.classList.contains("dark") ? "dark" : "light") as Theme;
+    setTheme(compute());
+    const mo = new MutationObserver(() => setTheme(compute()));
+    mo.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => mo.disconnect();
+  }, []);
+  return theme;
+}
 
 /* ---------------------------- Utilidad fetch JSON ---------------------------- */
 async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
@@ -73,15 +96,11 @@ function diffUpdatePayload(
 
 /* ================================== Page ================================== */
 export default function UsersPage() {
-  /* Tema (coherente con el layout) */
-  const [theme, setTheme] = useState<Theme>("dark");
+  const theme = useReactiveTheme();
   const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setTheme(getInitialTheme());
-    setMounted(true);
-  }, []);
+  useEffect(() => setMounted(true), []);
 
-  /* --------- helpers de estilo para IconMark (sustituye a IconCircle) -------- */
+  /* --------- helpers de estilo para IconMark -------- */
   type MarkVars = React.CSSProperties & {
     ["--iconmark-bg"]?: string;
     ["--iconmark-border"]?: string;
@@ -96,17 +115,6 @@ export default function UsersPage() {
   const FG_NORMAL = theme === "light" ? "#010409" : "#ffffff";
   const FG_ACTIVE = theme === "light" ? "#0b0b0d" : "#ffffff";
 
-  /** estilo del aro por defecto (gris) y hover neutro */
-  const markBase = (): MarkVars => ({
-    ["--iconmark-bg"]: NORMAL_BG,
-    ["--iconmark-border"]: NORMAL_BORDER,
-    ["--iconmark-icon-fg"]: FG_NORMAL,
-    ["--iconmark-hover-bg"]: NORMAL_BG,
-    ["--iconmark-hover-border"]: NORMAL_BORDER,
-    ["--iconmark-hover-icon-fg"]: FG_NORMAL,
-  });
-
-  /** estilo con acento (para hover en acciones con color) */
   const markWithAccent = (accent: string): MarkVars => ({
     ["--iconmark-bg"]: NORMAL_BG,
     ["--iconmark-border"]: NORMAL_BORDER,
@@ -115,12 +123,6 @@ export default function UsersPage() {
     ["--iconmark-hover-border"]: accent,
     ["--iconmark-hover-icon-fg"]: FG_ACTIVE,
   });
-
-  /* Acentos */
-  const ACC_CREATE = "#10B981";
-  const ACC_SAVE = "#6366F1";
-  const ACC_DELETE = "#8E2434";
-  const ZOOM = 1.5;
 
   /* Estado UI */
   const [search, setSearch] = useState("");
@@ -137,8 +139,13 @@ export default function UsersPage() {
   const [loadingInfo, setLoadingInfo] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  /* Modal crear */
+  /* Modales */
   const [createOpen, setCreateOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   /* ------------------------------- Cargar lista ------------------------------ */
   async function loadList(): Promise<UserListItem[]> {
@@ -197,38 +204,55 @@ export default function UsersPage() {
     }
   }
 
-  /* ------------------------------- Guardar / Del ------------------------------ */
+  /* ------------------------------- Guardar ---------------------------------- */
   const hasChanges = useMemo(() => {
     if (!info || !originalInfo) return false;
     return Object.keys(diffUpdatePayload(originalInfo, info)).length > 0;
   }, [info, originalInfo]);
 
-  async function handleSave() {
+  function requestSave() {
     if (!info || !originalInfo || selectedId == null) return;
     const diff = diffUpdatePayload(originalInfo, info);
     if (Object.keys(diff).length === 0) return;
-    if (!window.confirm("¿Guardar los cambios del usuario?")) return;
+    setConfirmOpen(true);
+  }
+
+  async function performSave() {
+    if (!info || !originalInfo || selectedId == null) return;
+    const diff = diffUpdatePayload(originalInfo, info);
+    if (Object.keys(diff).length === 0) {
+      setConfirmOpen(false);
+      return;
+    }
     try {
+      setConfirmBusy(true);
       await fetchJSON<unknown>(`/api/users/update/${selectedId}`, {
         method: "PUT",
         body: JSON.stringify(diff),
       });
       setOriginalInfo(info);
       await loadList();
+      setConfirmOpen(false);
     } catch (e) {
       alert(`No se pudo actualizar: ${(e as Error).message}`);
+    } finally {
+      setConfirmBusy(false);
     }
   }
 
-  async function handleDelete() {
+  /* ------------------------------- Eliminar --------------------------------- */
+  function requestDelete() {
     if (selectedId == null || !info) return;
-    if (
-      !window.confirm(
-        `¿Eliminar al usuario “${info.login}”? Esta acción no se puede deshacer.`
-      )
-    )
+    setDeleteOpen(true);
+  }
+
+  async function performDelete() {
+    if (selectedId == null || !info) {
+      setDeleteOpen(false);
       return;
+    }
     try {
+      setDeleteBusy(true);
       await fetchJSON<unknown>(`/api/users/delete/${selectedId}`, {
         method: "DELETE",
       });
@@ -236,8 +260,11 @@ export default function UsersPage() {
       setInfo(null);
       setOriginalInfo(null);
       await loadList();
+      setDeleteOpen(false);
     } catch (e) {
       alert(`No se pudo eliminar: ${(e as Error).message}`);
+    } finally {
+      setDeleteBusy(false);
     }
   }
 
@@ -248,58 +275,62 @@ export default function UsersPage() {
     return list.filter((u) => u.login.toLowerCase().includes(q));
   }, [search, list]);
 
-  function IconOnly({
-    title,
-    accent,
-    Icon,
-    onClick,
-    disabled,
-  }: {
-    title: string;
-    accent: string;
-    Icon: LucideIcon;
-    onClick?: () => void;
-    disabled?: boolean;
-  }) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        title={title}
-        aria-label={title}
-        disabled={disabled}
-        className={[
-          "group",
-          disabled ? "opacity-50 pointer-events-none" : "",
-        ].join(" ")}
-      >
-        <IconMark
-          size="md"
-          borderWidth={2}
-          interactive
-          hoverAnim="zoom"
-          zoomScale={ZOOM}
-          style={markWithAccent(accent)}
-        >
-          <Icon className="block" />
-        </IconMark>
-      </button>
-    );
-  }
-
-  if (!mounted) return <div className="p-6" />;
-
-  /* tokens de card por tema */
+  /* ----------------------------- Estilos globales ---------------------------- */
+  const subtleText = theme === "light" ? "text-zinc-500" : "text-zinc-400";
   const cardCls = [
     "rounded-2xl border shadow-sm",
     theme === "light"
       ? "bg-white border-zinc-300"
       : "bg-[#0D1117] border-zinc-700",
   ].join(" ");
-  const subtleText = theme === "light" ? "text-zinc-500" : "text-zinc-400";
+
+  if (!mounted) return <div className="p-6" />;
 
   return (
     <div className="p-4 md:p-6">
+      <style jsx global>{`
+        /* Botones que envuelven IconMark activan hover + manita */
+        .iconmark-btn {
+          cursor: pointer;
+        }
+        .iconmark-btn:hover .mj-iconmark {
+          --mark-bg: var(--iconmark-hover-bg, var(--iconmark-bg));
+          --mark-border: var(--iconmark-hover-border, var(--iconmark-border));
+          --mark-fg: var(--iconmark-hover-icon-fg, var(--iconmark-icon-fg));
+        }
+        .iconmark-btn:hover .mj-iconmark[data-anim="zoom"] .icon-default {
+          transform: scale(1.5) !important;
+        }
+        .iconmark-btn:hover .mj-iconmark[data-anim="zoom"] .icon-hover {
+          transform: scale(1) !important;
+        }
+
+        /* Modal: uniformar tamaño de los IconMark de acciones (igual que el de la X) */
+        .modal-actions .mj-iconmark {
+          width: 40px;
+          height: 40px;
+        }
+      `}</style>
+
+      {/* Header tipo dashboard */}
+      <header className="mb-4 md:mb-6">
+        <Heading
+          level={1}
+          fill="solid"
+          color="var(--brand, #8E2434)"
+          fontFamily="var(--font-display, Sora, ui-sans-serif)"
+          shadow="soft+brand"
+          size="clamp(1.6rem,3.2vw,2.4rem)"
+          className="uppercase tracking-widest"
+        >
+          Clientes
+        </Heading>
+        <p className={`mt-3 text-sm ${subtleText}`}>
+          Gestión de clientes del sistema: busca y filtra, crea nuevos
+          registros, edita información básica y elimina cuando sea necesario.
+        </p>
+      </header>
+
       <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] gap-6">
         {/* ------------------------------ Card izquierda ------------------------------ */}
         <aside className={cardCls}>
@@ -337,12 +368,24 @@ export default function UsersPage() {
               </div>
 
               {/* Nuevo usuario (abre modal) */}
-              <IconOnly
+              <button
+                type="button"
                 title="Nuevo usuario"
-                accent={ACC_CREATE}
-                Icon={UserPlus}
+                aria-label="Nuevo usuario"
+                className="group iconmark-btn"
                 onClick={() => setCreateOpen(true)}
-              />
+              >
+                <IconMark
+                  size="md"
+                  borderWidth={2}
+                  interactive
+                  hoverAnim="zoom"
+                  zoomScale={ZOOM}
+                  style={markWithAccent(ACC_CREATE)}
+                >
+                  <UserPlus className="block" />
+                </IconMark>
+              </button>
             </div>
           </div>
 
@@ -372,7 +415,7 @@ export default function UsersPage() {
                         void loadInfo(u.id);
                       }}
                       className={[
-                        "w-full text-left px-3 py-2 rounded-xl transition",
+                        "w-full text-left px-3 py-2 rounded-xl transition cursor-pointer",
                         active
                           ? "bg-[var(--brand,#8E2434)]/15"
                           : "hover:bg-zinc-500/10",
@@ -413,20 +456,52 @@ export default function UsersPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <IconOnly
+              <button
+                type="button"
                 title={hasChanges ? "Guardar" : "Nada que guardar"}
-                accent={ACC_SAVE}
-                Icon={Save}
-                onClick={handleSave}
+                aria-label={hasChanges ? "Guardar" : "Nada que guardar"}
+                onClick={requestSave}
                 disabled={!hasChanges || !selectedId}
-              />
-              <IconOnly
+                className={[
+                  "group iconmark-btn",
+                  (!hasChanges || !selectedId) &&
+                    "opacity-50 pointer-events-none",
+                ].join(" ")}
+              >
+                <IconMark
+                  size="md"
+                  borderWidth={2}
+                  interactive
+                  hoverAnim="zoom"
+                  zoomScale={ZOOM}
+                  style={markWithAccent(ACC_SAVE)}
+                >
+                  <Save className="block" />
+                </IconMark>
+              </button>
+
+              <button
+                type="button"
                 title="Eliminar usuario"
-                accent={ACC_DELETE}
-                Icon={Trash2}
-                onClick={handleDelete}
+                aria-label="Eliminar usuario"
+                onClick={requestDelete}
                 disabled={!selectedId}
-              />
+                className={[
+                  "group iconmark-btn",
+                  !selectedId && "opacity-50 pointer-events-none",
+                ].join(" ")}
+              >
+                <IconMark
+                  size="md"
+                  borderWidth={2}
+                  interactive
+                  hoverAnim="zoom"
+                  zoomScale={ZOOM}
+                  style={markWithAccent(ACC_DELETE)}
+                >
+                  <Trash2 className="block" />
+                </IconMark>
+              </button>
             </div>
           </div>
 
@@ -445,31 +520,31 @@ export default function UsersPage() {
                 className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  void handleSave();
+                  requestSave();
                 }}
               >
                 <Field
                   label="Login"
                   value={info.login}
-                  onChange={(v) => setInfo({ ...info, login: v })}
+                  onChange={(v: string) => setInfo({ ...info, login: v })}
                   theme={theme}
                 />
                 <Field
                   label="Email"
                   value={info.email}
-                  onChange={(v) => setInfo({ ...info, email: v })}
+                  onChange={(v: string) => setInfo({ ...info, email: v })}
                   theme={theme}
                 />
                 <Field
                   label="Nombre"
                   value={info.firstName}
-                  onChange={(v) => setInfo({ ...info, firstName: v })}
+                  onChange={(v: string) => setInfo({ ...info, firstName: v })}
                   theme={theme}
                 />
                 <Field
                   label="Apellidos"
                   value={info.lastName}
-                  onChange={(v) => setInfo({ ...info, lastName: v })}
+                  onChange={(v: string) => setInfo({ ...info, lastName: v })}
                   theme={theme}
                 />
                 <input type="submit" hidden />
@@ -479,12 +554,31 @@ export default function UsersPage() {
         </section>
       </div>
 
-      {/* Modal Crear usuario */}
+      {/* Modales */}
       <CreateUserModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onSubmit={createUser}
         theme={theme}
+      />
+
+      <ConfirmModal
+        open={confirmOpen}
+        onClose={() => (confirmBusy ? null : setConfirmOpen(false))}
+        onConfirm={performSave}
+        busy={confirmBusy}
+        theme={theme}
+        title="Confirmar guardado"
+        message="¿Guardar los cambios del usuario?"
+      />
+
+      <DeleteModal
+        open={deleteOpen}
+        onClose={() => (deleteBusy ? null : setDeleteOpen(false))}
+        onConfirm={performDelete}
+        busy={deleteBusy}
+        theme={theme}
+        userLogin={info?.login ?? ""}
       />
     </div>
   );
@@ -593,21 +687,34 @@ function CreateUserModal({
     >
       <div
         className={[
-          "relative w-full max-w-md rounded-2xl border shadow-2xl",
+          "relative w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden",
           isLight ? "bg-white border-zinc-300" : "bg-[#0D1117] border-zinc-700",
         ].join(" ")}
         onMouseDown={stop}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-zinc-200 dark:border-zinc-800 rounded-t-2xl">
+        {/* Header con fondo verde y botón X como IconMark (hover burdeos) */}
+        <div
+          className="flex items-center justify-between px-5 pt-4 pb-3 rounded-t-2xl"
+          style={{ background: ACC_CREATE, color: "#fff" }}
+        >
           <h2 className="text-lg font-semibold">Crear usuario</h2>
           <button
             type="button"
             aria-label="Cerrar"
-            className="p-2 rounded-lg hover:bg-zinc-500/10"
+            className="iconmark-btn"
             onClick={onClose}
+            title="Cerrar"
           >
-            <X className="h-5 w-5" />
+            <IconMark
+              size="md"
+              borderWidth={2}
+              interactive
+              hoverAnim="zoom"
+              zoomScale={1.5}
+              style={markWithAccent(ACC_DELETE)}
+            >
+              <X className="block" />
+            </IconMark>
           </button>
         </div>
 
@@ -656,14 +763,13 @@ function CreateUserModal({
             />
           </label>
 
-          {/* Footer */}
-          <div className="pt-2 flex items-center gap-3">
+          {/* Footer acciones: dos columnas, botones iguales */}
+          <div className="modal-actions pt-2 grid grid-cols-2 gap-3">
             <button
               type="submit"
               disabled={busy || !login.trim() || !pass}
               className={[
-                "inline-flex items-center gap-2 py-2.5 px-4 rounded-xl border transition",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand,#8E2434)]/40",
+                "iconmark-btn inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border transition",
                 isLight
                   ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
                   : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
@@ -677,7 +783,7 @@ function CreateUserModal({
                 interactive
                 hoverAnim="zoom"
                 zoomScale={1.5}
-                style={markWithAccent("#10B981")}
+                style={markWithAccent(ACC_CREATE)}
               >
                 <UserPlus className="block" />
               </IconMark>
@@ -687,12 +793,315 @@ function CreateUserModal({
             <button
               type="button"
               onClick={onClose}
-              className="py-2.5 px-4 rounded-xl underline opacity-90 hover:opacity-100"
+              className={[
+                "iconmark-btn inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border transition",
+                isLight
+                  ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
+                  : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
+              ].join(" ")}
             >
+              <IconMark
+                size="md"
+                borderWidth={2}
+                interactive
+                hoverAnim="zoom"
+                zoomScale={1.5}
+                /* Cancelar -> hover burdeos (brand) */
+                style={markWithAccent(ACC_DELETE)}
+              >
+                <X className="block" />
+              </IconMark>
               Cancelar
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+/* --------------------------- Modal: Confirmación --------------------------- */
+function ConfirmModal({
+  open,
+  onClose,
+  onConfirm,
+  busy = false,
+  theme,
+  title,
+  message,
+}: {
+  open: boolean;
+  onClose: () => void | null;
+  onConfirm: () => void | Promise<void>;
+  busy?: boolean;
+  theme: Theme;
+  title: string;
+  message: string;
+}) {
+  if (!open) return null;
+  const isLight = theme === "light";
+
+  type MarkVars = React.CSSProperties & {
+    ["--iconmark-bg"]?: string;
+    ["--iconmark-border"]?: string;
+    ["--iconmark-icon-fg"]?: string;
+    ["--iconmark-hover-bg"]?: string;
+    ["--iconmark-hover-border"]?: string;
+    ["--iconmark-hover-icon-fg"]?: string;
+  };
+  const NORMAL_BORDER = isLight ? "#0e1117" : "#ffffff";
+  const NORMAL_BG = isLight ? "#e2e5ea" : "#0b0b0d";
+  const FG_NORMAL = isLight ? "#010409" : "#ffffff";
+  const FG_ACTIVE = isLight ? "#0b0b0d" : "#ffffff";
+  const markWithAccent = (accent: string): MarkVars => ({
+    ["--iconmark-bg"]: NORMAL_BG,
+    ["--iconmark-border"]: NORMAL_BORDER,
+    ["--iconmark-icon-fg"]: FG_NORMAL,
+    ["--iconmark-hover-bg"]: accent,
+    ["--iconmark-hover-border"]: accent,
+    ["--iconmark-hover-icon-fg"]: FG_ACTIVE,
+  });
+
+  function stop(e: React.MouseEvent) {
+    e.stopPropagation();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-[2px] grid place-items-center p-4"
+      onMouseDown={() => onClose && onClose()}
+    >
+      <div
+        className={[
+          "relative w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden",
+          isLight ? "bg-white border-zinc-300" : "bg-[#0D1117] border-zinc-700",
+        ].join(" ")}
+        onMouseDown={stop}
+      >
+        {/* Header con color ACC_SAVE y X con hover brand */}
+        <div
+          className="flex items-center justify-between px-5 pt-4 pb-3 rounded-t-2xl"
+          style={{ background: ACC_SAVE, color: "#fff" }}
+        >
+          <h2 className="text-lg font-semibold">{title}</h2>
+          <button
+            type="button"
+            aria-label="Cerrar"
+            className="iconmark-btn"
+            onClick={() => onClose && onClose()}
+            title="Cerrar"
+          >
+            <IconMark
+              size="md"
+              borderWidth={2}
+              interactive
+              hoverAnim="zoom"
+              zoomScale={1.5}
+              style={markWithAccent(ACC_DELETE)}
+            >
+              <X className="block" />
+            </IconMark>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 pt-4 pb-5 space-y-6">
+          <p className="text-sm opacity-90">{message}</p>
+
+          <div className="modal-actions grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={busy}
+              className={[
+                "iconmark-btn inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border transition",
+                isLight
+                  ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
+                  : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
+                busy && "opacity-60 pointer-events-none",
+              ].join(" ")}
+            >
+              <IconMark
+                size="md"
+                borderWidth={2}
+                interactive
+                hoverAnim="zoom"
+                zoomScale={1.5}
+                style={markWithAccent(ACC_SAVE)}
+              >
+                <Save className="block" />
+              </IconMark>
+              Guardar
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onClose && onClose()}
+              className={[
+                "iconmark-btn inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border transition",
+                isLight
+                  ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
+                  : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
+              ].join(" ")}
+            >
+              <IconMark
+                size="md"
+                borderWidth={2}
+                interactive
+                hoverAnim="zoom"
+                zoomScale={1.5}
+                style={markWithAccent(ACC_DELETE)}
+              >
+                <X className="block" />
+              </IconMark>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* --------------------------- Modal: Eliminar --------------------------- */
+function DeleteModal({
+  open,
+  onClose,
+  onConfirm,
+  busy = false,
+  theme,
+  userLogin,
+}: {
+  open: boolean;
+  onClose: () => void | null;
+  onConfirm: () => void | Promise<void>;
+  busy?: boolean;
+  theme: Theme;
+  userLogin: string;
+}) {
+  if (!open) return null;
+  const isLight = theme === "light";
+
+  type MarkVars = React.CSSProperties & {
+    ["--iconmark-bg"]?: string;
+    ["--iconmark-border"]?: string;
+    ["--iconmark-icon-fg"]?: string;
+    ["--iconmark-hover-bg"]?: string;
+    ["--iconmark-hover-border"]?: string;
+    ["--iconmark-hover-icon-fg"]?: string;
+  };
+  const NORMAL_BORDER = isLight ? "#0e1117" : "#ffffff";
+  const NORMAL_BG = isLight ? "#e2e5ea" : "#0b0b0d";
+  const FG_NORMAL = isLight ? "#010409" : "#ffffff";
+  const FG_ACTIVE = isLight ? "#0b0b0d" : "#ffffff";
+  const markWithAccent = (accent: string): MarkVars => ({
+    ["--iconmark-bg"]: NORMAL_BG,
+    ["--iconmark-border"]: NORMAL_BORDER,
+    ["--iconmark-icon-fg"]: FG_NORMAL,
+    ["--iconmark-hover-bg"]: accent,
+    ["--iconmark-hover-border"]: accent,
+    ["--iconmark-hover-icon-fg"]: FG_ACTIVE,
+  });
+
+  function stop(e: React.MouseEvent) {
+    e.stopPropagation();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-[2px] grid place-items-center p-4"
+      onMouseDown={() => onClose && onClose()}
+    >
+      <div
+        className={[
+          "relative w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden",
+          isLight ? "bg-white border-zinc-300" : "bg-[#0D1117] border-zinc-700",
+        ].join(" ")}
+        onMouseDown={stop}
+      >
+        {/* Header con color ACC_DELETE */}
+        <div
+          className="flex items-center justify-between px-5 pt-4 pb-3 rounded-t-2xl"
+          style={{ background: ACC_DELETE, color: "#fff" }}
+        >
+          <h2 className="text-lg font-semibold">Confirmar eliminación</h2>
+          <button
+            type="button"
+            aria-label="Cerrar"
+            className="iconmark-btn"
+            onClick={() => onClose && onClose()}
+            title="Cerrar"
+          >
+            <IconMark
+              size="md"
+              borderWidth={2}
+              interactive
+              hoverAnim="zoom"
+              zoomScale={1.5}
+              style={markWithAccent(ACC_DELETE)}
+            >
+              <X className="block" />
+            </IconMark>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 pt-4 pb-5 space-y-6">
+          <p className="text-sm opacity-90">
+            ¿Eliminar al usuario “{userLogin}”? Esta acción no se puede
+            deshacer.
+          </p>
+
+          <div className="modal-actions grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={busy}
+              className={[
+                "iconmark-btn inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border transition",
+                isLight
+                  ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
+                  : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
+                busy && "opacity-60 pointer-events-none",
+              ].join(" ")}
+            >
+              <IconMark
+                size="md"
+                borderWidth={2}
+                interactive
+                hoverAnim="zoom"
+                zoomScale={1.5}
+                style={markWithAccent(ACC_DELETE)}
+              >
+                <Trash2 className="block" />
+              </IconMark>
+              Eliminar
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onClose && onClose()}
+              className={[
+                "iconmark-btn inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border transition",
+                isLight
+                  ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
+                  : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
+              ].join(" ")}
+            >
+              <IconMark
+                size="md"
+                borderWidth={2}
+                interactive
+                hoverAnim="zoom"
+                zoomScale={1.5}
+                style={markWithAccent(ACC_DELETE)}
+              >
+                <X className="block" />
+              </IconMark>
+              Cancelar
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
