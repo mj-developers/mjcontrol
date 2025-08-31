@@ -12,6 +12,7 @@ import {
   ArrowDownRight,
   Clock8,
 } from "lucide-react";
+import IconMark from "@/components/ui/IconMark";
 
 /* =======================================================================
    Colores utilitarios (evitamos clases tailwind dinámicas)
@@ -57,6 +58,48 @@ type Stat = {
 };
 
 type Range = "total" | "7d" | "30d" | "90d";
+
+/* =======================================================================
+   Helpers de tema para IconMark (sin any)
+   ======================================================================= */
+function useIsLightTheme() {
+  const [light, setLight] = useState<boolean>(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    const get = () => !root.classList.contains("dark");
+    setLight(get());
+    const mo = new MutationObserver(() => setLight(get()));
+    mo.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => mo.disconnect();
+  }, []);
+  return light;
+}
+
+// CSS vars que acepta <IconMark/> (prefijo iconmark-)
+type IconMarkVars = React.CSSProperties & {
+  "--iconmark-bg"?: string;
+  "--iconmark-border"?: string;
+  "--iconmark-icon-fg"?: string;
+  "--iconmark-hover-bg"?: string;
+  "--iconmark-hover-border"?: string;
+  "--iconmark-hover-icon-fg"?: string;
+};
+
+// En reposo: borde + icono = acento; fondo neutro por tema.
+// En hover: fondo = acento; icono se invierte según tema.
+function iconMarkStyle(accent: string, isLight: boolean): IconMarkVars {
+  const NEUTRAL_BG = isLight ? "#e2e5ea" : "#0b0b0d";
+  const FG_ACTIVE = isLight ? "#0b0b0d" : "#ffffff"; // icono cuando fondo es acento
+
+  return {
+    "--iconmark-bg": NEUTRAL_BG, // fondo reposo
+    "--iconmark-border": accent, // borde reposo = acento
+    "--iconmark-icon-fg": accent, // icono reposo = acento
+    "--iconmark-hover-bg": accent, // fondo hover
+    "--iconmark-hover-border": accent, // borde hover
+    "--iconmark-hover-icon-fg": FG_ACTIVE, // icono hover (inverso)
+  };
+}
 
 /* =======================================================================
    Hook: count-up
@@ -177,13 +220,14 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
 }
 
 /* =======================================================================
-   Tarjeta KPI (sin parallax)
+   Tarjeta KPI (sin movimiento del panel, IconMark en el icono)
    ======================================================================= */
 function StatCard({ s }: { s: Stat }) {
   const Icon = s.icon;
   const positive = (s.delta ?? 0) >= 0;
   const accent = TWC[s.color][500];
   const displayValue = useCountUp(s.value);
+  const isLight = useIsLightTheme();
 
   return (
     <div
@@ -191,21 +235,23 @@ function StatCard({ s }: { s: Stat }) {
         "group relative isolate overflow-hidden rounded-2xl border",
         "bg-white text-zinc-900 border-zinc-200",
         "dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-800",
-        "transition-transform duration-200 hover:-translate-y-[2px] hover:shadow-lg",
+        "transition-shadow", // ← sin translate/hover lift
       ].join(" ")}
       style={{ boxShadow: `0 0 0 1px ${withAlpha(accent, 0.16)} inset` }}
     >
       <div className="p-4 flex items-center gap-3">
-        <div
-          className="grid h-11 w-11 place-items-center rounded-xl border"
-          style={{
-            borderColor: withAlpha(accent, 0.35),
-            background: withAlpha(accent, 0.08),
-            color: accent,
-          }}
+        <IconMark
+          size="md"
+          shape="rounded"
+          borderWidth={2}
+          interactive
+          hoverAnim="zoom"
+          style={iconMarkStyle(accent, isLight)}
+          title={s.label}
+          ariaLabel={s.label}
         >
-          <Icon className="h-6 w-6" />
-        </div>
+          <Icon />
+        </IconMark>
 
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
@@ -312,7 +358,7 @@ function DonutLicenses({
 }
 
 /* =======================================================================
-   Actividad reciente (con estado ping)
+   Actividad reciente (con IconMark pequeño)
    ======================================================================= */
 type Activity = {
   t: string;
@@ -572,6 +618,8 @@ export default function Dashboard() {
   const NO_STATS = false;
   const NO_ACTIVITY = false;
 
+  const isLight = useIsLightTheme();
+
   return (
     <div className="space-y-6">
       <header className="flex items-end justify-between">
@@ -677,8 +725,21 @@ export default function Dashboard() {
                         : BRAND;
                     return (
                       <li key={i} className="py-3 flex items-center gap-3">
-                        <span className="relative grid h-9 w-9 place-items-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/30">
-                          <Ico className="h-5 w-5 text-zinc-600 dark:text-zinc-300" />
+                        <span className="relative inline-grid place-items-center">
+                          <IconMark
+                            size="sm"
+                            shape="rounded"
+                            borderWidth={2}
+                            interactive
+                            hoverAnim="zoom"
+                            style={iconMarkStyle(color, isLight)}
+                            ariaLabel={a.t}
+                            title={a.t}
+                          >
+                            <Ico />
+                          </IconMark>
+
+                          {/* Ping de estado */}
                           <span className="absolute -top-1 -right-1 inline-grid place-items-center">
                             <span
                               className="absolute h-3 w-3 rounded-full animate-ping"
@@ -690,6 +751,7 @@ export default function Dashboard() {
                             />
                           </span>
                         </span>
+
                         <div className="min-w-0">
                           <p className="text-sm">{a.t}</p>
                           <p className="text-xs text-zinc-500 dark:text-zinc-400">
