@@ -16,18 +16,16 @@ import {
 import IconMark from "@/components/ui/IconMark";
 import Heading from "@/components/ui/Heading";
 
-/* =======================================================================
-   Colores utilitarios
-   ======================================================================= */
+/* ===== util colores ===== */
 const TWC = {
   indigo: { 500: "#6366F1" },
   cyan: { 500: "#06B6D4" },
   violet: { 500: "#8B5CF6" },
   emerald: { 500: "#10B981" },
   amber: { 500: "#F59E0B" },
+  rose: { 500: "#E11D48" },
 };
 const BRAND = "#8E2434";
-
 const toRGB = (hex: string) => {
   const h = hex.replace("#", "");
   const n =
@@ -44,9 +42,7 @@ const toRGB = (hex: string) => {
 };
 const withAlpha = (hex: string, a: number) => `rgba(${toRGB(hex)},${a})`;
 
-/* =======================================================================
-   Tipos
-   ======================================================================= */
+/* ===== tipos ===== */
 type SvgIcon = LucideIcon;
 type Stat = {
   label: string;
@@ -56,64 +52,85 @@ type Stat = {
   icon: SvgIcon;
   spark: number[];
 };
+type Range = "total" | "7d" | "30d" | "90d";
 
-/** quitamos selector de rango => solo "total" */
-type Range = "total";
-
-/* =======================================================================
-   Helpers de tema/usuario (sin any)
-   ======================================================================= */
+/* ===== tema + username ===== */
 function useIsLightTheme() {
-  const [light, setLight] = useState<boolean>(false);
+  const [l, setL] = useState(false);
   useEffect(() => {
-    const root = document.documentElement;
-    const get = () => !root.classList.contains("dark");
-    setLight(get());
-    const mo = new MutationObserver(() => setLight(get()));
-    mo.observe(root, { attributes: true, attributeFilter: ["class"] });
+    const r = document.documentElement;
+    const g = () => !r.classList.contains("dark");
+    setL(g());
+    const mo = new MutationObserver(() => setL(g()));
+    mo.observe(r, { attributes: true, attributeFilter: ["class"] });
     return () => mo.disconnect();
   }, []);
-  return light;
+  return l;
 }
-
-function readCookie(name: string): string | null {
+function readCookie(name: string) {
   const parts = document.cookie.split(";").map((p) => p.trim());
   for (const part of parts) {
-    if (!part) continue;
-    const eq = part.indexOf("=");
-    if (eq === -1) continue;
-    const key = decodeURIComponent(part.slice(0, eq));
-    if (key === name) return decodeURIComponent(part.slice(eq + 1));
+    const i = part.indexOf("=");
+    if (i < 0) continue;
+    const k = decodeURIComponent(part.slice(0, i));
+    if (k === name) return decodeURIComponent(part.slice(i + 1));
   }
   return null;
 }
-
-function pickFromObjectString(o: unknown): string | null {
+function pickFromObjectString(o: unknown) {
   if (o && typeof o === "object") {
     const obj = o as Record<string, unknown>;
-    const cand = ["username", "login", "user", "name", "email"];
-    for (const k of cand) {
+    for (const k of [
+      "username",
+      "login",
+      "user",
+      "name",
+      "email",
+      "unique_name",
+    ]) {
       const v = obj[k];
       if (typeof v === "string" && v.trim()) return v;
     }
   }
   return null;
 }
-
-/** lee user de local/sessionStorage y cookies (incluye claves del login) */
-function getUsernameFromStorage(): string | null {
-  const STORAGE_KEYS = [
-    "mj:user", // ⬅️ guardado por el login
+function tryUsernameFromAnyJWT() {
+  const cookies = document.cookie.split(";").map((p) => p.trim());
+  for (const c of cookies) {
+    const i = c.indexOf("=");
+    if (i < 0) continue;
+    const val = decodeURIComponent(c.slice(i + 1));
+    if (!/^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+$/.test(val))
+      continue;
+    const payload = val.split(".")[1];
+    try {
+      const json = JSON.parse(
+        decodeURIComponent(
+          atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join("")
+        )
+      );
+      const maybe = pickFromObjectString(json);
+      if (maybe) return maybe;
+    } catch {}
+  }
+  return null;
+}
+function getUsernameFromStorage() {
+  const keys = [
     "mj_username",
     "mj_login",
+    "mj_user",
+    "mj:user",
     "username",
     "login",
     "user",
     "userLogin",
   ];
-
   for (const store of [localStorage, sessionStorage]) {
-    for (const k of STORAGE_KEYS) {
+    for (const k of keys) {
       const v = store.getItem(k);
       if (!v) continue;
       try {
@@ -121,13 +138,11 @@ function getUsernameFromStorage(): string | null {
         const inside = pickFromObjectString(parsed);
         if (inside) return inside;
       } catch {
-        if (v.trim()) return v;
+        if (String(v).trim()) return v;
       }
     }
   }
-
-  const COOKIE_KEYS = ["mj_user", "username", "login", "user"];
-  for (const k of COOKIE_KEYS) {
+  for (const k of keys) {
     const v = readCookie(k);
     if (!v) continue;
     try {
@@ -135,36 +150,23 @@ function getUsernameFromStorage(): string | null {
       const inside = pickFromObjectString(parsed);
       if (inside) return inside;
     } catch {
-      if (v.trim()) return v;
+      if (String(v).trim()) return v;
     }
   }
-
-  return null;
+  return tryUsernameFromAnyJWT();
 }
-
 function useUsername() {
-  const [name, setName] = useState<string>("Usuario");
-
+  const [n, setN] = useState<string>("Usuario");
   useEffect(() => {
-    const refresh = () => {
-      try {
-        const n = getUsernameFromStorage();
-        setName(n && n.trim() ? n : "Usuario");
-      } catch {
-        setName("Usuario");
-      }
-    };
-    refresh();
-    window.addEventListener("storage", refresh);
-    return () => window.removeEventListener("storage", refresh);
+    try {
+      const v = getUsernameFromStorage();
+      if (v && v.trim()) setN(v);
+    } catch {}
   }, []);
-
-  return name;
+  return n;
 }
 
-/* =======================================================================
-   IconMark helpers
-   ======================================================================= */
+/* ===== IconMark helpers ===== */
 type IconMarkVars = React.CSSProperties & {
   "--iconmark-bg"?: string;
   "--iconmark-border"?: string;
@@ -173,9 +175,8 @@ type IconMarkVars = React.CSSProperties & {
   "--iconmark-hover-border"?: string;
   "--iconmark-hover-icon-fg"?: string;
 };
-
 function iconMarkStyle(accent: string, isLight: boolean): IconMarkVars {
-  const NEUTRAL_BG = isLight ? "#e2e5ea" : "#0b0b0d";
+  const NEUTRAL_BG = isLight ? "#e2e5ea" : "#0d1117";
   const FG_ACTIVE = isLight ? "#0b0b0d" : "#ffffff";
   return {
     "--iconmark-bg": NEUTRAL_BG,
@@ -187,20 +188,75 @@ function iconMarkStyle(accent: string, isLight: boolean): IconMarkVars {
   };
 }
 
-/* =======================================================================
-   Hook: count-up
-   ======================================================================= */
+/* ===== Surface (relleno total) ===== */
+function Surface({
+  children,
+  className = "",
+  flat = false,
+}: {
+  children?: React.ReactNode;
+  className?: string;
+  flat?: boolean;
+}) {
+  return (
+    <div
+      className={[
+        "relative rounded-[var(--panel-radius,12px)] p-[1.25px]",
+        "shadow-[0_0_0_1px_var(--panel-outline,rgba(0,0,0,.06))]",
+        "h-full flex",
+      ].join(" ")}
+      style={{
+        background: flat
+          ? "transparent"
+          : "linear-gradient(180deg, rgba(0,0,0,.06), rgba(0,0,0,0))",
+      }}
+    >
+      <div
+        className={[
+          "rounded-[inherit] border backdrop-blur-[var(--panel-blur,8px)]",
+          "bg-[var(--panel-bg)] text-[var(--panel-fg)] border-[var(--panel-border)]",
+          "relative overflow-hidden",
+          "flex-1",
+          className,
+        ].join(" ")}
+      >
+        {!flat && (
+          <>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "var(--panel-glass-bg,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,0)))",
+              }}
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                boxShadow:
+                  "inset 0 0 120px var(--panel-vignette-color,transparent)",
+              }}
+            />
+          </>
+        )}
+        <div className="relative h-full flex flex-col">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== anim counter ===== */
 function useCountUp(value: number, duration = 700) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
     const start = performance.now();
-    const from = 0;
     const to = Number(value) || 0;
     let raf = 0;
     const tick = (t: number) => {
       const p = Math.min(1, (t - start) / duration);
       const eased = 1 - Math.pow(1 - p, 3);
-      setDisplay(Math.round(from + (to - from) * eased));
+      setDisplay(Math.round(to * eased));
       if (p < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -209,9 +265,7 @@ function useCountUp(value: number, duration = 700) {
   return display;
 }
 
-/* =======================================================================
-   Sparkline simple con SVG
-   ======================================================================= */
+/* ===== sparkline ===== */
 function Sparkline({
   values,
   stroke = "#6366F1",
@@ -264,22 +318,14 @@ function Sparkline({
   );
 }
 
-/* =======================================================================
-   Skeletons & Empty state
-   ======================================================================= */
-function StatSkeleton() {
-  return (
-    <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/60 dark:bg-zinc-800/40 h-[94px] animate-pulse" />
-  );
-}
-function BlockSkeleton() {
-  return (
-    <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/60 dark:bg-zinc-800/40 h-[260px] animate-pulse" />
-  );
-}
+/* ===== skeletons / empty ===== */
+const StatSkeleton = () => <Surface className="h-[94px] animate-pulse" flat />;
+const BlockSkeleton = () => (
+  <Surface className="h-[260px] animate-pulse" flat />
+);
 function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 p-8 grid place-items-center text-center bg-white dark:bg-zinc-900">
+    <Surface className="p-8 grid place-items-center text-center" flat>
       <svg
         viewBox="0 0 64 64"
         className="h-10 w-10 opacity-60 mb-2"
@@ -298,18 +344,13 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
         <path d="M20 28h24M20 36h14" />
       </svg>
       <p className="font-medium">{title}</p>
-      {hint && (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{hint}</p>
-      )}
-    </div>
+      {hint && <p className="text-xs text-[var(--muted-fg)] mt-1">{hint}</p>}
+    </Surface>
   );
 }
 
-/* =======================================================================
-   Tarjeta KPI (sin movimiento; hover del panel = hover del IconMark)
-   ======================================================================= */
+/* ===== KPI card ===== */
 type KPIStyleVars = React.CSSProperties & { "--kpi-accent"?: string };
-
 function StatCard({ s }: { s: Stat }) {
   const Icon = s.icon;
   const positive = (s.delta ?? 0) >= 0;
@@ -320,10 +361,11 @@ function StatCard({ s }: { s: Stat }) {
   return (
     <div
       className={[
-        "kpi-card group relative isolate overflow-hidden rounded-2xl border",
-        "bg-[#17181B] text-zinc-100 border-zinc-800",
+        "kpi-card group relative isolate overflow-hidden rounded-[var(--panel-radius,12px)] border",
+        "bg-[var(--panel-bg)] text-[var(--panel-fg)] border-[var(--panel-border)]",
         "transition-shadow",
         "hover:[box-shadow:0_0_0_1px_var(--kpi-accent)_inset]",
+        "h-full",
       ].join(" ")}
       style={
         {
@@ -347,20 +389,17 @@ function StatCard({ s }: { s: Stat }) {
         </IconMark>
 
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-wide text-zinc-400">
-            {s.label}
-          </p>
+          <p className="text-xs uppercase tracking-wide muted">{s.label}</p>
           <div className="flex items-baseline gap-2">
             <h3 className="text-2xl font-semibold">
               {displayValue.toLocaleString()}
             </h3>
-            {s.delta !== undefined && (
+            {"delta" in s && s.delta !== undefined && (
               <span
                 className={[
                   "inline-flex items-center gap-1 text-xs font-medium",
-                  positive ? "text-emerald-400" : "text-rose-400",
+                  positive ? "text-emerald-500" : "text-rose-500",
                 ].join(" ")}
-                title="Variación vs. periodo anterior"
               >
                 {positive ? (
                   <ArrowUpRight className="h-4 w-4" />
@@ -378,29 +417,22 @@ function StatCard({ s }: { s: Stat }) {
         </div>
       </div>
 
-      {/* Forzamos el hover del IconMark cuando se hace hover sobre el panel */}
       <style jsx global>{`
         .kpi-card:hover .mj-iconmark {
           --mark-bg: var(--iconmark-hover-bg, var(--iconmark-bg));
           --mark-border: var(--iconmark-hover-border, var(--iconmark-border));
           --mark-fg: var(--iconmark-hover-icon-fg, var(--iconmark-icon-fg));
         }
-        .kpi-card:hover .mj-iconmark[data-anim="zoom"] .icon-default {
-          opacity: var(--mark-def-opacity-hover, 1);
-          transform: scale(var(--mark-def-scale-hover, 1));
-        }
-        .kpi-card:hover .mj-iconmark[data-anim="zoom"] .icon-hover {
-          opacity: var(--mark-hov-opacity-hover, 0);
-          transform: scale(var(--mark-hov-scale-hover, 1));
+        .muted {
+          color: var(--fg);
+          opacity: 0.76;
         }
       `}</style>
     </div>
   );
 }
 
-/* =======================================================================
-   Donut con estados
-   ======================================================================= */
+/* ===== Donut ===== */
 function DonutLicenses({
   data,
 }: {
@@ -421,7 +453,6 @@ function DonutLicenses({
       return `${d.color} ${start}% ${end}%`;
     })
     .join(", ");
-
   return (
     <div className="flex items-center gap-6">
       <div
@@ -432,15 +463,14 @@ function DonutLicenses({
         }}
         aria-hidden
       >
-        <div className="absolute inset-4 rounded-full bg-white dark:bg-zinc-900 border border-zinc-800" />
+        <div className="absolute inset-4 rounded-full bg-[var(--panel-bg)] border border-[var(--panel-border)]" />
         <div className="absolute inset-0 grid place-items-center">
           <div className="text-center">
-            <p className="text-xs text-zinc-400">Total</p>
+            <p className="text-xs text-[var(--muted-fg)]">Total</p>
             <p className="text-2xl font-semibold">{total}</p>
           </div>
         </div>
       </div>
-
       <ul className="space-y-2">
         {data.map((d) => (
           <li key={d.label} className="flex items-center gap-3">
@@ -454,7 +484,7 @@ function DonutLicenses({
                 style={{ background: d.color }}
               />
             </span>
-            <span className="text-sm text-zinc-300">{d.label}</span>
+            <span className="text-sm text-[var(--fg)]/80">{d.label}</span>
             <span className="ml-auto text-sm font-medium">{d.value}</span>
           </li>
         ))}
@@ -463,16 +493,13 @@ function DonutLicenses({
   );
 }
 
-/* =======================================================================
-   Actividad reciente
-   ======================================================================= */
+/* ===== actividad ===== */
 type Activity = {
   t: string;
   ts: string;
   icon: SvgIcon;
   status: "ok" | "warn" | "error";
 };
-
 const ACTIVITY_BASE: Activity[] = [
   { t: "Nuevo usuario creado", ts: "hoy 12:30", icon: Users, status: "ok" },
   {
@@ -495,22 +522,19 @@ const ACTIVITY_BASE: Activity[] = [
   },
 ];
 
-/* =======================================================================
-   Dataset (solo total)
-   ======================================================================= */
-const DATA_BY_RANGE: Record<
-  Range,
-  {
-    stats: Stat[];
-    donut: {
-      label: string;
-      value: number;
-      color: string;
-      status: "ok" | "warn" | "error";
-    }[];
-    activity: Activity[];
-  }
-> = {
+/* ===== dataset ===== */
+type RangeData = {
+  stats: Stat[];
+  donut: {
+    label: string;
+    value: number;
+    color: string;
+    status: "ok" | "warn" | "error";
+  }[];
+  activity: Activity[];
+};
+const EMPTY_DATA: RangeData = { stats: [], donut: [], activity: ACTIVITY_BASE };
+const DATA_BY_RANGE: Record<Range, RangeData> = {
   total: {
     stats: [
       {
@@ -557,33 +581,42 @@ const DATA_BY_RANGE: Record<
     ],
     activity: ACTIVITY_BASE,
   },
+  "7d": { ...EMPTY_DATA },
+  "30d": { ...EMPTY_DATA },
+  "90d": { ...EMPTY_DATA },
 };
 
-/* =======================================================================
-   Página
-   ======================================================================= */
+/* ===== página ===== */
 export default function Dashboard() {
   const [range] = useState<Range>("total");
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
   const isLight = useIsLightTheme();
   const username = useUsername();
-
-  useEffect(() => {
-    setLoading(true);
-    const t = setTimeout(() => setLoading(false), 600);
-    return () => clearTimeout(t);
-  }, [range]);
-
   const current = useMemo(() => DATA_BY_RANGE[range], [range]);
 
-  const NO_STATS = false;
-  const NO_ACTIVITY = false;
+  // === Gateo como en Users para evitar flash del nav en el primer frame ===
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  if (!mounted) return <div className="p-4 md:p-6" />;
 
   return (
-    <div className="space-y-8 md:space-y-10">
+    <div className="space-y-8 md:space-y-10 dashboard-scope">
+      <style jsx global>{`
+        .dashboard-scope {
+          font-family: var(--font-body, Sora, ui-sans-serif);
+        }
+        .dashboard-scope .muted {
+          color: var(--fg);
+          opacity: 0.76;
+        }
+      `}</style>
+
       <header className="pt-2 md:pt-4">
         <div>
-          <p className="text-xs md:text-sm text-zinc-500 dark:text-zinc-400 mb-2 md:mb-3">
+          <p className="text-xs md:text-sm muted mb-2 md:mb-3">
             Bienvenido, <span className="font-medium">{username}</span>
           </p>
 
@@ -599,7 +632,7 @@ export default function Dashboard() {
             Dashboard
           </Heading>
 
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-3 md:mt-4">
+          <p className="text-sm muted mt-3 md:mt-4">
             Resumen general (datos de ejemplo).
           </p>
         </div>
@@ -613,7 +646,7 @@ export default function Dashboard() {
           <StatSkeleton />
           <StatSkeleton />
         </div>
-      ) : NO_STATS || current.stats.length === 0 ? (
+      ) : current.stats.length === 0 ? (
         <EmptyState
           title="Sin estadísticas"
           hint="No hay datos para el rango seleccionado."
@@ -626,8 +659,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Segunda fila: Donut + Actividad */}
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* Segunda fila – misma altura y relleno completo */}
+      <div className="grid gap-4 md:grid-cols-2 items-stretch min-h-0">
         {loading ? (
           <>
             <BlockSkeleton />
@@ -635,16 +668,15 @@ export default function Dashboard() {
           </>
         ) : (
           <>
-            <section className="rounded-2xl border bg-[#17181B] text-zinc-100 border-zinc-800 p-5">
+            <Surface className="p-5 min-h-0" flat>
               <h2 className="text-base font-semibold">Licencias — estado</h2>
-              <p className="text-xs text-zinc-400 mb-4">Distribución actual.</p>
+              <p className="text-xs muted mb-4">Distribución actual.</p>
               <DonutLicenses data={current.donut} />
-            </section>
+            </Surface>
 
-            <section className="relative rounded-2xl border bg-[#17181B] text-zinc-100 border-zinc-800 p-5">
+            <Surface className="p-5 min-h-0" flat>
               <h2 className="text-base font-semibold">Actividad reciente</h2>
-
-              {NO_ACTIVITY || current.activity.length === 0 ? (
+              {current.activity.length === 0 ? (
                 <div className="mt-4">
                   <EmptyState
                     title="Sin actividad"
@@ -652,7 +684,7 @@ export default function Dashboard() {
                   />
                 </div>
               ) : (
-                <ul className="mt-3 divide-y divide-zinc-800">
+                <ul className="mt-3 divide-y divide-[var(--border)]/60">
                   {current.activity.map((a, i) => {
                     const Ico = a.icon;
                     const color =
@@ -676,7 +708,6 @@ export default function Dashboard() {
                           >
                             <Ico />
                           </IconMark>
-
                           <span className="absolute -top-1 -right-1 inline-grid place-items-center">
                             <span
                               className="absolute h-3 w-3 rounded-full animate-ping"
@@ -691,24 +722,22 @@ export default function Dashboard() {
 
                         <div className="min-w-0">
                           <p className="text-sm">{a.t}</p>
-                          <p className="text-xs text-zinc-400">{a.ts}</p>
+                          <p className="text-xs muted">{a.ts}</p>
                         </div>
                       </li>
                     );
                   })}
                 </ul>
               )}
-            </section>
+            </Surface>
           </>
         )}
       </div>
 
-      {!loading && (
-        <div className="hidden md:flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-          <Clock8 className="h-4 w-4" />
-          Actualizado hace 2 min
-        </div>
-      )}
+      <div className="hidden md:flex items-center gap-2 text-xs muted">
+        <Clock8 className="h-4 w-4" />
+        Actualizado hace 2 min
+      </div>
     </div>
   );
 }
