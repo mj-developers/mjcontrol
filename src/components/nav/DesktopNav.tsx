@@ -256,7 +256,10 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
           "overflow-visible overflow-x-hidden",
           "w-[var(--nav-w)]",
         ].join(" ")}
-        style={baseVars}
+        style={{
+          ...baseVars,
+          fontFamily: "var(--font-heading, Sora, ui-sans-serif)",
+        }}
         aria-label="Barra de navegación"
       >
         <nav className="flex h-full flex-col" />
@@ -273,7 +276,10 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
         "overflow-visible overflow-x-hidden",
         "w-[var(--nav-w)]",
       ].join(" ")}
-      style={navVars}
+      style={{
+        ...navVars,
+        fontFamily: "var(--font-heading, Sora, ui-sans-serif)",
+      }}
       aria-label="Barra de navegación"
     >
       {/* Hover del Link => pinta el IconMark (y excluye los activos) */}
