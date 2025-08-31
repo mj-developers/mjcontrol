@@ -1,4 +1,3 @@
-// src/components/nav/DesktopNav.tsx
 "use client";
 
 import Link from "next/link";
@@ -37,7 +36,7 @@ const ACCENT: Record<string, string> = {
   "/": "#6366F1",
   "/users": "#06B6D4",
   "/clients": "#F59E0B",
-  "/apps": "#8B5CF6",
+  "/applications": "#8B5CF6", // <- actualizado
   "/licenses": "#10B981",
 };
 const BRAND = "#8E2434";
@@ -370,10 +369,10 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
               accent={ACCENT["/clients"]}
             />
             <NavLink
-              href="/apps"
+              href="/applications" // <- actualizado
               label="Aplicaciones"
               Icon={AppWindow}
-              accent={ACCENT["/apps"]}
+              accent={ACCENT["/applications"]} // <- actualizado
             />
             <NavLink
               href="/licenses"
@@ -385,7 +384,7 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
         </div>
 
         <div className="px-0 py-3 space-y-2">
-          {/* Tema: animación "cycle" y hover con paleta opuesta + icono opuesto */}
+          {/* Tema (animación "cycle" y hover con paleta opuesta + icono opuesto) */}
           <button
             type="button"
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}

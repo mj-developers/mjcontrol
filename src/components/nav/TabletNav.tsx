@@ -21,10 +21,11 @@ const ACCENT: Record<string, string> = {
   "/": "#6366F1",
   "/users": "#06B6D4",
   "/clients": "#F59E0B",
-  "/apps": "#8B5CF6",
+  "/applications": "#8B5CF6",
   "/licenses": "#10B981",
 };
 const BRAND = "#8E2434";
+const ZOOM_SCALE = 1.5;
 
 type StyleWithVars = CSSProperties & {
   ["--nav-w"]?: string;
@@ -121,6 +122,7 @@ export default function TabletNav({
             borderWidth={2}
             interactive
             hoverAnim={active ? "none" : "zoom"}
+            className={active ? "is-active" : undefined}
             style={markStyle(active, accent)}
           >
             <Icon />
@@ -155,6 +157,13 @@ export default function TabletNav({
       style={navVars}
       aria-label="Barra de navegación (tablet)"
     >
+      {/* Zoom permanente del icono cuando el IconMark tiene .is-active */}
+      <style jsx global>{`
+        .mj-iconmark.is-active .icon-default {
+          transform: scale(${ZOOM_SCALE}) !important;
+        }
+      `}</style>
+
       <nav className="flex h-full flex-col">
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-0 py-4">
           <div className="h-full flex flex-col items-center justify-center gap-2">
@@ -165,7 +174,11 @@ export default function TabletNav({
               Icon={Building2}
               accent={ACCENT["/clients"]}
             />
-            <Item href="/apps" Icon={AppWindow} accent={ACCENT["/apps"]} />
+            <Item
+              href="/applications"
+              Icon={AppWindow}
+              accent={ACCENT["/applications"]}
+            />
             <Item
               href="/licenses"
               Icon={BadgeCheck}

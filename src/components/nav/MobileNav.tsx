@@ -23,10 +23,11 @@ const ACCENT: Record<string, string> = {
   "/": "#6366F1",
   "/users": "#06B6D4",
   "/clients": "#F59E0B",
-  "/apps": "#8B5CF6",
+  "/applications": "#8B5CF6",
   "/licenses": "#10B981",
 };
 const BRAND = "#8E2434";
+const ZOOM_SCALE = 1.5;
 
 type StyleWithVars = CSSProperties & {
   ["--shell-bg"]?: string;
@@ -115,7 +116,9 @@ export default function MobileNav({
           size="md"
           borderWidth={2}
           interactive
+          /* En activo no necesitamos hover, pero sí clase para zoom permanente */
           hoverAnim={active ? "none" : "zoom"}
+          className={active ? "is-active" : undefined}
           style={markStyle(active, accent)}
         >
           <Icon />
@@ -158,6 +161,13 @@ export default function MobileNav({
       }
       aria-label="Barra de navegación (móvil)"
     >
+      {/* Zoom permanente del icono cuando el IconMark tiene .is-active */}
+      <style jsx global>{`
+        .mj-iconmark.is-active .icon-default {
+          transform: scale(${ZOOM_SCALE}) !important;
+        }
+      `}</style>
+
       <div
         className={[
           "h-full grid place-items-center gap-2",
@@ -224,7 +234,11 @@ export default function MobileNav({
               Icon={Building2}
               accent={ACCENT["/clients"]}
             />
-            <Item href="/apps" Icon={AppWindow} accent={ACCENT["/apps"]} />
+            <Item
+              href="/applications"
+              Icon={AppWindow}
+              accent={ACCENT["/applications"]}
+            />
             <Item
               href="/licenses"
               Icon={BadgeCheck}
