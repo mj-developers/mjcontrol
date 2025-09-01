@@ -290,7 +290,7 @@ function Sparkline({
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      className="w-[120px] h-[36px]"
+      className="mj-spark w-[120px] h-[36px]"
       aria-hidden
     >
       <defs>
@@ -343,6 +343,7 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
 }
 
 /* ===== KPI card ===== */
+const KPI_ICON_PX = 22; // 👈 tamaño fijo para todos los iconos KPI
 type KPIStyleVars = React.CSSProperties & { "--kpi-accent"?: string };
 function StatCard({ s, href }: { s: Stat; href?: string }) {
   const Icon = s.icon;
@@ -354,6 +355,7 @@ function StatCard({ s, href }: { s: Stat; href?: string }) {
     "kpi-card group relative isolate overflow-hidden rounded-[var(--panel-radius,12px)] border",
     "bg-[var(--panel-bg)] text-[var(--panel-fg)] border-[var(--panel-border)]",
     "transition-shadow h-full",
+    "min-h-[94px]",
     "hover:[box-shadow:0_0_0_1px_var(--kpi-accent)_inset]",
     href
       ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--kpi-accent)]/60"
@@ -366,7 +368,7 @@ function StatCard({ s, href }: { s: Stat; href?: string }) {
   };
 
   const Inner = (
-    <div className="relative p-4 flex items-center gap-3 pr-[136px]">
+    <div className="relative h-full p-4 flex items-center gap-3 pr-[136px]">
       <IconMark
         size="md"
         shape="rounded"
@@ -378,7 +380,8 @@ function StatCard({ s, href }: { s: Stat; href?: string }) {
         title={s.label}
         ariaLabel={s.label}
       >
-        <Icon />
+        {/* 👇 Fuerza el mismo tamaño visual para todos los iconos */}
+        <Icon size={KPI_ICON_PX} className="shrink-0" />
       </IconMark>
 
       <div className="min-w-0">
@@ -666,6 +669,13 @@ export default function Dashboard() {
             display: grid;
             grid-template-columns: 1fr !important;
             gap: 1rem;
+          }
+        }
+
+        /* Menos presencia de la línea en móvil portrait */
+        @media (orientation: portrait) and (max-width: 768px) {
+          .kpi-card .mj-spark {
+            opacity: 0.35;
           }
         }
 

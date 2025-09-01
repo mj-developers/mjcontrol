@@ -3,14 +3,7 @@
 
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Save,
-  Trash2,
-  Search,
-  UserPlus,
-  X,
-  type LucideIcon,
-} from "lucide-react";
+import { Save, Trash2, Search, UserPlus, X } from "lucide-react";
 import IconMark from "@/components/ui/IconMark";
 import Heading from "@/components/ui/Heading";
 import { getInitialTheme, type Theme } from "@/lib/theme";
@@ -64,9 +57,7 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
     try {
       const j = (await res.json()) as { error?: string };
       if (j?.error) msg = j.error;
-    } catch {
-      /* ignore */
-    }
+    } catch {}
     throw new Error(msg || "Request error");
   }
   return (await res.json()) as T;
@@ -143,7 +134,6 @@ export default function UsersPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmBusy, setConfirmBusy] = useState(false);
-
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
@@ -286,10 +276,26 @@ export default function UsersPage() {
 
   if (!mounted) return <div className="p-6" />;
 
+  /* Tono para las cabeceras (más oscuro en claro / más claro en oscuro) */
+  const headerTone =
+    theme === "light"
+      ? "bg-[#E7EBF1]/90 border-zinc-300"
+      : "bg-[#131821]/90 border-zinc-700";
+
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-4 md:p-6 users-scope">
       <style jsx global>{`
-        /* Botones que envuelven IconMark activan hover + manita */
+        /* Fuente Sora para toda la página */
+        .users-scope {
+          font-family: var(--font-heading, Sora, ui-sans-serif);
+        }
+        .users-scope input,
+        .users-scope button,
+        .users-scope textarea,
+        .users-scope select {
+          font: inherit;
+        }
+
         .iconmark-btn {
           cursor: pointer;
         }
@@ -305,7 +311,6 @@ export default function UsersPage() {
           transform: scale(1) !important;
         }
 
-        /* Modal: uniformar tamaño de los IconMark de acciones (igual que el de la X) */
         .modal-actions .mj-iconmark {
           width: 40px;
           height: 40px;
@@ -318,7 +323,7 @@ export default function UsersPage() {
           level={1}
           fill="solid"
           color="var(--brand, #8E2434)"
-          fontFamily="var(--font-display, Sora, ui-sans-serif)"
+          fontFamily="var(--font-heading, Sora, ui-sans-serif)"
           shadow="soft+brand"
           size="clamp(1.6rem,3.2vw,2.4rem)"
           className="uppercase tracking-widest"
@@ -331,21 +336,25 @@ export default function UsersPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] gap-6">
-        {/* ------------------------------ Card izquierda ------------------------------ */}
-        <aside className={cardCls}>
+      {/* ⬇️ Layout en columna: arriba panel 1 con ancho limitado, abajo detalles full width */}
+      <div className="flex flex-col gap-6">
+        {/* ------------------------------ Card arriba: buscador/lista (1/3 del viewport) ------------------------------ */}
+        <aside
+          className={[
+            cardCls,
+            "w-full sm:w-[33vw] md:w-[33.333vw] self-start",
+          ].join(" ")}
+        >
           {/* Header sticky con buscador + nuevo */}
           <div
             className={[
-              "sticky top-0 z-10 px-4 pt-4 pb-3 border-b",
-              theme === "light"
-                ? "bg-white/90 border-zinc-200"
-                : "bg-[#0D1117]/90 border-zinc-800",
+              "sticky top-0 z-10 px-4 pt-4 pb-3 border-b rounded-t-2xl",
               "backdrop-blur supports-[backdrop-filter]:backdrop-blur",
-              "rounded-t-2xl",
+              headerTone,
             ].join(" ")}
           >
             <div className="flex items-center justify-between gap-3">
+              {/* Buscador vuelve a ocupar el espacio disponible */}
               <div className="relative flex-1">
                 <input
                   value={search}
@@ -406,6 +415,15 @@ export default function UsersPage() {
             <ul className="space-y-1">
               {filtered.map((u) => {
                 const active = u.id === selectedId;
+
+                const inactiveHover =
+                  theme === "light" ? "hover:bg-black/5" : "hover:bg-white/5";
+
+                const activeCls =
+                  theme === "light"
+                    ? "bg-[#1F2937] text-white"
+                    : "bg-white text-[#0D1117]";
+
                 return (
                   <li key={u.id}>
                     <button
@@ -416,9 +434,7 @@ export default function UsersPage() {
                       }}
                       className={[
                         "w-full text-left px-3 py-2 rounded-xl transition cursor-pointer",
-                        active
-                          ? "bg-[var(--brand,#8E2434)]/15"
-                          : "hover:bg-zinc-500/10",
+                        active ? activeCls : inactiveHover,
                       ].join(" ")}
                     >
                       {u.login}
@@ -430,16 +446,14 @@ export default function UsersPage() {
           </div>
         </aside>
 
-        {/* ------------------------------ Card derecha ------------------------------ */}
+        {/* ------------------------------ Card abajo: detalle (full width) ------------------------------ */}
         <section className={[cardCls, "relative"].join(" ")}>
           {/* Header con acciones */}
           <div
             className={[
               "sticky top-0 z-10 px-5 py-4 border-b flex items-center justify-between gap-3 rounded-t-2xl",
-              theme === "light"
-                ? "bg-white/90 border-zinc-200"
-                : "bg-[#0D1117]/90 border-zinc-800",
               "backdrop-blur supports-[backdrop-filter]:backdrop-blur",
+              headerTone,
             ].join(" ")}
           >
             <div>
@@ -692,7 +706,6 @@ function CreateUserModal({
         ].join(" ")}
         onMouseDown={stop}
       >
-        {/* Header con fondo verde y botón X como IconMark (hover burdeos) */}
         <div
           className="flex items-center justify-between px-5 pt-4 pb-3 rounded-t-2xl"
           style={{ background: ACC_CREATE, color: "#fff" }}
@@ -718,7 +731,6 @@ function CreateUserModal({
           </button>
         </div>
 
-        {/* Body */}
         <form
           className="px-5 pb-5 pt-4 space-y-4"
           onSubmit={handleSubmit}
@@ -763,7 +775,6 @@ function CreateUserModal({
             />
           </label>
 
-          {/* Footer acciones: dos columnas, botones iguales */}
           <div className="modal-actions pt-2 grid grid-cols-2 gap-3">
             <button
               type="submit"
@@ -806,7 +817,6 @@ function CreateUserModal({
                 interactive
                 hoverAnim="zoom"
                 zoomScale={1.5}
-                /* Cancelar -> hover burdeos (brand) */
                 style={markWithAccent(ACC_DELETE)}
               >
                 <X className="block" />
@@ -878,7 +888,6 @@ function ConfirmModal({
         ].join(" ")}
         onMouseDown={stop}
       >
-        {/* Header con color ACC_SAVE y X con hover brand */}
         <div
           className="flex items-center justify-between px-5 pt-4 pb-3 rounded-t-2xl"
           style={{ background: ACC_SAVE, color: "#fff" }}
@@ -904,7 +913,6 @@ function ConfirmModal({
           </button>
         </div>
 
-        {/* Body */}
         <div className="px-5 pt-4 pb-5 space-y-6">
           <p className="text-sm opacity-90">{message}</p>
 
@@ -1019,7 +1027,6 @@ function DeleteModal({
         ].join(" ")}
         onMouseDown={stop}
       >
-        {/* Header con color ACC_DELETE */}
         <div
           className="flex items-center justify-between px-5 pt-4 pb-3 rounded-t-2xl"
           style={{ background: ACC_DELETE, color: "#fff" }}
@@ -1045,7 +1052,6 @@ function DeleteModal({
           </button>
         </div>
 
-        {/* Body */}
         <div className="px-5 pt-4 pb-5 space-y-6">
           <p className="text-sm opacity-90">
             ¿Eliminar al usuario “{userLogin}”? Esta acción no se puede
