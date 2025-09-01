@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Sora } from "next/font/google";
 import "./globals.css";
+import ViewportUnitsFix from "@/components/ViewportUnitsFix";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({
@@ -28,6 +29,12 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
+        {/* Viewport correcto para móviles/notch/barras dinámicas */}
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
+
         {/* No-flash: fija tema antes de hidratar */}
         <script
           dangerouslySetInnerHTML={{
@@ -51,8 +58,17 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${sora.variable} antialiased`}
+        className={[
+          geistSans.variable,
+          geistMono.variable,
+          sora.variable,
+          "antialiased",
+          // asegura altura mínima a pantalla real con 100dvh (o fallback)
+          "min-h-screen-dvh",
+        ].join(" ")}
       >
+        {/* Monta el fix (no renderiza nada) */}
+        <ViewportUnitsFix />
         {children}
       </body>
     </html>

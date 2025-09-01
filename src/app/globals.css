@@ -20,4 +20,26 @@ body {
   color: var(--fg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden; /* evita scroll horizontal accidental */
+}
+
+/* ===== Altura de pantalla fiable (móviles con barras/notch) ===== */
+.h-screen-dvh {
+  height: 100dvh;
+}
+.min-h-screen-dvh {
+  min-height: 100dvh;
+}
+
+/* Fallback para navegadores sin 100dvh */
+@supports not (height: 100dvh) {
+  :root {
+    --vh: 1vh;
+  }
+  .h-screen-dvh {
+    height: calc(var(--vh) * 100);
+  }
+  .min-h-screen-dvh {
+    min-height: calc(var(--vh) * 100);
+  }
 }
