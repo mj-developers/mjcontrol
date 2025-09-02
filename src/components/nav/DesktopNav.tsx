@@ -281,6 +281,8 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
     );
   }
 
+  const auxActive = isRouteActive(pathname, "/auxiliar");
+
   return (
     <aside
       className={[
@@ -298,13 +300,11 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
     >
       {/* Hovers globales */}
       <style jsx global>{`
-        /* Hover del link colorea IconMark (excluye activo) */
         .mj-navlink:hover .mj-iconmark:not(.is-active) {
           --mark-bg: var(--hover-bg) !important;
           --mark-border: var(--hover-border) !important;
           --mark-fg: var(--hover-fg) !important;
         }
-        /* Zoom en iconos con anim=zoom */
         .mj-navlink:hover
           .mj-iconmark:not(.is-active)[data-anim="zoom"]
           .icon-default {
@@ -317,18 +317,14 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
             var(--mark-def-scale-hover, ${ZOOM_SCALE})
           ) !important;
         }
-
-        /* Hover en filas del panel (y también Ajustes/Volver) */
         .mj-settings-row:hover .mj-iconmark {
           --mark-bg: var(--hover-bg) !important;
           --mark-border: var(--hover-border) !important;
           --mark-fg: var(--hover-fg) !important;
         }
-        /* Zoom cuando la fila (no sólo el icono) está en hover */
         .mj-settings-row:hover .mj-iconmark[data-anim="zoom"] .icon-default {
           transform: scale(${ZOOM_SCALE}) !important;
         }
-        /* Cycle completo al hacer hover en la fila: incluir opacidades */
         .mj-settings-row:hover .mj-iconmark[data-anim="cycle"] .icon-hover {
           transform: scale(1) !important;
           opacity: 1 !important;
@@ -369,7 +365,6 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
         </IconMark>
       </button>
 
-      {/* nav relativo para layout */}
       <nav className="relative flex h-full min-h-0 flex-col">
         {/* Lista principal */}
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-0 py-2">
@@ -407,11 +402,11 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
           </div>
         </div>
 
-        {/* Fila inferior fija (Auxiliares y Tema SIEMPRE montados) */}
+        {/* Fila inferior fija */}
         <div className="px-0 py-3 space-y-3 relative">
-          {/* Auxiliares (ocupa espacio siempre; invisible si está cerrado) */}
+          {/* Auxiliares */}
           <Link
-            href="/aux"
+            href="/auxiliar"
             className={[
               "mj-settings-row group flex items-center rounded-xl h-12",
               settingsOpen ? "" : "invisible pointer-events-none",
@@ -425,19 +420,25 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
                 interactive
                 hoverAnim="zoom"
                 zoomScale={ZOOM_SCALE}
-                style={markForItem(false, BROWN)}
+                className={auxActive ? "is-active" : undefined}
+                style={markForItem(auxActive, BROWN)}
               >
                 <Table2 className="h-5 w-5" />
               </IconMark>
             </IconRail>
             <Label>
-              <span className="group-hover:text-[var(--item-accent)] group-hover:underline">
+              <span
+                className={[
+                  "group-hover:text-[var(--item-accent)] group-hover:underline",
+                  auxActive ? "text-[var(--item-accent)] underline" : "",
+                ].join(" ")}
+              >
                 Auxiliares
               </span>
             </Label>
           </Link>
 
-          {/* Tema (ocupa espacio siempre; invisible si está cerrado) */}
+          {/* Tema */}
           <button
             type="button"
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}
@@ -476,7 +477,7 @@ export default function DesktopNav({ theme, setTheme, open, setOpen }: Props) {
             </Label>
           </button>
 
-          {/* Ajustes / Volver (activo mientras settingsOpen=true) */}
+          {/* Ajustes / Volver */}
           <button
             type="button"
             onClick={() => setSettingsOpen((s) => !s)}

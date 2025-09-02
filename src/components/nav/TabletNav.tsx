@@ -192,7 +192,7 @@ export default function TabletNav({
       `}</style>
 
       <nav className="relative flex h-full flex-col">
-        {/* La lista principal SIEMPRE visible (portrait y landscape) */}
+        {/* Lista principal */}
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-0 py-4">
           <div className="h-full flex flex-col items-center justify-center gap-2">
             <Item href="/" Icon={Gauge} accent={ACCENT["/"]} />
@@ -215,11 +215,11 @@ export default function TabletNav({
           </div>
         </div>
 
-        {/* Overlay igual que portrait: Auxiliares arriba, Tema debajo */}
+        {/* Overlay: Auxiliares + Tema */}
         {settingsOpen && (
           <div className="absolute left-0 right-0 bottom-[6.75rem] px-0 py-2 z-50">
             <div className="grid place-items-center gap-3">
-              <Link href="/aux" aria-label="Auxiliares">
+              <Link href="/auxiliar" aria-label="Auxiliares">
                 <IconMark
                   size="md"
                   borderWidth={2}
@@ -262,7 +262,7 @@ export default function TabletNav({
           </div>
         )}
 
-        {/* Ajustes (cambia a flecha) y Logout: fijos abajo */}
+        {/* Ajustes y Logout */}
         <div className="px-0 py-3 grid place-items-center gap-2 relative z-40">
           <button
             type="button"

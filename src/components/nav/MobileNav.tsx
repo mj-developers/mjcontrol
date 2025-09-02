@@ -14,7 +14,7 @@ import {
   Moon,
   Settings,
   ArrowLeft,
-  LayoutGrid,
+  Table2, // ← icono unificado para Auxiliares
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
@@ -27,33 +27,56 @@ const ACCENT: Record<string, string> = {
   "/clients": "#F59E0B",
   "/applications": "#8B5CF6",
   "/licenses": "#10B981",
-  "/aux": "#8B5E3C",
+  "/auxiliar": "#8B5E3C",
 };
 const BRAND = "#8E2434";
 const ZOOM_SCALE = 1.5;
 
-// === helpers ===
+/* ========== helpers ========== */
+
+/** Adjunta listener a un MediaQueryList (moderno y legacy) y devuelve cleanup. */
+function attachMqlChange(mql: MediaQueryList, fn: () => void): () => void {
+  const modernHandler = () => fn();
+
+  // API moderna
+  if ("addEventListener" in mql) {
+    mql.addEventListener("change", modernHandler);
+    return () => mql.removeEventListener("change", modernHandler);
+  }
+
+  // API legacy (Safari antiguos): no usamos `any`
+  type LegacyMQL = {
+    addListener: (
+      cb: (this: MediaQueryList, ev: MediaQueryListEvent) => void
+    ) => void;
+    removeListener: (
+      cb: (this: MediaQueryList, ev: MediaQueryListEvent) => void
+    ) => void;
+  };
+  const legacy = mql as MediaQueryList & LegacyMQL;
+
+  const legacyHandler: (
+    this: MediaQueryList,
+    ev: MediaQueryListEvent
+  ) => void = () => fn();
+  legacy.addListener(legacyHandler);
+  return () => legacy.removeListener(legacyHandler);
+}
+
+/** hook orientación */
 function useIsLandscape() {
   const [land, setLand] = useState(false);
   useEffect(() => {
     const update = () => setLand(window.innerWidth > window.innerHeight);
     update();
+
     window.addEventListener("resize", update);
     const mql = window.matchMedia("(orientation: landscape)");
-    const onChange = () => update();
-    if ("addEventListener" in mql) {
-      mql.addEventListener("change", onChange);
-      return () => {
-        window.removeEventListener("resize", update);
-        mql.removeEventListener("change", onChange);
-      };
-    }
-    // @ts-expect-error addListener: API legacy para Safari/WebKit antiguos
-    mql.addListener(onChange);
+    const detach = attachMqlChange(mql, update);
+
     return () => {
       window.removeEventListener("resize", update);
-      // @ts-expect-error removeListener: API legacy para Safari/WebKit antiguos
-      mql.removeListener(onChange);
+      detach();
     };
   }, []);
   return land;
@@ -87,18 +110,16 @@ export default function MobileNav({
   const [settingsOpen, setSettingsOpen] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // Publica padding según orientación y --nav-w en landscape
+  // padding inferior en portrait / ancho rail en landscape
   useEffect(() => {
     if (!mounted) return;
     const root = document.documentElement;
     const H = 72;
 
     if (isLandscape) {
-      // rail lateral para móvil landscape
       document.body.style.removeProperty("padding-bottom");
       root.style.setProperty("--nav-w", "5rem");
     } else {
-      // barra inferior para móvil portrait
       root.style.removeProperty("--nav-w");
       document.body.style.setProperty(
         "padding-bottom",
@@ -111,7 +132,7 @@ export default function MobileNav({
     };
   }, [mounted, isLandscape]);
 
-  // Paleta dependiendo del tema
+  // paleta
   const SHELL_BG = theme === "light" ? "#e2e5ea" : "#0d1117";
   const SHELL_BORDER = theme === "light" ? "#0b0b0d" : "#ffffff";
   const SHELL_FG = theme === "light" ? "#0b0b0d" : "#ffffff";
@@ -210,11 +231,11 @@ export default function MobileNav({
     );
   };
 
-  // =======================
-  //   LANDSCAPE (rail)
-  // =======================
+  /* ======================
+     LANDSCAPE (rail)
+  ====================== */
   if (mounted && isLandscape) {
-    const hideMain = settingsOpen; // en móvil landscape ocultamos secciones al abrir ajustes
+    const hideMain = settingsOpen;
     return (
       <aside
         className={[
@@ -238,7 +259,7 @@ export default function MobileNav({
         `}</style>
 
         <nav className="relative flex h-full flex-col">
-          {/* lista principal (ocultable) */}
+          {/* lista principal */}
           <div className="flex-1 min-h-0 overflow-y-auto px-0 py-4">
             <div className="h-full flex flex-col items-center justify-center gap-2">
               <Item
@@ -274,20 +295,23 @@ export default function MobileNav({
             </div>
           </div>
 
-          {/* overlay con Aux/Tema (aparece sobre el rail) */}
+          {/* overlay Aux/Tema con separación uniforme */}
           {settingsOpen && (
             <div className="absolute left-0 right-0 bottom-[6.75rem] z-50">
-              {/* 👇 cambio: mismo gap que la columna + margen inferior extra para separar de “Volver” */}
               <div className="grid place-items-center gap-2 mb-2">
-                <Link href="/aux" aria-label="Auxiliares" className="group">
+                <Link
+                  href="/auxiliar"
+                  aria-label="Auxiliares"
+                  className="group"
+                >
                   <IconMark
                     size="md"
                     borderWidth={2}
                     interactive
                     hoverAnim="zoom"
-                    style={markStyle(false, ACCENT["/aux"])}
+                    style={markStyle(false, ACCENT["/auxiliar"])}
                   >
-                    <LayoutGrid className="h-5 w-5" />
+                    <Table2 className="h-5 w-5" />
                   </IconMark>
                 </Link>
 
@@ -324,7 +348,6 @@ export default function MobileNav({
           )}
 
           {/* fijo abajo: Ajustes/Volver y Logout */}
-          {/* pt-2 mantiene la simetría de separación inferior */}
           <div className="px-0 pt-2 pb-3 grid place-items-center gap-2 relative z-40">
             <button
               type="button"
@@ -365,9 +388,9 @@ export default function MobileNav({
     );
   }
 
-  // =======================
-  //   PORTRAIT (barra)
-  // =======================
+  /* ======================
+     PORTRAIT (barra)
+  ====================== */
   if (!mounted) {
     return (
       <nav
@@ -407,10 +430,9 @@ export default function MobileNav({
         }
       `}</style>
 
-      {/* Grid 6 cols. Normal: Dashboard, Users, Clients, Apps, Licenses, Ajustes
-          Ajustes: (dcha→izda) Volver, Logout, Tema, Aux; col 1-2 invisibles */}
+      {/* Grid 6 cols (normal / ajustes) */}
       <div className="relative h-full grid grid-cols-6 place-items-center gap-2">
-        {/* Col 1 */}
+        {/* 1 */}
         {settingsOpen ? (
           <div className="invisible pointer-events-none" aria-hidden="true">
             <IconMark size="md" borderWidth={2} />
@@ -419,7 +441,7 @@ export default function MobileNav({
           <Item href="/" Icon={Gauge} accent={ACCENT["/"]} />
         )}
 
-        {/* Col 2 */}
+        {/* 2 */}
         {settingsOpen ? (
           <div className="invisible pointer-events-none" aria-hidden="true">
             <IconMark size="md" borderWidth={2} />
@@ -428,10 +450,10 @@ export default function MobileNav({
           <Item href="/users" Icon={Users} accent={ACCENT["/users"]} />
         )}
 
-        {/* Col 3 */}
+        {/* 3 */}
         {settingsOpen ? (
           <Link
-            href="/aux"
+            href="/auxiliar"
             className="group grid place-items-center"
             aria-label="Auxiliares"
           >
@@ -440,16 +462,16 @@ export default function MobileNav({
               borderWidth={2}
               interactive
               hoverAnim="zoom"
-              style={markStyle(false, ACCENT["/aux"])}
+              style={markStyle(false, ACCENT["/auxiliar"])}
             >
-              <LayoutGrid className="h-5 w-5" />
+              <Table2 className="h-5 w-5" />
             </IconMark>
           </Link>
         ) : (
           <Item href="/clients" Icon={Building2} accent={ACCENT["/clients"]} />
         )}
 
-        {/* Col 4 */}
+        {/* 4 */}
         {settingsOpen ? (
           <button
             type="button"
@@ -487,7 +509,7 @@ export default function MobileNav({
           />
         )}
 
-        {/* Col 5 */}
+        {/* 5 */}
         {settingsOpen ? (
           <Link
             href="/logout"
@@ -512,7 +534,7 @@ export default function MobileNav({
           />
         )}
 
-        {/* Col 6: Ajustes / Volver */}
+        {/* 6: Ajustes / Volver */}
         <button
           type="button"
           aria-label={settingsOpen ? "Volver" : "Ajustes"}
