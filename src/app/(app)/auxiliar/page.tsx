@@ -1,4 +1,3 @@
-// src/app/(app)/auxiliar/page.tsx
 "use client";
 
 import type React from "react";
@@ -23,7 +22,7 @@ function useReactiveTheme(): Theme {
   return theme;
 }
 
-/* Helpers para IconMark (mismos tokens que en el resto) */
+/* Helpers */
 type MarkVars = React.CSSProperties & {
   ["--iconmark-bg"]?: string;
   ["--iconmark-border"]?: string;
@@ -32,6 +31,7 @@ type MarkVars = React.CSSProperties & {
   ["--iconmark-hover-border"]?: string;
   ["--iconmark-hover-icon-fg"]?: string;
 };
+type AccentVars = React.CSSProperties & { ["--accent"]?: string };
 
 export default function AuxiliarPage() {
   const theme = useReactiveTheme();
@@ -44,13 +44,11 @@ export default function AuxiliarPage() {
       : "bg-[#0D1117] border-zinc-700",
   ].join(" ");
 
-  // Paleta como en las demás pantallas placeholder
   const NORMAL_BORDER = theme === "light" ? "#0e1117" : "#ffffff";
   const NORMAL_BG = theme === "light" ? "#e2e5ea" : "#0b0b0d";
   const FG_NORMAL = theme === "light" ? "#010409" : "#ffffff";
   const FG_ACTIVE = theme === "light" ? "#0b0b0d" : "#ffffff";
 
-  // Hover usa la variable --brand para mantener coherencia con el resto
   const markBrand = {
     ["--iconmark-bg"]: NORMAL_BG,
     ["--iconmark-border"]: NORMAL_BORDER,
@@ -60,13 +58,16 @@ export default function AuxiliarPage() {
     ["--iconmark-hover-icon-fg"]: FG_ACTIVE,
   } as MarkVars;
 
+  // 👇 color de “Auxiliares” (mismo del icono activo)
+  const ACCENT = "#B45309"; // amber-700/bronce
+
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-4 md:p-6" style={{ "--accent": ACCENT } as AccentVars}>
       <header className="mb-4 md:mb-6">
         <Heading
           level={1}
           fill="solid"
-          color="var(--brand, #8E2434)"
+          color="var(--accent, var(--brand, #8E2434))"
           fontFamily="var(--font-display, Sora, ui-sans-serif)"
           shadow="soft+brand"
           size="clamp(1.6rem,3.2vw,2.4rem)"

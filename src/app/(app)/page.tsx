@@ -19,6 +19,11 @@ const TWC = {
   rose: { 500: "#E11D48" },
 };
 const BRAND = "#8E2434";
+
+/** Color de marca para ESTA página (Dashboard).
+ *  Cámbialo si tu nav usa otro para Dashboard. */
+const PAGE_BRAND = TWC.indigo[500];
+
 const toRGB = (hex: string) => {
   const h = hex.replace("#", "");
   const n =
@@ -529,14 +534,16 @@ const DATA_BY_RANGE: Record<Range, RangeData> = {
       {
         label: "Usuarios",
         value: 820,
-        color: "indigo",
+        /** Antes: "indigo" — ahora cyan para cuadrar con el nav */
+        color: "cyan",
         icon: Users,
         spark: [80, 120, 160, 200, 260, 320, 420, 520, 620, 700, 760, 820],
       },
       {
         label: "Clientes - Placeholder",
         value: 190,
-        color: "cyan",
+        /** Antes: "cyan" — ahora amber para cuadrar con el nav */
+        color: "amber",
         icon: Building2,
         spark: [40, 55, 70, 85, 100, 115, 130, 145, 160, 170, 180, 190],
       },
@@ -591,6 +598,9 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+/* ===== variable CSS tipada para evitar any ===== */
+type PageStyleVars = React.CSSProperties & { ["--brand"]?: string };
+
 /* ===== página ===== */
 export default function Dashboard() {
   const [range] = useState<Range>("total");
@@ -629,8 +639,10 @@ export default function Dashboard() {
 
   if (!mounted) return <div className="p-4 md:p-6" />;
 
+  const pageStyle: PageStyleVars = { "--brand": PAGE_BRAND };
+
   return (
-    <div className="space-y-8 md:space-y-10 dashboard-scope">
+    <div className="space-y-8 md:space-y-10 dashboard-scope" style={pageStyle}>
       <style jsx global>{`
         .dashboard-scope {
           font-family: var(--font-body, Sora, ui-sans-serif);

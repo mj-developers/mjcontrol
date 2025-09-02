@@ -14,6 +14,10 @@ const ACC_SAVE = "#6366F1"; // header/confirm del modal Guardar
 const ACC_DELETE = "#8E2434"; // brand burdeos (eliminar / cancelar hover)
 const ZOOM = 1.5;
 
+// Color de la sección (mismo que el icono activo del menú para "Clientes")
+type AccentVars = React.CSSProperties & { ["--accent"]?: string };
+const USERS_ACCENT = "#06B6D4"; // cyan-500
+
 /* ----------------------------- Tipos de datos ----------------------------- */
 type UserListItem = { id: number; login: string };
 type UserInfo = {
@@ -283,7 +287,10 @@ export default function UsersPage() {
       : "bg-[#131821]/90 border-zinc-700";
 
   return (
-    <div className="p-4 md:p-6 users-scope">
+    <div
+      className="p-4 md:p-6 users-scope"
+      style={{ "--accent": USERS_ACCENT } as AccentVars}
+    >
       <style jsx global>{`
         /* Fuente Sora para toda la página */
         .users-scope {
@@ -322,16 +329,16 @@ export default function UsersPage() {
         <Heading
           level={1}
           fill="solid"
-          color="var(--brand, #8E2434)"
+          color="var(--accent, var(--brand, #8E2434))"
           fontFamily="var(--font-heading, Sora, ui-sans-serif)"
           shadow="soft+brand"
           size="clamp(1.6rem,3.2vw,2.4rem)"
           className="uppercase tracking-widest"
         >
-          Clientes
+          Usuarios
         </Heading>
         <p className={`mt-3 text-sm ${subtleText}`}>
-          Gestión de clientes del sistema: busca y filtra, crea nuevos
+          Gestión de usuarios del sistema: busca y filtra, crea nuevos
           registros, edita información básica y elimina cuando sea necesario.
         </p>
       </header>

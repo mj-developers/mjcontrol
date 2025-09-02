@@ -29,6 +29,7 @@ type MarkVars = React.CSSProperties & {
   ["--iconmark-hover-border"]?: string;
   ["--iconmark-hover-icon-fg"]?: string;
 };
+type AccentVars = React.CSSProperties & { ["--accent"]?: string };
 
 export default function LicensesPage() {
   const theme = useReactiveTheme();
@@ -54,13 +55,16 @@ export default function LicensesPage() {
     ["--iconmark-hover-icon-fg"]: FG_ACTIVE,
   } as MarkVars;
 
+  // 👇 color de “Licencias” (mismo del icono activo)
+  const ACCENT = "#10B981"; // emerald-500
+
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-4 md:p-6" style={{ "--accent": ACCENT } as AccentVars}>
       <header className="mb-4 md:mb-6">
         <Heading
           level={1}
           fill="solid"
-          color="var(--brand, #8E2434)"
+          color="var(--accent, var(--brand, #8E2434))"
           fontFamily="var(--font-display, Sora, ui-sans-serif)"
           shadow="soft+brand"
           size="clamp(1.6rem,3.2vw,2.4rem)"

@@ -7,7 +7,6 @@ import IconMark from "@/components/ui/IconMark";
 import { Wrench } from "lucide-react";
 import { getInitialTheme, type Theme } from "@/lib/theme";
 
-/* Tema reactivo (sin F5) */
 function useReactiveTheme(): Theme {
   const [theme, setTheme] = useState<Theme>(getInitialTheme());
   useEffect(() => {
@@ -22,7 +21,6 @@ function useReactiveTheme(): Theme {
   return theme;
 }
 
-/* Helpers para IconMark */
 type MarkVars = React.CSSProperties & {
   ["--iconmark-bg"]?: string;
   ["--iconmark-border"]?: string;
@@ -31,6 +29,7 @@ type MarkVars = React.CSSProperties & {
   ["--iconmark-hover-border"]?: string;
   ["--iconmark-hover-icon-fg"]?: string;
 };
+type AccentVars = React.CSSProperties & { ["--accent"]?: string };
 
 export default function ClientsPage() {
   const theme = useReactiveTheme();
@@ -56,13 +55,16 @@ export default function ClientsPage() {
     ["--iconmark-hover-icon-fg"]: FG_ACTIVE,
   } as MarkVars;
 
+  // 👇 color de “Clientes” (mismo del icono activo)
+  const ACCENT = "#F59E0B"; // amber-500
+
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-4 md:p-6" style={{ "--accent": ACCENT } as AccentVars}>
       <header className="mb-4 md:mb-6">
         <Heading
           level={1}
           fill="solid"
-          color="var(--brand, #8E2434)"
+          color="var(--accent, var(--brand,#8E2434))"
           fontFamily="var(--font-display, Sora, ui-sans-serif)"
           shadow="soft+brand"
           size="clamp(1.6rem,3.2vw,2.4rem)"
