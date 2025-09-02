@@ -8,16 +8,30 @@ import type { Theme } from "@/lib/theme";
 
 type Variant = "desktop" | "tablet" | "mobile";
 
+/** Clasificación mejorada:
+ *  - Desktop: ancho >= 1024 y en landscape
+ *  - Tablet: ancho >= 768 **y** (no es “phone-landscape” de baja altura)
+ *  - Mobile: el resto (incluye teléfonos en landscape con poca altura)
+ */
 function computeVariant(): Variant {
-  if (typeof window === "undefined") return "desktop"; // SSR placeholder
+  if (typeof window === "undefined") return "desktop";
   const w = window.innerWidth;
-  const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+  const h = window.innerHeight;
+  const isLandscape = w > h;
+  const shortEdge = Math.min(w, h);
+
+  // Desktop “de verdad”
   if (w >= 1024 && isLandscape) return "desktop";
-  if (w >= 768) return "tablet";
+
+  // Consideramos “phone-landscape” si la altura es pequeña (≤ 500)
+  const phoneLandscape = isLandscape && h <= 500;
+
+  if (w >= 768 && !phoneLandscape) return "tablet";
+
   return "mobile";
 }
 
-/** Soporte a Safari (addListener) sin usar `any` */
+/** Soporte a Safari (addListener) */
 function attachMqlChange(mql: MediaQueryList, fn: () => void): () => void {
   const handler = () => fn();
   if ("addEventListener" in mql) {
@@ -39,9 +53,7 @@ export default function ResponsiveNav({
   theme: Theme;
   setTheme: (t: Theme) => void;
 }) {
-  // Menú desktop plegado por defecto
-  const [open, setOpen] = useState(false);
-
+  const [open, setOpen] = useState(false); // desktop rail plegado por defecto
   const [mounted, setMounted] = useState(false);
   const [variant, setVariant] = useState<Variant>("desktop");
 
@@ -60,7 +72,6 @@ export default function ResponsiveNav({
     };
   }, []);
 
-  // Evitamos parpadeos/hydration mismatch
   if (!mounted) return null;
 
   if (variant === "desktop") {

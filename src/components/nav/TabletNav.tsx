@@ -11,6 +11,9 @@ import {
   LogOut,
   Sun,
   Moon,
+  Settings,
+  ArrowLeft,
+  Table2,
   type LucideIcon,
 } from "lucide-react";
 import { CSSProperties, ReactNode, useEffect, useState } from "react";
@@ -25,6 +28,7 @@ const ACCENT: Record<string, string> = {
   "/licenses": "#10B981",
 };
 const BRAND = "#8E2434";
+const AUX_BROWN = "#8B5E3C";
 const ZOOM_SCALE = 1.5;
 
 type StyleWithVars = CSSProperties & {
@@ -56,9 +60,23 @@ export default function TabletNav({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Mantener padding izquierdo en tablet
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--nav-w", "5rem");
+    return () => {
+      root.style.removeProperty("--nav-w");
+    };
+  }, []);
+
   const SHELL_BG = theme === "light" ? "#e2e5ea" : "#0d1117";
   const SHELL_BORDER = theme === "light" ? "#0b0b0d" : "#ffffff";
   const SHELL_FG = theme === "light" ? "#0b0b0d" : "#ffffff";
+
+  const GEAR_BG = theme === "light" ? "#8893A2" : "#565D66";
+  const GEAR_HOV = theme === "light" ? "#7C8898" : "#626A74";
 
   const shell =
     "bg-[var(--shell-bg)] text-[var(--shell-fg)] border-[var(--shell-border)]";
@@ -76,17 +94,27 @@ export default function TabletNav({
 
   const NORMAL_BORDER = theme === "light" ? "#0e1117" : "#ffffff";
   const NORMAL_BG = theme === "light" ? "#e2e5ea" : "#0b0b0d";
+  const FG_ACTIVE = theme === "light" ? "#0b0b0d" : "#ffffff";
+  const FG_NORMAL = theme === "light" ? "#010409" : "#ffffff";
 
   function markStyle(active: boolean, accent: string): MarkVars {
-    const fgNormal = theme === "light" ? "#010409" : "#ffffff";
-    const fgActive = theme === "light" ? "#ffffff" : "#0b0b0d";
     return {
       "--mark-bg": active ? accent : NORMAL_BG,
       "--mark-border": active ? accent : NORMAL_BORDER,
-      "--mark-fg": active ? fgActive : fgNormal,
+      "--mark-fg": active ? FG_ACTIVE : FG_NORMAL,
       "--iconmark-hover-bg": accent,
       "--iconmark-hover-border": accent,
-      "--iconmark-hover-icon-fg": fgActive,
+      "--iconmark-hover-icon-fg": FG_ACTIVE,
+    };
+  }
+  function markSettings(active: boolean): MarkVars {
+    return {
+      "--mark-bg": active ? GEAR_BG : NORMAL_BG,
+      "--mark-border": active ? GEAR_BG : NORMAL_BORDER,
+      "--mark-fg": FG_NORMAL,
+      "--iconmark-hover-bg": GEAR_HOV,
+      "--iconmark-hover-border": GEAR_HOV,
+      "--iconmark-hover-icon-fg": FG_NORMAL,
     };
   }
 
@@ -115,6 +143,7 @@ export default function TabletNav({
         href={href}
         className={rowBase}
         style={{ "--item-accent": accent } as StyleWithVars}
+        aria-current={active ? "page" : undefined}
       >
         <IconRail>
           <IconMark
@@ -125,14 +154,13 @@ export default function TabletNav({
             className={active ? "is-active" : undefined}
             style={markStyle(active, accent)}
           >
-            <Icon />
+            <Icon className="h-5 w-5" />
           </IconMark>
         </IconRail>
       </Link>
     );
   };
 
-  // Skeleton SSR
   if (!mounted) {
     return (
       <aside
@@ -157,14 +185,14 @@ export default function TabletNav({
       style={navVars}
       aria-label="Barra de navegación (tablet)"
     >
-      {/* Zoom permanente del icono cuando el IconMark tiene .is-active */}
       <style jsx global>{`
         .mj-iconmark.is-active .icon-default {
           transform: scale(${ZOOM_SCALE}) !important;
         }
       `}</style>
 
-      <nav className="flex h-full flex-col">
+      <nav className="relative flex h-full flex-col">
+        {/* La lista principal SIEMPRE visible (portrait y landscape) */}
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-0 py-4">
           <div className="h-full flex flex-col items-center justify-center gap-2">
             <Item href="/" Icon={Gauge} accent={ACCENT["/"]} />
@@ -187,27 +215,78 @@ export default function TabletNav({
           </div>
         </div>
 
-        <div className="px-0 py-3 grid place-items-center gap-2">
-          {/* Tema (cycle) */}
+        {/* Overlay igual que portrait: Auxiliares arriba, Tema debajo */}
+        {settingsOpen && (
+          <div className="absolute left-0 right-0 bottom-[6.75rem] px-0 py-2 z-50">
+            <div className="grid place-items-center gap-3">
+              <Link href="/aux" aria-label="Auxiliares">
+                <IconMark
+                  size="md"
+                  borderWidth={2}
+                  interactive
+                  hoverAnim="zoom"
+                  style={markStyle(false, AUX_BROWN)}
+                >
+                  <Table2 className="h-5 w-5" />
+                </IconMark>
+              </Link>
+
+              <button
+                type="button"
+                aria-label="Cambiar tema"
+                onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+              >
+                <IconMark
+                  size="md"
+                  borderWidth={2}
+                  interactive
+                  hoverAnim="cycle"
+                  style={markSettings(false)}
+                  icon={
+                    theme === "dark" ? (
+                      <Moon className="h-5 w-5" />
+                    ) : (
+                      <Sun className="h-5 w-5" />
+                    )
+                  }
+                  hoverIcon={
+                    theme === "dark" ? (
+                      <Sun className="h-5 w-5" />
+                    ) : (
+                      <Moon className="h-5 w-5" />
+                    )
+                  }
+                />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Ajustes (cambia a flecha) y Logout: fijos abajo */}
+        <div className="px-0 py-3 grid place-items-center gap-2 relative z-40">
           <button
             type="button"
-            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            aria-label="Cambiar tema"
+            aria-label={settingsOpen ? "Volver" : "Ajustes"}
             className="group"
+            onClick={() => setSettingsOpen((v) => !v)}
           >
             <IconMark
               size="md"
               borderWidth={2}
               interactive
-              hoverAnim="cycle"
-              style={markStyle(false, BRAND)}
-              icon={theme === "dark" ? <Moon /> : <Sun />}
-              hoverIcon={theme === "dark" ? <Sun /> : <Moon />}
-            />
+              hoverAnim="zoom"
+              className={settingsOpen ? "is-active" : undefined}
+              style={markSettings(settingsOpen)}
+            >
+              {settingsOpen ? (
+                <ArrowLeft className="h-5 w-5" />
+              ) : (
+                <Settings className="h-5 w-5" />
+              )}
+            </IconMark>
           </button>
 
-          {/* Logout (zoom) */}
-          <Link href="/logout" className="group">
+          <Link href="/logout" className="group" aria-label="Logout">
             <IconMark
               size="md"
               borderWidth={2}
@@ -215,7 +294,7 @@ export default function TabletNav({
               hoverAnim="zoom"
               style={markStyle(true, BRAND)}
             >
-              <LogOut />
+              <LogOut className="h-5 w-5" />
             </IconMark>
           </Link>
         </div>
