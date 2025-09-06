@@ -971,6 +971,8 @@ function PageSizeDropdown({
 
 /* ============================ Modal: Crear ============================ */
 
+/* ============================ Modal: Crear ============================ */
+
 function CreateUserModal({
   theme,
   onClose,
@@ -985,6 +987,19 @@ function CreateUserModal({
   const [busy, setBusy] = useState(false);
 
   const isLight = theme === "light";
+
+  // Cabecera con colores invertidos (como el drawer)
+  const headerOpp = isLight
+    ? "bg-[#0D1117] text-white border-zinc-900"
+    : "bg-white text-black border-white";
+  const headerIconHover = isLight ? "hover:bg-white/10" : "hover:bg-black/5";
+
+  // IconMark base (neutral) para los botones
+  const markBase = {
+    ["--mark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
+    ["--mark-border"]: isLight ? "#0e1117" : "#ffffff",
+    ["--mark-fg"]: isLight ? "#010409" : "#ffffff",
+  } as React.CSSProperties;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -1010,15 +1025,23 @@ function CreateUserModal({
         ].join(" ")}
         onMouseDown={(e) => e.stopPropagation()}
       >
+        {/* Cabecera invertida */}
         <div
-          className="flex items-center justify-between px-5 pt-4 pb-3 rounded-t-2xl"
-          style={{ background: ACC_CREATE, color: "#fff" }}
+          className={[
+            "flex items-center justify-between px-5 pt-4 pb-3",
+            headerOpp,
+          ].join(" ")}
         >
           <h2 className="text-lg font-semibold">Crear usuario</h2>
           <button
             type="button"
-            className="text-white/90 hover:text-white"
+            className={[
+              "rounded-full p-1.5 transition-colors",
+              headerIconHover,
+            ].join(" ")}
             onClick={onClose}
+            aria-label="Cerrar"
+            style={{ cursor: "pointer" }}
           >
             <X />
           </button>
@@ -1063,29 +1086,76 @@ function CreateUserModal({
           </label>
 
           <div className="flex items-center justify-end gap-3 pt-2">
+            {/* Cancelar – burdeos */}
             <button
               type="button"
               onClick={onClose}
               className={[
-                "px-4 h-10 rounded-xl border",
+                "btn-ik inline-flex items-center gap-2 px-4 h-10 rounded-xl border",
                 isLight
-                  ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
-                  : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
+                  ? "bg-white border-zinc-300 hover:bg-zinc-100"
+                  : "bg-[#0D1117] border-zinc-700 hover:bg-zinc-800",
               ].join(" ")}
+              style={
+                {
+                  // color burdeos desde el inicio
+                  color: "#8E2434",
+                  ["--btn-ik-accent"]: "#8E2434",
+                  ["--btn-ik-text"]: "#8E2434",
+                  ["--mark-hover-bg"]: "#8E2434",
+                  ["--mark-hover-border"]: "#8E2434",
+                  ["--iconmark-hover-bg"]: "#8E2434",
+                  ["--iconmark-hover-border"]: "#8E2434",
+                } as WithToolbarVars
+              }
             >
+              <IconMark
+                size="xs"
+                borderWidth={2}
+                interactive
+                hoverAnim="zoom"
+                zoomScale={1.5}
+                style={markBase}
+              >
+                <X />
+              </IconMark>
               Cancelar
             </button>
+
+            {/* Crear – neutral + hover verde, sin fondo verde constante */}
             <button
               type="submit"
               disabled={busy || !login.trim() || !pass}
               className={[
-                "px-4 h-10 rounded-xl border text-white",
+                "btn-ik inline-flex items-center gap-2 px-4 h-10 rounded-xl border",
+                isLight
+                  ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
+                  : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
                 busy || !login.trim() || !pass
                   ? "opacity-60 pointer-events-none"
                   : "",
               ].join(" ")}
-              style={{ background: ACC_CREATE, borderColor: ACC_CREATE }}
+              style={
+                {
+                  ["--btn-ik-accent"]: ACC_CREATE,
+                  ["--btn-ik-text"]: ACC_CREATE,
+                  ["--mark-hover-bg"]: ACC_CREATE,
+                  ["--mark-hover-border"]: ACC_CREATE,
+                  ["--iconmark-hover-bg"]: ACC_CREATE,
+                  ["--iconmark-hover-border"]: ACC_CREATE,
+                } as WithToolbarVars
+              }
             >
+              <IconMark
+                size="xs"
+                borderWidth={2}
+                interactive
+                hoverAnim="zoom"
+                zoomScale={1.5}
+                style={markBase}
+              >
+                <UserPlus />
+              </IconMark>
               Crear
             </button>
           </div>
