@@ -93,8 +93,6 @@ function useAppContentInnerHeight(safety = 8) {
   return h;
 }
 
-/* ------------------------------ Mock API ------------------------------ */
-
 /* ------------------------------ API: lista ------------------------------ */
 
 function isObj(v: unknown): v is Record<string, unknown> {
@@ -142,20 +140,53 @@ async function fetchUsers(): Promise<UserListItem[]> {
   }
 }
 
+/* ------------------------------ API: detalle ------------------------------ */
+
+// Cargar detalle desde tu API
 async function fetchUserInfo(id: number): Promise<UserInfo> {
+  const res = await fetch(`/api/users/getUser/${id}`, {
+    method: "GET",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Error getUser ${id}: ${res.status}`);
+  }
+
+  const data = (await res.json()) as Partial<UserInfo> & { id?: number };
+
   return {
-    id,
-    login: `user.${id}`,
-    email: `user${id}@acme.test`,
-    firstName: "Nombre",
-    lastName: `#${id}`,
+    id: typeof data.id === "number" ? data.id : id,
+    login: String(data.login ?? ""),
+    email: String(data.email ?? ""),
+    firstName: String(data.firstName ?? ""),
+    lastName: String(data.lastName ?? ""),
   };
 }
+
+// Guardar detalle en tu API
 async function updateUser(id: number, payload: Partial<UserInfo>) {
-  void id;
-  void payload;
-  await new Promise((r) => setTimeout(r, 400));
+  const res = await fetch(`/api/users/update/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      login: payload.login ?? "",
+      email: payload.email ?? "",
+      firstName: payload.firstName ?? "",
+      lastName: payload.lastName ?? "",
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body && (body.error as string)) ||
+        `Error updateUser ${id}: ${res.status}`
+    );
+  }
 }
+
 async function deleteUser(id: number) {
   void id;
   await new Promise((r) => setTimeout(r, 400));
@@ -530,8 +561,10 @@ export default function UsersPage() {
         </div>
 
         {/* Filas */}
-        {/* Filas */}
         <div className="flex-1 min-h-0 overflow-auto overscroll-contain">
+          {loading && (
+            <div className="px-4 py-3 text-sm">Cargando usuarios…</div>
+          )}
           {!loading &&
             displayed.map((u) => (
               <button
@@ -542,7 +575,7 @@ export default function UsersPage() {
                   "w-full text-left grid grid-cols-[auto_1fr_72px] items-center gap-2 px-4 py-3 border-b cursor-pointer transition-colors",
                   theme === "light"
                     ? "hover:bg-zinc-50 border-zinc-100"
-                    : "hover:bg-white/10 border-zinc-800", // ⬅️ antes: hover:bg-zinc-900/40
+                    : "hover:bg-white/10 border-zinc-800",
                 ].join(" ")}
               >
                 <div className="col-span-2 flex items-center gap-3">
@@ -653,7 +686,7 @@ export default function UsersPage() {
         </div>
       </section>
 
-      {/* Modales */}
+      {/* Modales / Drawer */}
       {createOpen && (
         <CreateUserModal
           theme={theme}
@@ -667,7 +700,7 @@ export default function UsersPage() {
       )}
 
       {detailId != null && (
-        <UserDetailModal
+        <UserDetailDrawer
           id={detailId}
           theme={theme}
           onClose={() => setDetailId(null)}
@@ -736,7 +769,7 @@ function RoleDropdown({
   const pillTone = isLight
     ? "bg-white border-zinc-300"
     : "bg-[#0D1117] border-zinc-700";
-  // ⬇️ hover más visible en dark
+  // hover más visible en dark
   const pillHover = isLight
     ? "hover:bg-zinc-100"
     : "hover:bg-white/10 hover:border-zinc-500";
@@ -751,7 +784,7 @@ function RoleDropdown({
           pillTone,
           pillHover,
           "w-[210px] justify-between",
-          "transition-colors", // suaviza el cambio
+          "transition-colors",
         ].join(" ")}
         style={{ cursor: "pointer" }}
       >
@@ -1062,9 +1095,9 @@ function CreateUserModal({
   );
 }
 
-/* ============================ Modal: Detalle ============================ */
+/* ====================== Drawer lateral: Detalle ====================== */
 
-function UserDetailModal({
+function UserDetailDrawer({
   id,
   theme,
   onClose,
@@ -1079,14 +1112,41 @@ function UserDetailModal({
 }) {
   const [info, setInfo] = useState<UserInfo | null>(null);
   const [busy, setBusy] = useState(false);
+  const [enter, setEnter] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const isLight = theme === "light";
 
   useEffect(() => {
+    let alive = true;
     (async () => {
-      const data = await fetchUserInfo(id);
-      setInfo(data);
+      try {
+        const data = await fetchUserInfo(id);
+        if (alive) setInfo(data);
+      } catch {
+        if (alive)
+          setInfo({ id, login: "", email: "", firstName: "", lastName: "" });
+      }
     })();
+    return () => {
+      alive = false;
+    };
   }, [id]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setEnter(true), 10);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (!menuOpen) return;
+      const t = e.target as Node;
+      if (menuRef.current && !menuRef.current.contains(t)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [menuOpen]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -1117,57 +1177,171 @@ function UserDetailModal({
     }
   }
 
-  const markStyle = {
+  const panelTone = isLight
+    ? "bg-white border-zinc-300"
+    : "bg-[#0D1117] border-zinc-700";
+
+  // Cabecera con colores opuestos
+  const headerOpp = isLight
+    ? "bg-[#0D1117] text-white border-zinc-900"
+    : "bg-white text-black border-white";
+  const headerIconHover = isLight ? "hover:bg-white/10" : "hover:bg-black/5";
+
+  // Estilo base de IconMark (mismo que usas en la página)
+  const markBase = {
     ["--mark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
     ["--mark-border"]: isLight ? "#0e1117" : "#ffffff",
     ["--mark-fg"]: isLight ? "#010409" : "#ffffff",
   } as React.CSSProperties;
 
   return (
-    <div
-      className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-[2px] grid place-items-center p-4"
-      onMouseDown={onClose}
-    >
+    <div className="fixed inset-0 z-[60]">
+      {/* Overlay */}
       <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      {/* Panel */}
+      <aside
         className={[
-          "relative w-full max-w-xl rounded-2xl border shadow-2xl overflow-hidden",
-          isLight ? "bg-white border-zinc-300" : "bg-[#0D1117] border-zinc-700",
+          "absolute right-0 top-0 h-full w-full max-w-xl border-l shadow-2xl",
+          panelTone,
+          "transition-transform duration-200 ease-out",
+          enter ? "translate-x-0" : "translate-x-full",
+          "rounded-l-2xl overflow-hidden flex flex-col",
         ].join(" ")}
-        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
       >
+        {/* Cabecera */}
         <div
           className={[
-            "flex items-center justify-between px-5 pt-4 pb-3 rounded-t-2xl",
-            isLight ? "bg-[#E7EBF1]" : "bg-[#131821]",
+            "flex items-center justify-between px-5 py-3 border-b",
+            headerOpp,
           ].join(" ")}
         >
           <h2 className="text-lg font-semibold">Detalles del usuario</h2>
-          <button
-            type="button"
-            className="opacity-80 hover:opacity-100"
-            onClick={onClose}
-          >
-            <X />
-          </button>
+
+          <div className="flex items-center gap-2" ref={menuRef}>
+            {/* Menú Acciones (tres puntos) */}
+            <div className="relative">
+              <button
+                type="button"
+                aria-label="Acciones"
+                onClick={() => setMenuOpen((v) => !v)}
+                className={[
+                  "rounded-full p-1.5 transition-colors",
+                  headerIconHover,
+                ].join(" ")}
+                style={{ cursor: "pointer" }}
+              >
+                <MoreHorizontal />
+              </button>
+
+              {menuOpen && (
+                <div
+                  className={[
+                    "absolute right-0 mt-2 w-44 rounded-xl border shadow-md overflow-hidden z-30",
+                    isLight
+                      ? "bg-white border-zinc-200 text-black"
+                      : "bg-[#0D1117] border-zinc-700 text-white",
+                  ].join(" ")}
+                >
+                  {/* Eliminar con IconMark + hover burdeos */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void handleDelete();
+                    }}
+                    className={[
+                      "btn-ik w-full flex items-center gap-2 px-3 py-2 text-left text-sm",
+                      isLight ? "hover:bg-zinc-100" : "hover:bg-zinc-800/50",
+                    ].join(" ")}
+                    style={
+                      {
+                        ["--btn-ik-accent"]: "#8E2434",
+                        ["--btn-ik-text"]: "#8E2434",
+                        ["--mark-hover-bg"]: "#8E2434",
+                        ["--mark-hover-border"]: "#8E2434",
+                        ["--iconmark-hover-bg"]: "#8E2434",
+                        ["--iconmark-hover-border"]: "#8E2434",
+                        cursor: "pointer",
+                      } as WithToolbarVars
+                    }
+                  >
+                    <IconMark
+                      size="xs"
+                      borderWidth={2}
+                      interactive
+                      hoverAnim="zoom"
+                      zoomScale={1.5}
+                      style={markBase}
+                    >
+                      <Trash2 />
+                    </IconMark>
+                    Eliminar
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Cerrar */}
+            <button
+              type="button"
+              className={[
+                "rounded-full p-1.5 transition-colors",
+                headerIconHover,
+              ].join(" ")}
+              onClick={onClose}
+              aria-label="Cerrar"
+              style={{ cursor: "pointer" }} // manita
+            >
+              <X />
+            </button>
+          </div>
         </div>
 
-        <form className="px-5 pb-5 pt-4 space-y-4" onSubmit={handleSave}>
+        {/* Contenido */}
+        <form
+          id="user-detail-form"
+          className="flex-1 overflow-auto px-5 pt-4 pb-24 space-y-4"
+          onSubmit={handleSave}
+        >
           {!info ? (
             <p className="opacity-80 text-sm">Cargando…</p>
           ) : (
             <>
-              <Field
-                label="Login"
-                value={info.login}
-                onChange={(v) => setInfo({ ...info, login: v })}
-                theme={theme}
-              />
-              <Field
-                label="Email"
-                value={info.email}
-                onChange={(v) => setInfo({ ...info, email: v })}
-                theme={theme}
-              />
+              {/* Avatar grande, centrado y con margen */}
+              <div className="flex justify-center my-4 md:my-6">
+                <div
+                  className={[
+                    "w-40 h-40 md:w-44 md:h-44 rounded-full border grid place-items-center",
+                    isLight
+                      ? "border-zinc-400 bg-white"
+                      : "border-zinc-600 bg-[#0D1117]",
+                  ].join(" ")}
+                />
+              </div>
+
+              {/* Login + Email en la misma línea */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Field
+                  label="Login"
+                  value={info.login}
+                  onChange={(v) => setInfo({ ...info, login: v })}
+                  theme={theme}
+                />
+                <Field
+                  label="Email"
+                  value={info.email}
+                  onChange={(v) => setInfo({ ...info, email: v })}
+                  theme={theme}
+                />
+              </div>
+
+              {/* Nombre + Apellidos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field
                   label="Nombre"
@@ -1182,72 +1356,57 @@ function UserDetailModal({
                   theme={theme}
                 />
               </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={busy}
-                  className={[
-                    "btn-ik inline-flex items-center gap-2 px-4 h-10 rounded-xl border",
-                    isLight
-                      ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
-                      : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
-                    busy && "opacity-60 pointer-events-none",
-                  ].join(" ")}
-                  style={{ ["--btn-ik-accent"]: "#8E2434" } as WithToolbarVars}
-                >
-                  <IconMark
-                    size="xs"
-                    borderWidth={2}
-                    interactive
-                    hoverAnim="zoom"
-                    zoomScale={1.5}
-                    style={markStyle}
-                  >
-                    <Trash2 />
-                  </IconMark>
-                  Eliminar
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className={[
-                    "btn-ik inline-flex items-center gap-2 px-4 h-10 rounded-xl border",
-                    isLight
-                      ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
-                      : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
-                    busy && "opacity-60 pointer-events-none",
-                  ].join(" ")}
-                  style={
-                    {
-                      ["--btn-ik-accent"]: ACC_ACTIONS,
-                      ["--btn-ik-text"]: ACC_ACTIONS,
-                      ["--mark-hover-bg"]: ACC_ACTIONS,
-                      ["--mark-hover-border"]: ACC_ACTIONS,
-                      ["--iconmark-hover-bg"]: ACC_ACTIONS,
-                      ["--iconmark-hover-border"]: ACC_ACTIONS,
-                    } as WithToolbarVars
-                  }
-                >
-                  <IconMark
-                    size="xs"
-                    borderWidth={2}
-                    interactive
-                    hoverAnim="zoom"
-                    zoomScale={1.5}
-                    style={markStyle}
-                  >
-                    <Save />
-                  </IconMark>
-                  Guardar
-                </button>
-              </div>
             </>
           )}
         </form>
-      </div>
+
+        {/* Footer fijo (solo Guardar) */}
+        <div
+          className={[
+            "absolute bottom-0 left-0 right-0 px-5 py-3 border-t",
+            isLight
+              ? "bg-[#E7EBF1] border-zinc-300"
+              : "bg-[#131821] border-zinc-700",
+          ].join(" ")}
+        >
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="submit"
+              form="user-detail-form"
+              disabled={busy || !info}
+              className={[
+                "btn-ik inline-flex items-center gap-2 px-4 h-10 rounded-xl border",
+                isLight
+                  ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
+                  : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
+                busy || !info ? "opacity-60 pointer-events-none" : "",
+              ].join(" ")}
+              style={
+                {
+                  ["--btn-ik-accent"]: ACC_ACTIONS,
+                  ["--btn-ik-text"]: ACC_ACTIONS,
+                  ["--mark-hover-bg"]: ACC_ACTIONS,
+                  ["--mark-hover-border"]: ACC_ACTIONS,
+                  ["--iconmark-hover-bg"]: ACC_ACTIONS,
+                  ["--iconmark-hover-border"]: ACC_ACTIONS,
+                } as WithToolbarVars
+              }
+            >
+              <IconMark
+                size="xs"
+                borderWidth={2}
+                interactive
+                hoverAnim="zoom"
+                zoomScale={1.5}
+                style={markBase}
+              >
+                <Save />
+              </IconMark>
+              Guardar
+            </button>
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }
