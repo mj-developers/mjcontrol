@@ -1188,6 +1188,9 @@ function CreateUserModal({
 }) {
   const [login, setLogin] = useState("");
   const [pass, setPass] = useState("");
+  const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [busy, setBusy] = useState(false);
 
   const isLight = theme === "light";
@@ -1198,22 +1201,77 @@ function CreateUserModal({
   const headerIconHover = isLight ? "hover:bg-white/10" : "hover:bg-black/5";
 
   const markBase = {
-    /* antiguas */
     ["--mark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
     ["--mark-border"]: isLight ? "#0e1117" : "#ffffff",
     ["--mark-fg"]: isLight ? "#010409" : "#ffffff",
-    /* nuevas */
-    ["--iconmark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
-    ["--iconmark-border"]: isLight ? "#0e1117" : "#ffffff",
-    ["--iconmark-fg"]: isLight ? "#010409" : "#ffffff",
   } as React.CSSProperties;
+
+  // --- helpers ---
+
+  function pickIdFromCreateResponse(raw: unknown): number | null {
+    if (typeof raw === "number") return raw;
+    if (isObj(raw)) {
+      const r = raw as Record<string, unknown>;
+      const cands: unknown[] = [
+        r.id,
+        r.userId,
+        r.ID,
+        r.Id,
+        r.UserId,
+        r.uid,
+        isObj(r.user) ? (r.user as Record<string, unknown>).id : undefined,
+        isObj(r.data) ? (r.data as Record<string, unknown>).id : undefined,
+      ];
+      for (const c of cands) {
+        const n = typeof c === "number" ? c : Number(c ?? NaN);
+        if (Number.isFinite(n)) return n;
+      }
+    }
+    return null;
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!login.trim() || !pass) return;
+
     setBusy(true);
     try {
-      await new Promise((r) => setTimeout(r, 600));
+      // 1) Crear (obligatorios)
+      const createRes = await fetch("/api/users/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ login: login.trim(), password: pass }),
+      });
+      if (!createRes.ok) {
+        const raw: unknown = await createRes.json().catch(() => ({}));
+        const msg =
+          isObj(raw) && typeof raw.error === "string"
+            ? raw.error
+            : "Error creando usuario";
+        throw new Error(msg);
+      }
+      const createdRaw: unknown = await createRes.json().catch(() => ({}));
+      const newId = pickIdFromCreateResponse(createdRaw);
+
+      // 2) Opcionales -> update
+      const hasOptional =
+        !!email.trim() || !!firstName.trim() || !!lastName.trim();
+      if (hasOptional && Number.isFinite(newId)) {
+        await fetch(
+          `/api/users/update/${encodeURIComponent(newId as number)}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              login: login.trim(),
+              email: email.trim(),
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+            }),
+          }
+        ).catch(() => void 0);
+      }
+
       await onCreated();
     } finally {
       setBusy(false);
@@ -1225,9 +1283,40 @@ function CreateUserModal({
       className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-[2px] grid place-items-center p-4"
       onMouseDown={onClose}
     >
+      {/* SOLO móvil landscape: dos columnas (avatar izquierda, campos derecha) */}
+      <style jsx global>{`
+        @media (orientation: landscape) and (max-height: 480px) {
+          .users-scope .create-modal {
+            max-width: clamp(44rem, 92vw, 62rem);
+          }
+          .users-scope .create-layout {
+            display: grid !important;
+            grid-template-columns: 240px minmax(0, 1fr) !important;
+            gap: 1rem 1.25rem !important;
+            align-items: center !important;
+          }
+          .users-scope .create-avatar {
+            width: 200px !important;
+            height: 200px !important;
+            border-radius: 9999px !important;
+            margin: 0 auto !important;
+          }
+          .users-scope .create-fields {
+            display: grid !important;
+            grid-template-columns: 1fr !important;
+            gap: 0.75rem !important;
+          }
+          .users-scope .create-row-two {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 0.75rem !important;
+          }
+        }
+      `}</style>
+
       <div
         className={[
-          "relative w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden",
+          "create-modal relative w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden",
           isLight ? "bg-white border-zinc-300" : "bg-[#0D1117] border-zinc-700",
         ].join(" ")}
         onMouseDown={(e) => e.stopPropagation()}
@@ -1253,45 +1342,163 @@ function CreateUserModal({
           </button>
         </div>
 
-        <form className="px-5 pb-5 pt-4 space-y-4" onSubmit={submit}>
-          <label className="block">
-            <span className="block text-sm mb-1 opacity-80">Usuario</span>
-            <input
-              value={login}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setLogin(e.target.value)
-              }
-              placeholder="Login"
-              className={[
-                "w-full h-11 rounded-xl px-3 border outline-none",
-                isLight
-                  ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
-                  : "bg-[#0D1117] border-zinc-700 text-white",
-                "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
-              ].join(" ")}
-            />
-          </label>
+        <form className="px-5 pb-5 pt-4" onSubmit={submit} autoComplete="off">
+          {/* Anti-autofill */}
+          <input
+            type="text"
+            name="fake-username"
+            autoComplete="off"
+            tabIndex={-1}
+            aria-hidden="true"
+            className="hidden"
+          />
+          <input
+            type="password"
+            name="fake-password"
+            autoComplete="new-password"
+            tabIndex={-1}
+            aria-hidden="true"
+            className="hidden"
+          />
 
-          <label className="block">
-            <span className="block text-sm mb-1 opacity-80">Contraseña</span>
-            <input
-              value={pass}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setPass(e.target.value)
-              }
-              placeholder="Contraseña"
-              type="password"
-              className={[
-                "w-full h-11 rounded-xl px-3 border outline-none",
-                isLight
-                  ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
-                  : "bg-[#0D1117] border-zinc-700 text-white",
-                "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
-              ].join(" ")}
-            />
-          </label>
+          {/* Layout contenedor (cambia en móvil landscape) */}
+          <div className="create-layout">
+            {/* Avatar */}
+            <div className="flex justify-center my-2">
+              <div
+                className={[
+                  "create-avatar w-36 h-36 md:w-40 md:h-40 rounded-full border grid place-items-center",
+                  isLight
+                    ? "border-zinc-400 bg-white"
+                    : "border-zinc-600 bg-[#0D1117]",
+                ].join(" ")}
+              />
+            </div>
 
-          <div className="flex items-center justify-end gap-3 pt-2">
+            {/* Campos */}
+            <div className="create-fields">
+              {/* Fila: usuario + contraseña */}
+              <div className="create-row-two">
+                <label className="block">
+                  <span className="block text-sm mb-1 opacity-80">
+                    Usuario *
+                  </span>
+                  <input
+                    value={login}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLogin(e.target.value)
+                    }
+                    placeholder="Usuario"
+                    name="new-username"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    className={[
+                      "w-full h-11 rounded-xl px-3 border outline-none",
+                      isLight
+                        ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
+                        : "bg-[#0D1117] border-zinc-700 text-white",
+                      "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
+                    ].join(" ")}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="block text-sm mb-1 opacity-80">
+                    Contraseña *
+                  </span>
+                  <input
+                    value={pass}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setPass(e.target.value)
+                    }
+                    placeholder="••••••"
+                    type="password"
+                    name="new-password"
+                    autoComplete="new-password"
+                    className={[
+                      "w-full h-11 rounded-xl px-3 border outline-none",
+                      isLight
+                        ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
+                        : "bg-[#0D1117] border-zinc-700 text-white",
+                      "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
+                    ].join(" ")}
+                  />
+                </label>
+              </div>
+
+              {/* Fila: email (ancho completo) */}
+              <label className="block">
+                <span className="block text-sm mb-1 opacity-80">Email</span>
+                <input
+                  value={email}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setEmail(e.target.value)
+                  }
+                  placeholder="Introduce tu email"
+                  type="email"
+                  name="create-email"
+                  autoComplete="off"
+                  className={[
+                    "w-full h-11 rounded-xl px-3 border outline-none",
+                    isLight
+                      ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
+                      : "bg-[#0D1117] border-zinc-700 text-white",
+                    "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
+                  ].join(" ")}
+                />
+              </label>
+
+              {/* Fila: nombre + apellidos */}
+              <div className="create-row-two">
+                <label className="block">
+                  <span className="block text-sm mb-1 opacity-80">Nombre</span>
+                  <input
+                    value={firstName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setFirstName(e.target.value)
+                    }
+                    placeholder="Nombre"
+                    name="create-firstname"
+                    autoComplete="off"
+                    className={[
+                      "w-full h-11 rounded-xl px-3 border outline-none",
+                      isLight
+                        ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
+                        : "bg-[#0D1117] border-zinc-700 text-white",
+                      "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
+                    ].join(" ")}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="block text-sm mb-1 opacity-80">
+                    Apellidos
+                  </span>
+                  <input
+                    value={lastName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLastName(e.target.value)
+                    }
+                    placeholder="Apellidos"
+                    name="create-lastname"
+                    autoComplete="off"
+                    className={[
+                      "w-full h-11 rounded-xl px-3 border outline-none",
+                      isLight
+                        ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
+                        : "bg-[#0D1117] border-zinc-700 text-white",
+                      "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
+                    ].join(" ")}
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Acciones */}
+          <div className="flex items-center justify-end gap-3 pt-4">
             <button
               type="button"
               onClick={onClose}
