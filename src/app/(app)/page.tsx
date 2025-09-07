@@ -540,8 +540,8 @@ const DATA_BY_RANGE: Record<Range, RangeData> = {
         spark: [80, 120, 160, 200, 260, 320, 420, 520, 620, 700, 760, 820],
       },
       {
-        label: "Clientes - Placeholder",
-        value: 190,
+        label: "Clientes",
+        value: 190, // se sobreescribe con el contador real
         /** Antes: "cyan" — ahora amber para cuadrar con el nav */
         color: "amber",
         icon: Building2,
@@ -579,8 +579,10 @@ const DATA_BY_RANGE: Record<Range, RangeData> = {
   "90d": { ...EMPTY_DATA },
 };
 
-/* ===== fetch JSON + tipos mínimos para la lista ===== */
+/* ===== fetch JSON + tipos mínimos para las listas ===== */
 type UserListItem = { id: number; login: string };
+type ClientListItem = { id: number; login: string };
+
 async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     credentials: "include",
@@ -627,14 +629,29 @@ export default function Dashboard() {
     })();
   }, [mounted]);
 
-  const statsWithUsers = useMemo(
+  // contador real de clientes
+  const [clientCount, setClientCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!mounted) return;
+    (async () => {
+      try {
+        const data = await fetchJSON<ClientListItem[]>("/api/clients/list");
+        setClientCount(Array.isArray(data) ? data.length : 0);
+      } catch {}
+    })();
+  }, [mounted]);
+
+  // mezcla de datos “vivos”
+  const statsResolved = useMemo(
     () =>
-      current.stats.map((s) =>
-        s.label === "Usuarios" && userCount != null
-          ? { ...s, value: userCount }
-          : s
-      ),
-    [current.stats, userCount]
+      current.stats.map((s) => {
+        if (s.label === "Usuarios" && userCount != null)
+          return { ...s, value: userCount };
+        if (s.label === "Clientes" && clientCount != null)
+          return { ...s, value: clientCount };
+        return s;
+      }),
+    [current.stats, userCount, clientCount]
   );
 
   if (!mounted) return <div className="p-4 md:p-6" />;
@@ -757,18 +774,24 @@ export default function Dashboard() {
           <StatSkeleton />
           <StatSkeleton />
         </div>
-      ) : statsWithUsers.length === 0 ? (
+      ) : statsResolved.length === 0 ? (
         <EmptyState
           title="Sin estadísticas"
           hint="No hay datos para el rango seleccionado."
         />
       ) : (
         <div className="kpi-grid grid gap-4 grid-cols-1 sm:grid-cols-2 xl:[grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
-          {statsWithUsers.map((s) => (
+          {statsResolved.map((s) => (
             <StatCard
               key={s.label}
               s={s}
-              href={s.label === "Usuarios" ? "/users" : undefined}
+              href={
+                s.label === "Usuarios"
+                  ? "/users"
+                  : s.label === "Clientes"
+                  ? "/clients"
+                  : undefined
+              }
             />
           ))}
         </div>

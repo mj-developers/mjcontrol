@@ -22,7 +22,6 @@ import { getInitialTheme, type Theme } from "@/lib/theme";
 
 /* --------------------------- Tipos & helpers --------------------------- */
 
-/* ⬇⬇⬇ CAMBIO: extendemos el item de lista con más campos */
 type ClientListItem = {
   id: number;
   login: string;
@@ -55,7 +54,7 @@ type WithToolbarVars = React.CSSProperties & {
 
 /* --------------------------- Constantes de UI --------------------------- */
 
-const CLIENTS_ACCENT = "#F59E0B"; // ámbar (igual que el icono activo del nav)
+const CLIENTS_ACCENT = "#F59E0B"; // ámbar
 const ACC_CREATE = CLIENTS_ACCENT;
 const ACC_ACTIONS = "#6366F1";
 
@@ -148,7 +147,6 @@ function pickStr(v: unknown): string {
 
 /* ============================== API CLIENTS ============================== */
 
-/* ⬇⬇⬇ CAMBIO: parseamos más campos del listado */
 async function listClients(): Promise<ClientListItem[]> {
   const res = await fetch("/api/clients/list", { cache: "no-store" });
   const json = await fetchJSONSafe<unknown>(res);
@@ -184,7 +182,6 @@ async function getClient(id: number): Promise<ClientInfo> {
 
   const json = await fetchJSONSafe<unknown>(res);
   if (!res.ok || !isObj(json)) {
-    // Devuelve estructura vacía si falla
     return {
       id,
       login: "",
@@ -222,7 +219,6 @@ type CreatePayload = {
 };
 
 async function createClient(payload: CreatePayload): Promise<{ id: number }> {
-  // Mapeo a las keys que espera tu backend (TitleCase y guiones bajos)
   const body = {
     Login: payload.login,
     Tax_id: payload.taxId,
@@ -249,7 +245,6 @@ async function createClient(payload: CreatePayload): Promise<{ id: number }> {
     throw new Error(msg);
   }
 
-  // Identificamos el id en varias estructuras posibles
   let id: number | null = null;
   if (typeof json === "number") {
     id = json;
@@ -518,7 +513,7 @@ export default function ClientsPage() {
           }
         }
 
-        /* Móvil en vertical: search + acciones en la misma fila */
+        /* Móvil en vertical: search + acciones */
         @media (max-width: 640px) and (orientation: portrait) {
           .toolbar {
             flex-wrap: nowrap;
@@ -628,6 +623,7 @@ export default function ClientsPage() {
           display: grid;
           align-items: center;
           grid-template-columns: minmax(0, 1fr) 72px;
+          column-gap: 0.5rem;
         }
         .clients-scope .col-taxid,
         .clients-scope .col-trade,
@@ -636,7 +632,12 @@ export default function ClientsPage() {
           display: none;
         }
 
-        /* MÓVIL LANDSCAPE (altura baja): Login | CIF/NIF | Nombre Comercial | ID */
+        /* Cabeceras centradas en su columna */
+        .clients-scope .table-head > div {
+          text-align: center;
+        }
+
+        /* MÓVIL LANDSCAPE (altura baja) */
         @media (orientation: landscape) and (max-height: 480px) {
           .clients-scope .table-grid {
             grid-template-columns: minmax(0, 1fr) 150px 220px 72px;
@@ -647,7 +648,7 @@ export default function ClientsPage() {
           }
         }
 
-        /* TABLET PORTRAIT (768–1024): Login | CIF/NIF | Nombre Comercial | ID */
+        /* TABLET PORTRAIT (768–1024) */
         @media (min-width: 768px) and (max-width: 1024px) and (orientation: portrait) {
           .clients-scope .table-grid {
             grid-template-columns: minmax(0, 1fr) 160px 240px 72px;
@@ -658,10 +659,15 @@ export default function ClientsPage() {
           }
         }
 
-        /* TABLET LANDSCAPE: + Email + Teléfono */
+        /* TABLET LANDSCAPE: + Email + Teléfono (sin overflow) */
         @media (max-width: 1024px) and (orientation: landscape) and (min-height: 481px) {
           .clients-scope .table-grid {
-            grid-template-columns: minmax(0, 1fr) 160px 240px 260px 160px 72px;
+            /*      Login              CIF      Nombre Com.         Email                Tel.   ID  */
+            grid-template-columns: minmax(160px, 0.8fr) 130px minmax(
+                200px,
+                1.05fr
+              ) minmax(200px, 1fr) 120px 56px;
+            column-gap: 0.75rem;
           }
           .clients-scope .col-taxid,
           .clients-scope .col-trade,
@@ -671,10 +677,15 @@ export default function ClientsPage() {
           }
         }
 
-        /* DESKTOP (≥1025): todas las columnas */
+        /* DESKTOP (≥1025): todas las columnas sin scroll */
         @media (min-width: 1025px) {
           .clients-scope .table-grid {
-            grid-template-columns: minmax(0, 1fr) 180px 280px 280px 180px 72px;
+            /*      Login              CIF      Nombre Com.           Email               Tel.   ID  */
+            grid-template-columns: minmax(180px, 0.75fr) 140px minmax(
+                240px,
+                1.15fr
+              ) minmax(220px, 1.05fr) 140px 56px;
+            column-gap: 0.75rem;
           }
           .clients-scope .col-taxid,
           .clients-scope .col-trade,
@@ -682,6 +693,12 @@ export default function ClientsPage() {
           .clients-scope .col-phone {
             display: block;
           }
+        }
+
+        /* Solo scroll vertical en filas (bloqueamos X para evitar barra horizontal) */
+        .clients-scope .table-scroll {
+          overflow-y: auto;
+          overflow-x: hidden;
         }
       `}</style>
 
@@ -893,9 +910,12 @@ export default function ClientsPage() {
           "overflow-hidden flex-1 min-h-0 flex flex-col",
         ].join(" ")}
       >
-        {/* Cabecera ⬇⬇⬇ CAMBIO */}
+        {/* Cabecera */}
         <div
-          className={["table-grid px-4 py-2 border-b", headerTone].join(" ")}
+          className={[
+            "table-grid table-head px-4 py-2 border-b",
+            headerTone,
+          ].join(" ")}
         >
           <div className="text-xs font-semibold opacity-80">Login</div>
           <div className="col-taxid text-xs font-semibold opacity-80">
@@ -910,11 +930,11 @@ export default function ClientsPage() {
           <div className="col-phone text-xs font-semibold opacity-80">
             Teléfono
           </div>
-          <div className="text-xs font-semibold opacity-80 text-right">ID</div>
+          <div className="text-xs font-semibold opacity-80">ID</div>
         </div>
 
-        {/* Filas ⬇⬇⬇ CAMBIO */}
-        <div className="flex-1 min-h-0 overflow-auto overscroll-contain">
+        {/* Filas */}
+        <div className="table-scroll flex-1 min-h-0 overscroll-contain">
           {loading && (
             <div className="px-4 py-3 text-sm">Cargando clientes…</div>
           )}
