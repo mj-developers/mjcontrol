@@ -36,7 +36,6 @@ type WithAccentVar = React.CSSProperties & { ["--accent"]?: string };
 type WithToolbarVars = React.CSSProperties & {
   ["--btn-ik-accent"]?: string;
   ["--btn-ik-text"]?: string;
-  // Vars que hereda IconMark para el hover
   ["--mark-hover-bg"]?: string;
   ["--mark-hover-border"]?: string;
   ["--iconmark-hover-bg"]?: string;
@@ -93,6 +92,27 @@ function useAppContentInnerHeight(safety = 8) {
   return h;
 }
 
+/* -------- Flag: móvil en vertical (para paginación simplificada) -------- */
+function useIsMobilePortrait() {
+  const [isMP, setIsMP] = useState(false);
+  useEffect(() => {
+    const calc = () => {
+      if (typeof window === "undefined") return setIsMP(false);
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      setIsMP(w <= 480 && h >= w);
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    window.addEventListener("orientationchange", calc);
+    return () => {
+      window.removeEventListener("resize", calc);
+      window.removeEventListener("orientationchange", calc);
+    };
+  }, []);
+  return isMP;
+}
+
 /* ------------------------------ API: lista ------------------------------ */
 
 function isObj(v: unknown): v is Record<string, unknown> {
@@ -106,7 +126,6 @@ async function fetchUsers(): Promise<UserListItem[]> {
 
     const json: unknown = await res.json();
 
-    // Acepta formatos: [], { users: [] }, { data: [] }
     let arr: unknown[] = [];
     if (Array.isArray(json)) {
       arr = json;
@@ -120,20 +139,16 @@ async function fetchUsers(): Promise<UserListItem[]> {
     for (const it of arr) {
       if (!isObj(it)) continue;
       const o = it as Record<string, unknown>;
-
       const idRaw =
         o["id"] ?? o["userId"] ?? o["ID"] ?? o["Id"] ?? o["UserId"] ?? o["uid"];
       const id =
         typeof idRaw === "number" ? idRaw : Number(idRaw != null ? idRaw : NaN);
-
       const loginRaw =
         o["login"] ?? o["username"] ?? o["user"] ?? o["name"] ?? o["loginName"];
       const login =
         typeof loginRaw === "string" ? loginRaw : String(loginRaw ?? "").trim();
-
       if (Number.isFinite(id) && login) out.push({ id, login });
     }
-
     return out;
   } catch {
     return [];
@@ -142,17 +157,13 @@ async function fetchUsers(): Promise<UserListItem[]> {
 
 /* ------------------------------ API: detalle ------------------------------ */
 
-// Cargar detalle desde tu API
 async function fetchUserInfo(id: number): Promise<UserInfo> {
   const res = await fetch(`/api/users/getUser/${id}`, {
     method: "GET",
     cache: "no-store",
     headers: { "Content-Type": "application/json" },
   });
-
-  if (!res.ok) {
-    throw new Error(`Error getUser ${id}: ${res.status}`);
-  }
+  if (!res.ok) throw new Error(`Error getUser ${id}: ${res.status}`);
 
   const data = (await res.json()) as Partial<UserInfo> & { id?: number };
 
@@ -165,7 +176,6 @@ async function fetchUserInfo(id: number): Promise<UserInfo> {
   };
 }
 
-// Guardar detalle en tu API
 async function updateUser(id: number, payload: Partial<UserInfo>) {
   const res = await fetch(`/api/users/update/${encodeURIComponent(id)}`, {
     method: "PUT",
@@ -218,6 +228,7 @@ export default function UsersPage() {
   useEffect(() => setMounted(true), []);
 
   const availH = useAppContentInnerHeight(10);
+  const isMobilePortrait = useIsMobilePortrait();
 
   // Estado
   const [search, setSearch] = useState("");
@@ -257,7 +268,7 @@ export default function UsersPage() {
     })();
   }, [mounted]);
 
-  // Filtro texto (roles mock visual)
+  // Filtro texto
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return list;
@@ -335,6 +346,7 @@ export default function UsersPage() {
         .users-scope {
           font-family: var(--font-heading, Sora, ui-sans-serif);
         }
+
         .users-scope input,
         .users-scope button,
         .users-scope textarea,
@@ -344,31 +356,153 @@ export default function UsersPage() {
 
         .btn-ik {
           cursor: pointer;
-          transition: border-color 0.15s ease, color 0.15s ease,
-            background-color 0.15s ease;
+          transition: border-color 0.15s, color 0.15s, background-color 0.15s;
         }
         .btn-ik:hover {
           color: var(--btn-ik-text, inherit);
           border-color: var(--btn-ik-accent, currentColor);
         }
 
-        /* === Hover del IconMark: toma el acento del propio botón === */
-        .btn-ik:hover .mj-iconmark {
-          --mark-bg: var(--btn-ik-accent) !important;
-          --mark-border: var(--btn-ik-accent) !important;
-          --mark-fg: #ffffff !important;
+        /* ===== Toolbar base ===== */
+        .toolbar {
+          flex-wrap: wrap;
         }
-        .btn-ik:focus-visible .mj-iconmark {
-          --mark-bg: var(--btn-ik-accent) !important;
-          --mark-border: var(--btn-ik-accent) !important;
-          --mark-fg: #ffffff !important;
+        .tb-new {
+          display: inline-flex;
         }
-        /* Mantén la animación "zoom" que ya usabas */
-        .btn-ik:hover .mj-iconmark[data-anim="zoom"] .icon-default {
-          transform: scale(1.5) !important;
+        .only-compact {
+          display: none;
         }
-        .btn-ik:hover .mj-iconmark[data-anim="zoom"] .icon-hover {
-          transform: scale(1) !important;
+        .btn-label {
+          display: inline;
+        }
+
+        @media (min-width: 768px) {
+          .toolbar {
+            flex-wrap: nowrap;
+          }
+        }
+
+        @media (max-width: 1024px) and (orientation: landscape) {
+          .toolbar {
+            flex-wrap: nowrap;
+          }
+          .toolbar .tb-search {
+            min-width: 140px;
+            flex: 1 1 140px;
+          }
+        }
+
+        @media (max-width: 640px) and (orientation: portrait) {
+          .toolbar {
+            flex-wrap: wrap;
+          }
+          .toolbar .tb-roles {
+            order: 1;
+            flex: 1 1 auto;
+          }
+          .toolbar .tb-actions {
+            order: 1;
+            flex: 0 0 auto;
+          }
+          .toolbar .tb-search {
+            order: 2;
+            width: 100%;
+            flex: 0 0 100%;
+            margin-top: 0.5rem;
+          }
+          .btn-compact .btn-label {
+            display: none;
+          }
+          .btn-compact {
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+          }
+        }
+
+        @media (min-width: 768px) and (max-width: 1024px) and (orientation: portrait),
+          (max-width: 1024px) and (orientation: landscape),
+          (max-width: 640px) and (orientation: portrait) {
+          .tb-new {
+            display: none !important;
+          }
+          .only-compact {
+            display: flex !important;
+          }
+        }
+
+        @media (max-width: 1024px) and (orientation: landscape),
+          (max-width: 640px) and (orientation: portrait),
+          (min-width: 768px) and (max-width: 1024px) and (orientation: portrait) {
+          .hide-on-compact {
+            display: none !important;
+          }
+        }
+
+        /* ===== Espacio inferior por breakpoint ===== */
+        .users-scope {
+          padding-bottom: 16px;
+        }
+        @media (min-width: 768px) and (max-width: 1024px) and (orientation: portrait) {
+          .users-scope {
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 32px);
+          }
+        }
+        @media (max-width: 1024px) and (orientation: landscape) {
+          .users-scope {
+            padding-top: 0px;
+            padding-bottom: 0px;
+          }
+        }
+        @media (max-width: 640px) and (orientation: portrait) {
+          .users-scope {
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
+          }
+        }
+
+        /* ===== SOLO MÓVIL LANDSCAPE =====
+           Usamos (orientation: landscape) + (max-height: 480px) para
+           discriminar teléfonos en apaisado sin tocar tablets */
+        @media (orientation: landscape) and (max-height: 480px) {
+          /* Drawer más ancho */
+          .users-scope .userdrawer {
+            max-width: clamp(
+              44rem,
+              92vw,
+              62rem
+            ); /* más ancho, sin salir de la pantalla */
+          }
+
+          /* Área del formulario: ocupar todo el alto disponible y centrar verticalmente */
+          .users-scope .userdrawer-form-area {
+            display: grid !important;
+            align-content: center !important; /* centra en vertical */
+            justify-items: stretch !important;
+            gap: 0 !important;
+          }
+
+          /* Disposición en 2 columnas: avatar izquierda (fija) + contenido derecha */
+          .users-scope .userdrawer-grid {
+            display: grid !important;
+            grid-template-columns: 240px minmax(0, 1fr) !important;
+            gap: 1rem 1.25rem !important;
+            align-items: center !important;
+            width: 100%;
+          }
+
+          /* Avatar siempre círculo y tamaño consistente */
+          .users-scope .userdrawer-avatar {
+            width: 200px !important;
+            height: 200px !important;
+            border-radius: 9999px !important;
+          }
+
+          /* En la columna derecha, los campos uno por línea */
+          .users-scope .userdrawer-fields {
+            display: grid !important;
+            grid-template-columns: 1fr !important;
+            gap: 0.75rem !important;
+          }
         }
       `}</style>
 
@@ -385,7 +519,7 @@ export default function UsersPage() {
         >
           Usuarios
         </Heading>
-        <p className={`mt-3 text-sm ${subtleText}`}>
+        <p className={`mt-3 text-sm ${subtleText} hide-on-compact`}>
           Gestión de usuarios del sistema: busca y filtra, crea nuevos
           registros, edita información básica y elimina cuando sea necesario.
         </p>
@@ -399,9 +533,9 @@ export default function UsersPage() {
           "px-3 md:px-4 py-3",
         ].join(" ")}
       >
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="toolbar flex items-center gap-2 sm:gap-3">
           {/* Buscador */}
-          <div className="relative flex-1 min-w-[240px]">
+          <div className="tb-search relative flex-1 min-w-[140px] sm:min-w-[200px] md:min-w-[240px]">
             <input
               value={search}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -423,20 +557,21 @@ export default function UsersPage() {
           </div>
 
           {/* Roles */}
-          <RoleDropdown theme={theme} roles={roles} setRoles={setRoles} />
+          <div className="tb-roles">
+            <RoleDropdown theme={theme} roles={roles} setRoles={setRoles} />
+          </div>
 
           {/* Acciones */}
-          <div className="relative">
+          <div className="tb-actions relative">
             <button
               ref={actionsBtnRef}
               type="button"
               onClick={() => setActionsOpen((v) => !v)}
-              className="btn-ik inline-flex items-center gap-2 px-3 h-9 rounded-xl border"
+              className="btn-ik btn-compact inline-flex items-center gap-2 px-3 h-9 rounded-xl border"
               style={
                 {
                   ["--btn-ik-accent"]: ACC_ACTIONS,
                   ["--btn-ik-text"]: ACC_ACTIONS,
-                  // Para que el IconMark herede el color de hover
                   ["--mark-hover-bg"]: ACC_ACTIONS,
                   ["--mark-hover-border"]: ACC_ACTIONS,
                   ["--iconmark-hover-bg"]: ACC_ACTIONS,
@@ -454,7 +589,7 @@ export default function UsersPage() {
               >
                 <MoreHorizontal />
               </IconMark>
-              Acciones
+              <span className="btn-label">Acciones</span>
               <ChevronDown size={16} />
             </button>
 
@@ -462,12 +597,49 @@ export default function UsersPage() {
               <div
                 id="users-actions-menu"
                 className={[
-                  "absolute right-0 mt-2 w-44 rounded-xl border shadow-md overflow-hidden z-30",
+                  "absolute right-0 mt-2 w-48 rounded-xl border shadow-md overflow-hidden z-30",
                   theme === "light"
                     ? "bg-white border-zinc-200"
                     : "bg-[#0D1117] border-zinc-700",
                 ].join(" ")}
               >
+                {/* NUEVO USUARIO (solo vistas compactas) */}
+                <button
+                  type="button"
+                  className={[
+                    "only-compact btn-ik w-full flex items-center gap-2 px-3 py-2 text-left text-sm",
+                    theme === "light"
+                      ? "hover:bg-zinc-100"
+                      : "hover:bg-zinc-800/50",
+                  ].join(" ")}
+                  style={
+                    {
+                      ["--btn-ik-accent"]: ACC_CREATE,
+                      ["--btn-ik-text"]: ACC_CREATE,
+                      ["--mark-hover-bg"]: ACC_CREATE,
+                      ["--mark-hover-border"]: ACC_CREATE,
+                      ["--iconmark-hover-bg"]: ACC_CREATE,
+                      ["--iconmark-hover-border"]: ACC_CREATE,
+                    } as WithToolbarVars
+                  }
+                  onClick={() => {
+                    setActionsOpen(false);
+                    setCreateOpen(true);
+                  }}
+                >
+                  <IconMark
+                    size="xs"
+                    borderWidth={2}
+                    interactive
+                    hoverAnim="zoom"
+                    zoomScale={1.5}
+                    style={iconMarkBase}
+                  >
+                    <UserPlus />
+                  </IconMark>
+                  Nuevo usuario
+                </button>
+
                 {["Acción 1", "Acción 2", "Acción 3"].map((label) => (
                   <button
                     key={label}
@@ -507,11 +679,11 @@ export default function UsersPage() {
             )}
           </div>
 
-          {/* Nuevo usuario */}
+          {/* Botón suelto "Nuevo usuario" */}
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="btn-ik inline-flex items-center gap-2 px-3 h-9 rounded-xl border"
+            className="tb-new btn-ik inline-flex items-center gap-2 px-3 h-9 rounded-xl border"
             style={
               {
                 ["--btn-ik-accent"]: ACC_CREATE,
@@ -609,14 +781,12 @@ export default function UsersPage() {
           ].join(" ")}
         >
           <div className="flex items-center justify-between gap-2">
-            {/* Page size */}
             <PageSizeDropdown
               theme={theme}
               value={pageSize}
               onChange={(v) => setPageSize(v)}
             />
 
-            {/* Paginación compacta */}
             <nav className="flex items-center gap-1">
               <button
                 type="button"
@@ -633,35 +803,49 @@ export default function UsersPage() {
                 <ChevronLeft size={14} />
               </button>
 
-              {buildPageItems(page, totalPages).map((it, idx) =>
-                it === "..." ? (
-                  <span
-                    key={`dots-${idx}`}
-                    className={[
-                      "w-7 h-7 grid place-items-center rounded-full",
-                      theme === "light" ? "text-zinc-500" : "text-zinc-400",
-                    ].join(" ")}
-                  >
-                    …
-                  </span>
-                ) : (
-                  <button
-                    key={it}
-                    type="button"
-                    onClick={() => setPage(it)}
-                    className={[
-                      "w-7 h-7 grid place-items-center rounded-full border cursor-pointer",
-                      it === page
-                        ? theme === "light"
-                          ? "bg-zinc-900 border-zinc-900 text-white"
-                          : "bg-white border-white text-black"
-                        : theme === "light"
-                        ? "bg-white border-zinc-300 text-zinc-800 hover:bg-zinc-50"
-                        : "bg-[#0D1117] border-zinc-700 text-zinc-200 hover:bg-[#0D1117]/80",
-                    ].join(" ")}
-                  >
-                    {it}
-                  </button>
+              {isMobilePortrait ? (
+                <button
+                  type="button"
+                  className={[
+                    "w-7 h-7 grid place-items-center rounded-full border cursor-default",
+                    theme === "light"
+                      ? "bg-zinc-900 border-zinc-900 text-white"
+                      : "bg-white border-white text-black",
+                  ].join(" ")}
+                >
+                  {page}
+                </button>
+              ) : (
+                buildPageItems(page, totalPages).map((it, idx) =>
+                  it === "..." ? (
+                    <span
+                      key={`dots-${idx}`}
+                      className={[
+                        "w-7 h-7 grid place-items-center rounded-full",
+                        theme === "light" ? "text-zinc-500" : "text-zinc-400",
+                      ].join(" ")}
+                    >
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={it}
+                      type="button"
+                      onClick={() => setPage(it)}
+                      className={[
+                        "w-7 h-7 grid place-items-center rounded-full border cursor-pointer",
+                        it === page
+                          ? theme === "light"
+                            ? "bg-zinc-900 border-zinc-900 text-white"
+                            : "bg-white border-white text-black"
+                          : theme === "light"
+                          ? "bg-white border-zinc-300 text-zinc-800 hover:bg-zinc-50"
+                          : "bg-[#0D1117] border-zinc-700 text-zinc-200 hover:bg-[#0D1117]/80",
+                      ].join(" ")}
+                    >
+                      {it}
+                    </button>
+                  )
                 )
               )}
 
@@ -728,7 +912,7 @@ function RoleDropdown({
   setRoles,
 }: {
   theme: Theme;
-  roles: Role[] | null; // null = todos
+  roles: Role[] | null;
   setRoles: React.Dispatch<React.SetStateAction<Role[] | null>>;
 }) {
   const [open, setOpen] = useState(false);
@@ -758,7 +942,6 @@ function RoleDropdown({
     });
   };
 
-  // Si estaba marcado (todos o 3) -> ninguno ([]). Si no -> marca todos (3).
   const toggleAll = () =>
     setRoles((prev) =>
       prev === null || (Array.isArray(prev) && prev.length === 3)
@@ -769,7 +952,6 @@ function RoleDropdown({
   const pillTone = isLight
     ? "bg-white border-zinc-300"
     : "bg-[#0D1117] border-zinc-700";
-  // hover más visible en dark
   const pillHover = isLight
     ? "hover:bg-zinc-100"
     : "hover:bg-white/10 hover:border-zinc-500";
@@ -920,7 +1102,6 @@ function PageSizeDropdown({
       </button>
 
       {open && (
-        // drop-up para no ser recortado por el contenedor
         <div
           className={[
             "absolute left-0 bottom-full mb-2 w-28 rounded-xl border shadow-md overflow-hidden z-40",
@@ -971,8 +1152,6 @@ function PageSizeDropdown({
 
 /* ============================ Modal: Crear ============================ */
 
-/* ============================ Modal: Crear ============================ */
-
 function CreateUserModal({
   theme,
   onClose,
@@ -988,13 +1167,11 @@ function CreateUserModal({
 
   const isLight = theme === "light";
 
-  // Cabecera con colores invertidos (como el drawer)
   const headerOpp = isLight
     ? "bg-[#0D1117] text-white border-zinc-900"
     : "bg-white text-black border-white";
   const headerIconHover = isLight ? "hover:bg-white/10" : "hover:bg-black/5";
 
-  // IconMark base (neutral) para los botones
   const markBase = {
     ["--mark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
     ["--mark-border"]: isLight ? "#0e1117" : "#ffffff",
@@ -1025,7 +1202,6 @@ function CreateUserModal({
         ].join(" ")}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        {/* Cabecera invertida */}
         <div
           className={[
             "flex items-center justify-between px-5 pt-4 pb-3",
@@ -1086,7 +1262,6 @@ function CreateUserModal({
           </label>
 
           <div className="flex items-center justify-end gap-3 pt-2">
-            {/* Cancelar – burdeos */}
             <button
               type="button"
               onClick={onClose}
@@ -1098,7 +1273,6 @@ function CreateUserModal({
               ].join(" ")}
               style={
                 {
-                  // color burdeos desde el inicio
                   color: "#8E2434",
                   ["--btn-ik-accent"]: "#8E2434",
                   ["--btn-ik-text"]: "#8E2434",
@@ -1122,7 +1296,6 @@ function CreateUserModal({
               Cancelar
             </button>
 
-            {/* Crear – neutral + hover verde, sin fondo verde constante */}
             <button
               type="submit"
               disabled={busy || !login.trim() || !pass}
@@ -1251,13 +1424,11 @@ function UserDetailDrawer({
     ? "bg-white border-zinc-300"
     : "bg-[#0D1117] border-zinc-700";
 
-  // Cabecera con colores opuestos
   const headerOpp = isLight
     ? "bg-[#0D1117] text-white border-zinc-900"
     : "bg-white text-black border-white";
   const headerIconHover = isLight ? "hover:bg-white/10" : "hover:bg-black/5";
 
-  // Estilo base de IconMark (mismo que usas en la página)
   const markBase = {
     ["--mark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
     ["--mark-border"]: isLight ? "#0e1117" : "#ffffff",
@@ -1266,15 +1437,24 @@ function UserDetailDrawer({
 
   return (
     <div className="fixed inset-0 z-[60]">
-      {/* Overlay */}
+      {/* Solo para móvil landscape: forzar que Nombre+Apellidos estén a dos columnas */}
+      <style jsx global>{`
+        @media (orientation: landscape) and (max-height: 480px) {
+          .users-scope .userdrawer-row-two {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+          }
+        }
+      `}</style>
+
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={onClose}
       />
-      {/* Panel */}
       <aside
         className={[
-          "absolute right-0 top-0 h-full w-full max-w-xl border-l shadow-2xl",
+          "userdrawer absolute right-0 top-0 h-full w-full max-w-xl border-l shadow-2xl",
           panelTone,
           "transition-transform duration-200 ease-out",
           enter ? "translate-x-0" : "translate-x-full",
@@ -1284,7 +1464,6 @@ function UserDetailDrawer({
         role="dialog"
         aria-modal="true"
       >
-        {/* Cabecera */}
         <div
           className={[
             "flex items-center justify-between px-5 py-3 border-b",
@@ -1294,7 +1473,6 @@ function UserDetailDrawer({
           <h2 className="text-lg font-semibold">Detalles del usuario</h2>
 
           <div className="flex items-center gap-2" ref={menuRef}>
-            {/* Menú Acciones (tres puntos) */}
             <div className="relative">
               <button
                 type="button"
@@ -1318,7 +1496,6 @@ function UserDetailDrawer({
                       : "bg-[#0D1117] border-zinc-700 text-white",
                   ].join(" ")}
                 >
-                  {/* Eliminar con IconMark + hover burdeos */}
                   <button
                     type="button"
                     onClick={() => {
@@ -1357,7 +1534,6 @@ function UserDetailDrawer({
               )}
             </div>
 
-            {/* Cerrar */}
             <button
               type="button"
               className={[
@@ -1366,28 +1542,29 @@ function UserDetailDrawer({
               ].join(" ")}
               onClick={onClose}
               aria-label="Cerrar"
-              style={{ cursor: "pointer" }} // manita
+              style={{ cursor: "pointer" }}
             >
               <X />
             </button>
           </div>
         </div>
 
-        {/* Contenido */}
+        {/* CONTENIDO */}
         <form
           id="user-detail-form"
-          className="flex-1 overflow-auto px-5 pt-4 pb-24 space-y-4"
+          className="userdrawer-form-area flex-1 overflow-auto px-5 pt-4 pb-24"
           onSubmit={handleSave}
         >
           {!info ? (
             <p className="opacity-80 text-sm">Cargando…</p>
           ) : (
-            <>
-              {/* Avatar grande, centrado y con margen */}
+            <div className="userdrawer-grid">
+              {/* Avatar a la izquierda (círculo) */}
               <div className="flex justify-center my-4 md:my-6">
                 <div
                   className={[
-                    "w-40 h-40 md:w-44 md:h-44 rounded-full border grid place-items-center",
+                    "userdrawer-avatar rounded-full border grid place-items-center",
+                    "w-40 h-40 md:w-44 md:h-44",
                     isLight
                       ? "border-zinc-400 bg-white"
                       : "border-zinc-600 bg-[#0D1117]",
@@ -1395,8 +1572,8 @@ function UserDetailDrawer({
                 />
               </div>
 
-              {/* Login + Email en la misma línea */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Campos a la derecha */}
+              <div className="userdrawer-fields">
                 <Field
                   label="Login"
                   value={info.login}
@@ -1409,28 +1586,27 @@ function UserDetailDrawer({
                   onChange={(v) => setInfo({ ...info, email: v })}
                   theme={theme}
                 />
-              </div>
 
-              {/* Nombre + Apellidos */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field
-                  label="Nombre"
-                  value={info.firstName}
-                  onChange={(v) => setInfo({ ...info, firstName: v })}
-                  theme={theme}
-                />
-                <Field
-                  label="Apellidos"
-                  value={info.lastName}
-                  onChange={(v) => setInfo({ ...info, lastName: v })}
-                  theme={theme}
-                />
+                {/* Nombre + Apellidos en la misma fila (solo móvil landscape via CSS de arriba) */}
+                <div className="userdrawer-row-two">
+                  <Field
+                    label="Nombre"
+                    value={info.firstName}
+                    onChange={(v) => setInfo({ ...info, firstName: v })}
+                    theme={theme}
+                  />
+                  <Field
+                    label="Apellidos"
+                    value={info.lastName}
+                    onChange={(v) => setInfo({ ...info, lastName: v })}
+                    theme={theme}
+                  />
+                </div>
               </div>
-            </>
+            </div>
           )}
         </form>
 
-        {/* Footer fijo (solo Guardar) */}
         <div
           className={[
             "absolute bottom-0 left-0 right-0 px-5 py-3 border-t",
