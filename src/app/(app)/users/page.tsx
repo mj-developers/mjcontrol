@@ -326,9 +326,14 @@ export default function UsersPage() {
   const FG_NORMAL = theme === "light" ? "#010409" : "#ffffff";
 
   const iconMarkBase = {
+    /* antiguas */
     ["--mark-bg"]: NORMAL_BG,
     ["--mark-border"]: NORMAL_BORDER,
     ["--mark-fg"]: FG_NORMAL,
+    /* nuevas */
+    ["--iconmark-bg"]: NORMAL_BG,
+    ["--iconmark-border"]: NORMAL_BORDER,
+    ["--iconmark-fg"]: FG_NORMAL,
   } as React.CSSProperties;
 
   return (
@@ -361,6 +366,26 @@ export default function UsersPage() {
         .btn-ik:hover {
           color: var(--btn-ik-text, inherit);
           border-color: var(--btn-ik-accent, currentColor);
+        }
+        /* Hover IconMark (al pasar por TODO el botón) */
+        .btn-ik:hover .mj-iconmark {
+          /* familia antigua */
+          --mark-bg: var(--btn-ik-accent) !important;
+          --mark-border: var(--btn-ik-accent) !important;
+          --mark-fg: #fff !important;
+
+          /* familia nueva del componente */
+          --iconmark-bg: var(--btn-ik-accent) !important;
+          --iconmark-border: var(--btn-ik-accent) !important;
+          --iconmark-fg: #fff !important;
+        }
+
+        /* mantén también el zoom si el IconMark lo usa */
+        .btn-ik:hover .mj-iconmark[data-anim="zoom"] .icon-default {
+          transform: scale(1.5) !important;
+        }
+        .btn-ik:hover .mj-iconmark[data-anim="zoom"] .icon-hover {
+          transform: scale(1) !important;
         }
 
         /* ===== Toolbar base ===== */
@@ -1173,9 +1198,14 @@ function CreateUserModal({
   const headerIconHover = isLight ? "hover:bg-white/10" : "hover:bg-black/5";
 
   const markBase = {
+    /* antiguas */
     ["--mark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
     ["--mark-border"]: isLight ? "#0e1117" : "#ffffff",
     ["--mark-fg"]: isLight ? "#010409" : "#ffffff",
+    /* nuevas */
+    ["--iconmark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
+    ["--iconmark-border"]: isLight ? "#0e1117" : "#ffffff",
+    ["--iconmark-fg"]: isLight ? "#010409" : "#ffffff",
   } as React.CSSProperties;
 
   async function submit(e: React.FormEvent) {
@@ -1430,9 +1460,14 @@ function UserDetailDrawer({
   const headerIconHover = isLight ? "hover:bg-white/10" : "hover:bg-black/5";
 
   const markBase = {
+    /* antiguas */
     ["--mark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
     ["--mark-border"]: isLight ? "#0e1117" : "#ffffff",
     ["--mark-fg"]: isLight ? "#010409" : "#ffffff",
+    /* nuevas */
+    ["--iconmark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
+    ["--iconmark-border"]: isLight ? "#0e1117" : "#ffffff",
+    ["--iconmark-fg"]: isLight ? "#010409" : "#ffffff",
   } as React.CSSProperties;
 
   return (
