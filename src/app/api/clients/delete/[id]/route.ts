@@ -1,12 +1,21 @@
 // src/app/api/clients/delete/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { BASE, authHeaders, readUpstream } from "../../_lib";
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const id = params?.id;
+type Ctx = { params?: { id?: string } };
+
+/** Puente tipado: convierte Request → NextRequest sin usar `any` */
+function headersFrom(req: Request): HeadersInit {
+  try {
+    return authHeaders(req as unknown as NextRequest);
+  } catch {
+    return {};
+  }
+}
+
+export async function DELETE(req: Request, ctx: unknown) {
+  const { params } = (ctx as Ctx) ?? {};
+  const id = typeof params?.id === "string" ? params.id : "";
 
   if (!id) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
@@ -17,16 +26,15 @@ export async function DELETE(
       `${BASE}/clients/delete/${encodeURIComponent(id)}`,
       {
         method: "DELETE",
-        headers: { ...authHeaders(req) },
+        headers: { ...headersFrom(req) },
       }
     );
 
-    // Si el upstream devuelve 204 sin cuerpo, propagamos tal cual
+    // Algunos backends devuelven 204 sin cuerpo
     if (upstream.status === 204) {
       return new NextResponse(null, { status: 204 });
     }
 
-    // En otros casos intentamos leer el cuerpo (JSON o texto)
     const body = await readUpstream(upstream);
     return NextResponse.json(body ?? null, { status: upstream.status });
   } catch {
