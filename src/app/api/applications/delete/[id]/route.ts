@@ -1,29 +1,43 @@
 // src/app/api/applications/delete/[id]/route.ts
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { BASE, authHeaders, readUpstream } from "../../_lib";
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } } // <- el 2º argumento debe ser { params }
-) {
-  const { id } = params;
+type Ctx = { params?: { id?: string } };
+
+/** Puente tipado: convierte Request → NextRequest sin usar `any` */
+function headersFrom(req: Request): HeadersInit {
+  try {
+    return authHeaders(req as unknown as NextRequest);
+  } catch {
+    return {};
+  }
+}
+
+export async function DELETE(req: Request, ctx: unknown) {
+  const { params } = (ctx as Ctx) ?? {};
+  const id = typeof params?.id === "string" ? params.id : "";
+
+  if (!id) {
+    return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  }
 
   try {
-    // Llama a tu backend/DB aquí si corresponde:
-    // const apiRes = await fetch(`${process.env.API_URL}/applications/${encodeURIComponent(id)}`, { method: "DELETE" });
-
-    // Si tu backend devuelve 204 (sin contenido), devuélvelo tal cual:
-    // if (apiRes.status === 204) return new Response(null, { status: 204 });
-
-    // Si quieres responder JSON:
-    // return NextResponse.json({ ok: true });
-
-    // Placeholder seguro si haces el borrado dentro de este handler:
-    return new Response(null, { status: 204 });
-  } catch (err) {
-    return NextResponse.json(
-      { error: "Error eliminando aplicación", details: (err as Error).message },
-      { status: 500 }
+    const upstream = await fetch(
+      `${BASE}/applications/delete/${encodeURIComponent(id)}`,
+      {
+        method: "DELETE",
+        headers: { ...headersFrom(req) },
+      }
     );
+
+    // Muchos backends devuelven 204 sin cuerpo
+    if (upstream.status === 204) {
+      return new NextResponse(null, { status: 204 });
+    }
+
+    const body = await readUpstream(upstream);
+    return NextResponse.json(body ?? null, { status: upstream.status });
+  } catch {
+    return NextResponse.json({ error: "Unexpected failure" }, { status: 500 });
   }
 }
