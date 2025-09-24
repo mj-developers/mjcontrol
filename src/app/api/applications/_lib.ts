@@ -1,4 +1,3 @@
-// src/app/api/applications/_lib.ts
 import { NextRequest, NextResponse } from "next/server";
 
 const BASE = process.env.BACKEND_URL ?? "";
@@ -34,27 +33,26 @@ export async function proxyJson(
 
   // Reenvía credenciales habituales si existen
   const auth = req.headers.get("authorization");
-  if (auth && !fwdHeaders.has("authorization")) {
-    fwdHeaders.set("authorization", auth);
-  }
+  if (auth && !fwdHeaders.has("authorization")) fwdHeaders.set("authorization", auth);
   const xApiKey = req.headers.get("x-api-key");
-  if (xApiKey && !fwdHeaders.has("x-api-key")) {
-    fwdHeaders.set("x-api-key", xApiKey);
-  }
+  if (xApiKey && !fwdHeaders.has("x-api-key")) fwdHeaders.set("x-api-key", xApiKey);
   const key = req.headers.get("key");
-  if (key && !fwdHeaders.has("key")) {
-    fwdHeaders.set("key", key);
-  }
+  if (key && !fwdHeaders.has("key")) fwdHeaders.set("key", key);
 
-  const res = await fetch(url, {
+  const upstream = await fetch(url, {
     method: init?.method ?? req.method ?? "GET",
     headers: fwdHeaders,
     body: init?.body,
     cache: "no-store",
   });
 
+  // Si el backend devuelve 204, responde sin cuerpo
+  if (upstream.status === 204) {
+    return new NextResponse(null, { status: 204 });
+  }
+
   // Devuelve siempre JSON (aunque venga texto)
-  const text = await res.text();
+  const text = await upstream.text();
   let body: unknown = null;
   try {
     body = text ? JSON.parse(text) : null;
@@ -62,5 +60,5 @@ export async function proxyJson(
     body = { raw: text };
   }
 
-  return NextResponse.json(body, { status: res.status });
+  return NextResponse.json(body, { status: upstream.status });
 }
