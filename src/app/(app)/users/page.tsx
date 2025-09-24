@@ -22,13 +22,21 @@ import { getInitialTheme, type Theme } from "@/lib/theme";
 
 /* --------------------------- Tipos & helpers --------------------------- */
 
+type RoleItem = {
+  id: string; // normalizado a string
+  code: string; // opcional en datos → aquí normalizado ("" si no hay)
+  name: string;
+};
+
 type UserListItem = {
   id: number;
   login: string;
   firstName: string;
   lastName: string;
   email: string;
-  roleName: string; // role.name o role.code
+  roleId?: string; // para poder mapear nombre
+  roleCode?: string; // para poder mapear nombre
+  roleName: string; // mostrado en la tabla
 };
 
 type UserInfo = {
@@ -48,8 +56,6 @@ type WithToolbarVars = React.CSSProperties & {
   ["--iconmark-hover-bg"]?: string;
   ["--iconmark-hover-border"]?: string;
 };
-
-type Role = "r1" | "r2" | "r3";
 
 /* --------------------------- Constantes de UI --------------------------- */
 
@@ -133,7 +139,6 @@ function pickNum(v: unknown, fallback = 0): number {
 function pickStr(v: unknown): string {
   return typeof v === "string" ? v : String(v ?? "").trim();
 }
-
 function pickErrorString(input: unknown): string | null {
   if (typeof input === "object" && input !== null && "error" in input) {
     const v = (input as { error?: unknown }).error;
@@ -142,113 +147,194 @@ function pickErrorString(input: unknown): string | null {
   return null;
 }
 
-/* ------------------------------ API: lista ------------------------------ */
-
-async function fetchUsers(): Promise<UserListItem[]> {
-  try {
-    const res = await fetch("/api/users/list", { cache: "no-store" });
-    const json: unknown = await res.json().catch(() => null);
-    if (!res.ok || !json) return [];
-
-    let arr: unknown[] = [];
-    if (Array.isArray(json)) {
-      arr = json;
-    } else if (isObj(json)) {
-      const r = json as Record<string, unknown>;
-      if (Array.isArray(r.users)) arr = r.users as unknown[];
-      else if (Array.isArray(r.data)) arr = r.data as unknown[];
-    }
-
-    const out: UserListItem[] = [];
-    for (const it of arr) {
-      if (!isObj(it)) continue;
-      const o = it as Record<string, unknown>;
-      const id = pickNum(
-        o.id ?? o.userId ?? o.ID ?? o.Id ?? o.UserId ?? o.uid,
-        NaN
-      );
-      const login = pickStr(
-        o.login ?? o.username ?? o.user ?? o.name ?? o.loginName
-      );
-      const firstName = pickStr(o.firstName ?? o.FirstName ?? o.name);
-      const lastName = pickStr(o.lastName ?? o.LastName ?? o.surname);
-      const email = pickStr(o.email ?? o.Email);
-
-      const roleObj = isObj(o.role)
-        ? (o.role as Record<string, unknown>)
-        : null;
-      const roleName = pickStr(
-        roleObj?.name ?? roleObj?.Name ?? roleObj?.code ?? roleObj?.Code
-      );
-
-      if (Number.isFinite(id) && login) {
-        out.push({
-          id,
-          login,
-          firstName,
-          lastName,
-          email,
-          roleName,
-        });
-      }
-    }
-    return out;
-  } catch {
-    return [];
+function extractArray(root: unknown): unknown[] {
+  if (Array.isArray(root)) return root as unknown[];
+  if (isObj(root)) {
+    const r = root as Record<string, unknown>;
+    if (Array.isArray(r.data)) return r.data as unknown[];
+    if (Array.isArray(r.users)) return r.users as unknown[];
+    if (Array.isArray(r.items)) return r.items as unknown[];
   }
+  return [];
 }
 
-/* ------------------------------ API: detalle ------------------------------ */
+function extractTotal(root: unknown): number {
+  if (!isObj(root)) return NaN;
+  const r = root as Record<string, unknown>;
+  const cands: unknown[] = [
+    r.total,
+    r.count,
+    r.totalCount,
+    r.Total,
+    r.recordsTotal,
+    isObj(r.meta) ? (r.meta as Record<string, unknown>).total : undefined,
+    isObj(r.pagination)
+      ? (r.pagination as Record<string, unknown>).total
+      : undefined,
+  ];
+  for (const c of cands) {
+    const n = Number(c ?? NaN);
+    if (Number.isFinite(n)) return n;
+  }
+  return NaN;
+}
 
-async function fetchUserInfo(id: number): Promise<UserInfo> {
-  const res = await fetch(`/api/users/getUser/${id}`, {
-    method: "GET",
-    cache: "no-store",
-    headers: { "Content-Type": "application/json" },
+function buildQS(params: Record<string, string | number | undefined>) {
+  const usp = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === undefined) return;
+    usp.set(k, String(v));
   });
-  if (!res.ok) throw new Error(`Error getUser ${id}: ${res.status}`);
+  const s = usp.toString();
+  return s ? `?${s}` : "";
+}
 
-  const data = (await res.json()) as Partial<UserInfo> & { id?: number };
+/* ------------------------------ API: roles ------------------------------ */
 
-  return {
-    id: typeof data.id === "number" ? data.id : id,
-    login: String(data.login ?? ""),
-    email: String(data.email ?? ""),
-    firstName: String(data.firstName ?? ""),
-    lastName: String(data.lastName ?? ""),
+async function fetchRoles(): Promise<RoleItem[]> {
+  const url = `/api/zaux/zaux_user_roles/list${buildQS({ limit: 1000 })}`;
+  const res = await fetch(url, { cache: "no-store" });
+
+  let payload: unknown = null;
+  try {
+    payload = await res.json();
+  } catch {
+    payload = null;
+  }
+
+  const arr = extractArray(payload);
+  const out: RoleItem[] = [];
+
+  for (const it of arr) {
+    if (!isObj(it)) continue;
+    const o = it as Record<string, unknown>;
+
+    // 👇 tomar SOLO ids reales de DB (incluye role_id) y obligar numérico
+    const idRaw =
+      o.id ?? o.role_id ?? o.roleId ?? o.ID ?? o.Id ?? o.uid ?? null;
+    const idStr = String(idRaw ?? "").trim();
+    const idNum = Number(idStr);
+    if (!Number.isFinite(idNum)) continue; // si no es numérico, lo ignoramos
+
+    const code = pickStr(o.code ?? o.Code ?? "");
+    const name = pickStr(o.name ?? o.Name ?? (code || idStr));
+    out.push({ id: String(idNum), code, name });
+  }
+
+  // dedupe
+  const seen = new Set<string>();
+  return out.filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
+}
+
+/* ------------------------------ API: usuarios (paginado) ------------------------------ */
+
+type UsersQuery = {
+  q: string;
+  page: number;
+  pageSize: number;
+  roleIds: string[] | null; // null = todos
+};
+
+async function fetchUsersPage({
+  q,
+  page,
+  pageSize,
+  roleIds,
+}: UsersQuery): Promise<{ items: UserListItem[]; total: number }> {
+  const offset = Math.max(0, (page - 1) * pageSize);
+
+  const qsObj: Record<string, string | number | undefined> = {
+    q,
+    offset,
+    limit: pageSize,
+    // se intenta server-side; si el backend lo ignora,
+    // más abajo lo filtramos client-side
+    roleIds: roleIds && roleIds.length > 0 ? roleIds.join(",") : undefined,
   };
-}
 
-async function updateUser(id: number, payload: Partial<UserInfo>) {
-  const res = await fetch(`/api/users/update/${encodeURIComponent(id)}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      login: payload.login ?? "",
-      email: payload.email ?? "",
-      firstName: payload.firstName ?? "",
-      lastName: payload.lastName ?? "",
-    }),
+  const res = await fetch(`/api/users/list${buildQS(qsObj)}`, {
+    cache: "no-store",
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(
-      (body && (body.error as string)) ||
-        `Error updateUser ${id}: ${res.status}`
+  let root: unknown = null;
+  try {
+    root = await res.json();
+  } catch {}
+
+  const arr = extractArray(root);
+  const totalFromApi = extractTotal(root);
+
+  // parse → items
+  let itemsAll: UserListItem[] = [];
+  for (const it of arr) {
+    if (!isObj(it)) continue;
+    const o = it as Record<string, unknown>;
+
+    const id = pickNum(
+      o.id ?? o.userId ?? o.ID ?? o.Id ?? o.UserId ?? o.uid,
+      NaN
+    );
+    const login = pickStr(
+      o.login ?? o.username ?? o.user ?? o.name ?? o.loginName
+    );
+    const firstName = pickStr(o.firstName ?? o.FirstName ?? o.name);
+    const lastName = pickStr(o.lastName ?? o.LastName ?? o.surname);
+    const email = pickStr(o.email ?? o.Email);
+
+    const roleObj = isObj(o.role) ? (o.role as Record<string, unknown>) : null;
+    const roleId = pickStr(
+      roleObj?.id ?? o.roleId ?? o.RoleId ?? o.role_id ?? ""
+    );
+    const roleCode = pickStr(roleObj?.code ?? o.roleCode ?? o.RoleCode ?? "");
+    const roleName = pickStr(
+      roleObj?.name ?? roleObj?.Name ?? o.roleName ?? o.RoleName ?? ""
+    );
+
+    if (Number.isFinite(id) && login) {
+      itemsAll.push({
+        id,
+        login,
+        firstName,
+        lastName,
+        email,
+        roleId: roleId || undefined,
+        roleCode: roleCode || undefined,
+        roleName,
+      });
+    }
+  }
+
+  // Fallback de BÚSQUEDA si el backend no la hace.
+  const qNorm = q.trim().toLowerCase();
+  if (qNorm) {
+    itemsAll = itemsAll.filter((u) =>
+      [u.login, u.email, u.firstName, u.lastName].some((s) =>
+        (s || "").toLowerCase().includes(qNorm)
+      )
     );
   }
-}
 
-async function deleteUser(id: number) {
-  void id;
-  await new Promise((r) => setTimeout(r, 400));
+  // Fallback de FILTRO DE ROLES si el backend lo ignora.
+  if (roleIds && roleIds.length > 0) {
+    itemsAll = itemsAll.filter((u) =>
+      u.roleId ? roleIds.includes(String(u.roleId)) : false
+    );
+  }
+
+  // Fallback de PAGINACIÓN si el backend ignora offset/limit.
+  const items =
+    itemsAll.length > pageSize || offset > 0
+      ? itemsAll.slice(offset, offset + pageSize)
+      : itemsAll;
+
+  const total = Number.isFinite(totalFromApi) ? totalFromApi : itemsAll.length;
+
+  return { items, total };
 }
 
 /* ============================ Util: paginación ============================ */
 
 type PageToken = number | "...";
-
 function buildPageItems(current: number, total: number): PageToken[] {
   if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
   const first = 1;
@@ -273,95 +359,128 @@ export default function UsersPage() {
   const availH = useAppContentInnerHeight(10);
   const isMobilePortrait = useIsMobilePortrait();
 
-  // Estado
+  // Estado UI
   const [search, setSearch] = useState("");
-  const [list, setList] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Roles: null = TODOS (placeholder, aún no conectamos con API real)
-  const [roles, setRoles] = useState<Role[] | null>(null);
-  const rolesKey = useMemo(
-    () => (roles === null ? "ALL" : roles.slice().sort().join(",")),
-    [roles]
+  // Roles (lista desde API) + selección
+  const [rolesList, setRolesList] = useState<RoleItem[]>([]);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[] | null>(null); // null = TODOS
+  const rolesFilterKey = useMemo(
+    () =>
+      selectedRoleIds === null
+        ? "ALL"
+        : selectedRoleIds.slice().sort().join(","),
+    [selectedRoleIds]
   );
 
-  // Paginación
+  // Índices para mapear roleId/code → name
+  const rolesById = useMemo(() => {
+    const m = new Map<string, string>();
+    rolesList.forEach((r) => m.set(r.id, r.name));
+    return m;
+  }, [rolesList]);
+  const rolesByCode = useMemo(() => {
+    const m = new Map<string, string>();
+    rolesList.forEach((r) => r.code && m.set(r.code, r.name));
+    return m;
+  }, [rolesList]);
+
+  // Paginación (servidor)
   const [pageSize, setPageSize] = useState<number>(25);
   const [page, setPage] = useState<number>(1);
+  const [list, setList] = useState<UserListItem[]>([]);
+  const [totalCount, setTotalCount] = useState<number>(0);
 
-  // Acciones dropdown
-  const [actionsOpen, setActionsOpen] = useState(false);
-  const actionsBtnRef = useRef<HTMLButtonElement | null>(null);
-
-  // Modales
-  const [createOpen, setCreateOpen] = useState(false);
-  const [detailId, setDetailId] = useState<number | null>(null);
-
-  // Cargar lista
+  // cargar roles una vez
   useEffect(() => {
     if (!mounted) return;
+    let alive = true;
     (async () => {
-      setLoading(true);
       try {
-        const data = await fetchUsers();
-        setList(data);
-      } finally {
-        setLoading(false);
+        const rs = await fetchRoles();
+        if (alive) setRolesList(rs);
+      } catch {
+        if (alive) setRolesList([]);
       }
     })();
+    return () => {
+      alive = false;
+    };
   }, [mounted]);
 
-  // Filtro texto (login, nombre, apellidos, email)
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((u) => {
-      return (
-        u.login.toLowerCase().includes(q) ||
-        u.firstName.toLowerCase().includes(q) ||
-        u.lastName.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        u.roleName.toLowerCase().includes(q)
-      );
-    });
-  }, [search, list]);
-
-  // Paginación
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(filtered.length / pageSize)),
-    [filtered.length, pageSize]
-  );
-  const displayed = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, page, pageSize]);
-
+  // cambio de criterios → volvemos a página 1
   useEffect(() => {
     setPage(1);
-  }, [search, pageSize, rolesKey]);
+  }, [search, pageSize, rolesFilterKey]);
 
-  // Cerrar Acciones al click fuera
+  // cargar usuarios cada vez que cambian criterios/página
   useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      if (!actionsOpen) return;
-      const target = e.target as Node;
-      if (
-        actionsBtnRef.current &&
-        !actionsBtnRef.current.contains(target) &&
-        !(
-          document.getElementById("users-actions-menu")?.contains(target) ??
-          false
-        )
-      ) {
-        setActionsOpen(false);
+    if (!mounted) return;
+    let alive = true;
+    setLoading(true);
+
+    // si el usuario no ha elegido nada o eligió todo, no filtramos por rol
+    const activeRoleIds =
+      selectedRoleIds &&
+      selectedRoleIds.length > 0 &&
+      selectedRoleIds.length < rolesList.length
+        ? selectedRoleIds
+        : null;
+
+    (async () => {
+      try {
+        const { items, total } = await fetchUsersPage({
+          q: search.trim(),
+          page,
+          pageSize,
+          roleIds: activeRoleIds,
+        });
+
+        // mapear nombres de rol si faltan
+        const mapped = items.map((u) => {
+          const finalName =
+            u.roleName ||
+            (u.roleId ? rolesById.get(String(u.roleId)) : undefined) ||
+            (u.roleCode ? rolesByCode.get(u.roleCode) : undefined) ||
+            "";
+          return { ...u, roleName: finalName };
+        });
+
+        if (alive) {
+          setList(mapped);
+          setTotalCount(total);
+        }
+      } finally {
+        if (alive) setLoading(false);
       }
-    }
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [actionsOpen]);
+    })();
 
-  if (!mounted) return <div className="p-6" />;
+    return () => {
+      alive = false;
+    };
+  }, [
+    mounted,
+    search,
+    page,
+    pageSize,
+    rolesFilterKey,
+    rolesById,
+    rolesByCode,
+    rolesList.length,
+  ]);
 
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil((totalCount || 0) / pageSize)),
+    [totalCount, pageSize]
+  );
+
+  // si totalPages baja (por ejemplo al cambiar pageSize), ajustamos page
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
+
+  // ====== estilos calculados por tema ======
   const subtleText = theme === "light" ? "text-zinc-500" : "text-zinc-400";
   const shellTone =
     theme === "light"
@@ -384,6 +503,34 @@ export default function UsersPage() {
     ["--iconmark-border"]: NORMAL_BORDER,
     ["--iconmark-fg"]: FG_NORMAL,
   } as React.CSSProperties;
+
+  // Acciones dropdown
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsBtnRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!actionsOpen) return;
+      const target = e.target as Node;
+      if (
+        actionsBtnRef.current &&
+        !actionsBtnRef.current.contains(target) &&
+        !(
+          document.getElementById("users-actions-menu")?.contains(target) ??
+          false
+        )
+      ) {
+        setActionsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [actionsOpen]);
+
+  // Modales
+  const [createOpen, setCreateOpen] = useState(false);
+  const [detailId, setDetailId] = useState<number | null>(null);
+
+  if (!mounted) return <div className="p-6" />;
 
   return (
     <div
@@ -554,8 +701,6 @@ export default function UsersPage() {
         }
 
         /* ===== TABLA: columnas por dispositivo/orientación ===== */
-
-        /* Base = MÓVIL PORTRAIT: Login (con avatar) | ID */
         .users-scope .table-grid {
           display: grid;
           align-items: center;
@@ -572,7 +717,6 @@ export default function UsersPage() {
           text-align: center;
         }
 
-        /* MÓVIL LANDSCAPE altura baja: + Nombre + Apellidos */
         @media (orientation: landscape) and (max-height: 480px) {
           .users-scope .table-grid {
             grid-template-columns: minmax(0, 0.9fr) 160px 200px 56px;
@@ -583,8 +727,6 @@ export default function UsersPage() {
             display: block;
           }
         }
-
-        /* TABLET PORTRAIT: + Nombre + Apellidos */
         @media (min-width: 768px) and (max-width: 1024px) and (orientation: portrait) {
           .users-scope .table-grid {
             grid-template-columns: minmax(0, 1fr) 160px 200px 56px;
@@ -595,11 +737,8 @@ export default function UsersPage() {
             display: block;
           }
         }
-
-        /* TABLET LANDSCAPE: + Email + Rol */
         @media (max-width: 1024px) and (orientation: landscape) and (min-height: 481px) {
           .users-scope .table-grid {
-            /*     Login             Nombre     Apellidos      Email                 Rol      ID  */
             grid-template-columns:
               minmax(180px, 0.9fr) 160px 200px minmax(220px, 1.1fr)
               140px 56px;
@@ -612,11 +751,8 @@ export default function UsersPage() {
             display: block;
           }
         }
-
-        /* DESKTOP (≥1025): todas las columnas sin scroll horizontal */
         @media (min-width: 1025px) {
           .users-scope .table-grid {
-            /*     Login             Nombre       Apellidos         Email                 Rol       ID */
             grid-template-columns:
               minmax(200px, 0.8fr) 170px minmax(180px, 0.9fr)
               minmax(240px, 1.1fr) 160px 56px;
@@ -629,8 +765,6 @@ export default function UsersPage() {
             display: block;
           }
         }
-
-        /* Solo scroll vertical en filas; bloqueamos X para evitar barra horizontal */
         .users-scope .table-scroll {
           overflow-y: auto;
           overflow-x: hidden;
@@ -687,9 +821,14 @@ export default function UsersPage() {
             />
           </div>
 
-          {/* Roles (placeholder) */}
+          {/* Roles (multi desde API ZAux) */}
           <div className="tb-roles">
-            <RoleDropdown theme={theme} roles={roles} setRoles={setRoles} />
+            <RoleDropdown
+              theme={theme}
+              roles={rolesList}
+              selected={selectedRoleIds}
+              setSelected={setSelectedRoleIds}
+            />
           </div>
 
           {/* Acciones */}
@@ -876,7 +1015,7 @@ export default function UsersPage() {
             <div className="px-4 py-3 text-sm">Cargando usuarios…</div>
           )}
           {!loading &&
-            displayed.map((u) => (
+            list.map((u) => (
               <button
                 key={u.id}
                 type="button"
@@ -926,7 +1065,7 @@ export default function UsersPage() {
               </button>
             ))}
 
-          {!loading && displayed.length === 0 && (
+          {!loading && list.length === 0 && (
             <div className="px-4 py-3 text-sm opacity-70">
               No hay resultados.
             </div>
@@ -1026,7 +1165,7 @@ export default function UsersPage() {
               </button>
             </nav>
 
-            <div>{filtered.length} usuario(s)</div>
+            <div>{totalCount} usuario(s)</div>
           </div>
         </div>
       </section>
@@ -1035,11 +1174,11 @@ export default function UsersPage() {
       {createOpen && (
         <CreateUserModal
           theme={theme}
+          roles={rolesList} // 👈 pasamos los roles cargados de la API
           onClose={() => setCreateOpen(false)}
           onCreated={async () => {
             setCreateOpen(false);
-            const fresh = await fetchUsers();
-            setList(fresh);
+            setPage(1);
           }}
         />
       )}
@@ -1051,753 +1190,457 @@ export default function UsersPage() {
           onClose={() => setDetailId(null)}
           onDeleted={async () => {
             setDetailId(null);
-            const fresh = await fetchUsers();
-            setList(fresh);
+            setPage(1);
           }}
           onSaved={async () => {
             setDetailId(null);
-            const fresh = await fetchUsers();
-            setList(fresh);
+            // solo refrescamos lista
+            setPage(1);
           }}
         />
       )}
     </div>
   );
-}
 
-/* ======================= Dropdown: Roles (multi; placeholder) ======================= */
+  /* ======================= Dropdown: Roles (multi; desde API) ======================= */
 
-function RoleDropdown({
-  theme,
-  roles,
-  setRoles,
-}: {
-  theme: Theme;
-  roles: Role[] | null;
-  setRoles: React.Dispatch<React.SetStateAction<Role[] | null>>;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
+  function RoleDropdown({
+    theme,
+    roles,
+    selected,
+    setSelected,
+  }: {
+    theme: Theme;
+    roles: RoleItem[];
+    selected: string[] | null; // null = TODOS
+    setSelected: React.Dispatch<React.SetStateAction<string[] | null>>;
+  }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (!open) return;
-      const t = e.target as Node;
-      if (ref.current && !ref.current.contains(t)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-
-  const isLight = theme === "light";
-
-  const showAllLabel =
-    roles === null || roles.length === 0 || roles.length === 3;
-
-  const toggleOne = (k: Role) => {
-    setRoles((prev) => {
-      if (prev === null) {
-        return (["r1", "r2", "r3"] as Role[]).filter((r) => r !== k);
+    useEffect(() => {
+      function onDoc(e: MouseEvent) {
+        if (!open) return;
+        const t = e.target as Node;
+        if (ref.current && !ref.current.contains(t)) setOpen(false);
       }
-      return prev.includes(k) ? prev.filter((r) => r !== k) : [...prev, k];
-    });
-  };
+      document.addEventListener("mousedown", onDoc);
+      return () => document.removeEventListener("mousedown", onDoc);
+    }, [open]);
 
-  const toggleAll = () =>
-    setRoles((prev) =>
-      prev === null || (Array.isArray(prev) && prev.length === 3)
-        ? ([] as Role[])
-        : (["r1", "r2", "r3"] as Role[])
-    );
+    const isLight = theme === "light";
 
-  const pillTone = isLight
-    ? "bg-white border-zinc-300"
-    : "bg-[#0D1117] border-zinc-700";
-  const pillHover = isLight
-    ? "hover:bg-zinc-100"
-    : "hover:bg-white/10 hover:border-zinc-500";
+    const allSelected =
+      selected === null ||
+      selected.length === 0 ||
+      selected.length === roles.length;
 
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={[
-          "inline-flex items-center gap-2 px-3 h-9 rounded-xl border text-[13.5px] font-semibold",
-          pillTone,
-          pillHover,
-          "w-[210px] justify-between",
-          "transition-colors",
-        ].join(" ")}
-        style={{ cursor: "pointer" }}
-      >
-        {showAllLabel ? "TODOS LOS ROLES" : `ROLES (${roles!.length})`}
-        <ChevronDown size={16} />
-      </button>
-
-      {open && (
-        <div
-          className={[
-            "absolute left-0 mt-2 w-56 rounded-xl border shadow-md overflow-hidden z-30",
-            isLight
-              ? "bg-white border-zinc-200"
-              : "bg-[#0D1117] border-zinc-700",
-          ].join(" ")}
-        >
-          {/* Opción: todos */}
-          <button
-            type="button"
-            onClick={toggleAll}
-            className={[
-              "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors",
-              isLight ? "hover:bg-zinc-100" : "hover:bg-white/10",
-              "cursor-pointer",
-            ].join(" ")}
-          >
-            <span
-              className={[
-                "w-5 h-5 grid place-items-center rounded-md border",
-                isLight
-                  ? showAllLabel
-                    ? "bg-zinc-900 border-zinc-900 text-white"
-                    : "bg-white border-zinc-300 text-white"
-                  : showAllLabel
-                  ? "bg-white border-white text-black"
-                  : "bg-[#0D1117] border-zinc-600 text-[#0D1117]",
-              ].join(" ")}
-            >
-              {showAllLabel && <Check size={14} />}
-            </span>
-            <span className="font-semibold">TODOS LOS ROLES</span>
-          </button>
-
-          {(
-            [
-              { k: "r1", label: "Rol1" },
-              { k: "r2", label: "Rol2" },
-              { k: "r3", label: "Rol3" },
-            ] as const
-          ).map((opt) => {
-            const active =
-              roles === null ? true : roles.includes(opt.k as Role);
-            return (
-              <button
-                key={opt.k}
-                type="button"
-                onClick={() => toggleOne(opt.k)}
-                className={[
-                  "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors",
-                  isLight ? "hover:bg-zinc-100" : "hover:bg-white/10",
-                  "cursor-pointer",
-                ].join(" ")}
-              >
-                <span
-                  className={[
-                    "w-5 h-5 grid place-items-center rounded-md border",
-                    isLight
-                      ? active
-                        ? "bg-zinc-900 border-zinc-900 text-white"
-                        : "bg-white border-zinc-300 text-white"
-                      : active
-                      ? "bg-white border-white text-black"
-                      : "bg-[#0D1117] border-zinc-600 text-[#0D1117]",
-                  ].join(" ")}
-                >
-                  {active && <Check size={14} />}
-                </span>
-                <span className="font-semibold">{opt.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ====================== Dropdown: Page size (footer) ===================== */
-
-function PageSizeDropdown({
-  theme,
-  value,
-  onChange,
-}: {
-  theme: Theme;
-  value: number;
-  onChange: (v: number) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (!open) return;
-      const t = e.target as Node;
-      if (ref.current && !ref.current.contains(t)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-
-  const isLight = theme === "light";
-  const pillTone = isLight
-    ? "bg-white border-zinc-300"
-    : "bg-[#0D1117] border-zinc-700";
-  const pillHover = isLight ? "hover:bg-zinc-100" : "hover:bg-[#1a2230]";
-  const options = [10, 25, 50, 100];
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={[
-          "inline-flex items-center gap-2 px-2 h-7 rounded-lg border text-[12.5px] font-semibold",
-          pillTone,
-          pillHover,
-          "cursor-pointer",
-        ].join(" ")}
-      >
-        {value} / pág.
-        <ChevronDown size={14} />
-      </button>
-
-      {open && (
-        <div
-          className={[
-            "absolute left-0 bottom-full mb-2 w-28 rounded-xl border shadow-md overflow-hidden z-40",
-            isLight
-              ? "bg-white border-zinc-200"
-              : "bg-[#0D1117] border-zinc-700",
-          ].join(" ")}
-        >
-          {options.map((n) => {
-            const active = n === value;
-            return (
-              <button
-                key={n}
-                type="button"
-                onClick={() => {
-                  onChange(n);
-                  setOpen(false);
-                }}
-                className={[
-                  "w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px]",
-                  isLight ? "hover:bg-zinc-100" : "hover:bg-zinc-800/50",
-                  "cursor-pointer",
-                ].join(" ")}
-              >
-                <span
-                  className={[
-                    "w-4 h-4 rounded-full border grid place-items-center",
-                    isLight
-                      ? active
-                        ? "bg-zinc-900 border-zinc-900 text-white"
-                        : "bg-white border-zinc-300 text-white"
-                      : active
-                      ? "bg-white border-white text-black"
-                      : "bg-[#0D1117] border-zinc-600 text-[#0D1117]",
-                  ].join(" ")}
-                >
-                  {active && <Check size={12} />}
-                </span>
-                <span className="font-semibold">{n} / pág.</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ============================ Modal: Crear ============================ */
-// (sin cambios relevantes a la tabla; lo mantengo tal cual en tu versión)
-function CreateUserModal({
-  theme,
-  onClose,
-  onCreated,
-}: {
-  theme: Theme;
-  onClose: () => void;
-  onCreated: () => Promise<void> | void;
-}) {
-  const [login, setLogin] = useState("");
-  const [pass, setPass] = useState("");
-  const [email, setEmail] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const isLight = theme === "light";
-
-  const headerOpp = isLight
-    ? "bg-[#0D1117] text-white border-zinc-900"
-    : "bg-white text-black border-white";
-  const headerIconHover = isLight ? "hover:bg-white/10" : "hover:bg-black/5";
-
-  const markBase = {
-    ["--mark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
-    ["--mark-border"]: isLight ? "#0e1117" : "#ffffff",
-    ["--mark-fg"]: isLight ? "#010409" : "#ffffff",
-  } as React.CSSProperties;
-
-  function isObj(v: unknown): v is Record<string, unknown> {
-    return typeof v === "object" && v !== null;
-  }
-  function pickIdFromCreateResponse(raw: unknown): number | null {
-    if (typeof raw === "number") return raw;
-    if (isObj(raw)) {
-      const r = raw as Record<string, unknown>;
-      const cands: unknown[] = [
-        r.id,
-        r.userId,
-        r.ID,
-        r.Id,
-        r.UserId,
-        r.uid,
-        isObj(r.user) ? (r.user as Record<string, unknown>).id : undefined,
-        isObj(r.data) ? (r.data as Record<string, unknown>).id : undefined,
-      ];
-      for (const c of cands) {
-        const n = typeof c === "number" ? c : Number(c ?? NaN);
-        if (Number.isFinite(n)) return n;
-      }
-    }
-    return null;
-  }
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!login.trim() || !pass) return;
-
-    setBusy(true);
-    try {
-      const createRes = await fetch("/api/users/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login: login.trim(), password: pass }),
+    const toggleOne = (id: string) => {
+      setSelected((prev) => {
+        if (prev === null) {
+          // si estaba "todos", pasamos a todos menos este
+          return roles.map((r) => r.id).filter((x) => x !== id);
+        }
+        return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
       });
-      if (!createRes.ok) {
-        const raw: unknown = await createRes.json().catch(() => ({}));
-        const msg = pickErrorString(raw) ?? "Error creando usuario";
-        throw new Error(msg);
-      }
-
-      const createdRaw: unknown = await createRes.json().catch(() => ({}));
-      const newId = pickIdFromCreateResponse(createdRaw);
-
-      const hasOptional =
-        !!email.trim() || !!firstName.trim() || !!lastName.trim();
-      if (hasOptional && Number.isFinite(newId)) {
-        await fetch(
-          `/api/users/update/${encodeURIComponent(newId as number)}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              login: login.trim(),
-              email: email.trim(),
-              firstName: firstName.trim(),
-              lastName: lastName.trim(),
-            }),
-          }
-        ).catch(() => void 0);
-      }
-
-      await onCreated();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-[2px] grid place-items-center p-4"
-      onMouseDown={onClose}
-    >
-      {/* (… contenido igual que tu versión anterior …) */}
-      {/* Para ahorrar espacio, no repito el JSX del modal aquí; permanece igual */}
-      <div
-        className={[
-          "create-modal relative w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden",
-          isLight ? "bg-white border-zinc-300" : "bg-[#0D1117] border-zinc-700",
-        ].join(" ")}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div
-          className={[
-            "flex items-center justify-between px-5 pt-4 pb-3",
-            headerOpp,
-          ].join(" ")}
-        >
-          <h2 className="text-lg font-semibold">Crear usuario</h2>
-          <button
-            type="button"
-            className={[
-              "rounded-full p-1.5 transition-colors",
-              headerIconHover,
-            ].join(" ")}
-            onClick={onClose}
-            aria-label="Cerrar"
-            style={{ cursor: "pointer" }}
-          >
-            <X />
-          </button>
-        </div>
-
-        <form className="px-5 pb-5 pt-4" onSubmit={submit} autoComplete="off">
-          {/* Avatar */}
-          <div className="flex justify-center my-2">
-            <div
-              className={[
-                "w-36 h-36 md:w-40 md:h-40 rounded-full border grid place-items-center",
-                isLight
-                  ? "border-zinc-400 bg-white"
-                  : "border-zinc-600 bg-[#0D1117]",
-              ].join(" ")}
-            />
-          </div>
-
-          {/* Campos */}
-          <div className="grid gap-3">
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="block">
-                <span className="block text-sm mb-1 opacity-80">Usuario *</span>
-                <input
-                  value={login}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setLogin(e.target.value)
-                  }
-                  placeholder="Usuario"
-                  className={[
-                    "w-full h-11 rounded-xl px-3 border outline-none",
-                    isLight
-                      ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
-                      : "bg-[#0D1117] border-zinc-700 text-white",
-                    "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
-                  ].join(" ")}
-                />
-              </label>
-
-              <label className="block">
-                <span className="block text-sm mb-1 opacity-80">
-                  Contraseña *
-                </span>
-                <input
-                  value={pass}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setPass(e.target.value)
-                  }
-                  placeholder="••••••"
-                  type="password"
-                  className={[
-                    "w-full h-11 rounded-xl px-3 border outline-none",
-                    isLight
-                      ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
-                      : "bg-[#0D1117] border-zinc-700 text-white",
-                    "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
-                  ].join(" ")}
-                />
-              </label>
-            </div>
-
-            <label className="block">
-              <span className="block text-sm mb-1 opacity-80">Email</span>
-              <input
-                value={email}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setEmail(e.target.value)
-                }
-                placeholder="Introduce tu email"
-                type="email"
-                autoComplete="off"
-                className={[
-                  "w-full h-11 rounded-xl px-3 border outline-none",
-                  isLight
-                    ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
-                    : "bg-[#0D1117] border-zinc-700 text-white",
-                  "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
-                ].join(" ")}
-              />
-            </label>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="block">
-                <span className="block text-sm mb-1 opacity-80">Nombre</span>
-                <input
-                  value={firstName}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setFirstName(e.target.value)
-                  }
-                  placeholder="Nombre"
-                  className={[
-                    "w-full h-11 rounded-xl px-3 border outline-none",
-                    isLight
-                      ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
-                      : "bg-[#0D1117] border-zinc-700 text-white",
-                    "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
-                  ].join(" ")}
-                />
-              </label>
-
-              <label className="block">
-                <span className="block text-sm mb-1 opacity-80">Apellidos</span>
-                <input
-                  value={lastName}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setLastName(e.target.value)
-                  }
-                  placeholder="Apellidos"
-                  className={[
-                    "w-full h-11 rounded-xl px-3 border outline-none",
-                    isLight
-                      ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
-                      : "bg-[#0D1117] border-zinc-700 text-white",
-                    "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
-                  ].join(" ")}
-                />
-              </label>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className={[
-                "btn-ik inline-flex items-center gap-2 px-4 h-10 rounded-xl border",
-                isLight
-                  ? "bg-white border-zinc-300 hover:bg-zinc-100"
-                  : "bg-[#0D1117] border-zinc-700 hover:bg-zinc-800",
-              ].join(" ")}
-              style={
-                {
-                  color: "#8E2434",
-                  ["--btn-ik-accent"]: "#8E2434",
-                  ["--btn-ik-text"]: "#8E2434",
-                } as WithToolbarVars
-              }
-            >
-              <IconMark size="xs" borderWidth={2} style={markBase}>
-                <X />
-              </IconMark>
-              Cancelar
-            </button>
-
-            <button
-              type="submit"
-              disabled={busy || !login.trim() || !pass}
-              className={[
-                "btn-ik inline-flex items-center gap-2 px-4 h-10 rounded-xl border",
-                isLight
-                  ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
-                  : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
-                busy || !login.trim() || !pass
-                  ? "opacity-60 pointer-events-none"
-                  : "",
-              ].join(" ")}
-              style={
-                {
-                  ["--btn-ik-accent"]: ACC_CREATE,
-                  ["--btn-ik-text"]: ACC_CREATE,
-                } as WithToolbarVars
-              }
-            >
-              <IconMark size="xs" borderWidth={2} style={markBase}>
-                <UserPlus />
-              </IconMark>
-              Crear
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-/* ====================== Drawer lateral: Detalle (sin cambios en campos) ====================== */
-
-function UserDetailDrawer({
-  id,
-  theme,
-  onClose,
-  onDeleted,
-  onSaved,
-}: {
-  id: number;
-  theme: Theme;
-  onClose: () => void;
-  onDeleted: () => Promise<void> | void;
-  onSaved: () => Promise<void> | void;
-}) {
-  const [info, setInfo] = useState<UserInfo | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [enter, setEnter] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const isLight = theme === "light";
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const data = await fetchUserInfo(id);
-        if (alive) setInfo(data);
-      } catch {
-        if (alive)
-          setInfo({ id, login: "", email: "", firstName: "", lastName: "" });
-      }
-    })();
-    return () => {
-      alive = false;
     };
-  }, [id]);
 
-  useEffect(() => {
-    const t = setTimeout(() => setEnter(true), 10);
-    return () => clearTimeout(t);
-  }, []);
+    const toggleAll = () =>
+      setSelected((prev) =>
+        prev === null || (Array.isArray(prev) && prev.length === roles.length)
+          ? ([] as string[])
+          : roles.map((r) => r.id)
+      );
 
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (!menuOpen) return;
-      const t = e.target as Node;
-      if (menuRef.current && !menuRef.current.contains(t)) setMenuOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [menuOpen]);
+    const pillTone = isLight
+      ? "bg-white border-zinc-300"
+      : "bg-[#0D1117] border-zinc-700";
+    const pillHover = isLight
+      ? "hover:bg-zinc-100"
+      : "hover:bg-white/10 hover:border-zinc-500";
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    if (!info) return;
-    setBusy(true);
-    try {
-      await updateUser(info.id, {
-        login: info.login,
-        email: info.email,
-        firstName: info.firstName,
-        lastName: info.lastName,
-      });
-      await onSaved();
-    } finally {
-      setBusy(false);
+    return (
+      <div className="relative" ref={ref}>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className={[
+            "inline-flex items-center gap-2 px-3 h-9 rounded-xl border text-[13.5px] font-semibold",
+            pillTone,
+            pillHover,
+            "w-[210px] justify-between",
+            "transition-colors",
+          ].join(" ")}
+          style={{ cursor: "pointer" }}
+        >
+          {allSelected ? "TODOS LOS ROLES" : `ROLES (${selected!.length})`}
+          <ChevronDown size={16} />
+        </button>
+
+        {open && (
+          <div
+            className={[
+              "absolute left-0 mt-2 w-64 max-h-[60vh] overflow-auto rounded-xl border shadow-md z-30",
+              isLight
+                ? "bg-white border-zinc-200"
+                : "bg-[#0D1117] border-zinc-700",
+            ].join(" ")}
+          >
+            {/* Opción: todos */}
+            <button
+              type="button"
+              onClick={toggleAll}
+              className={[
+                "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors",
+                isLight ? "hover:bg-zinc-100" : "hover:bg-white/10",
+                "cursor-pointer",
+              ].join(" ")}
+            >
+              <span
+                className={[
+                  "w-5 h-5 grid place-items-center rounded-md border",
+                  isLight
+                    ? allSelected
+                      ? "bg-zinc-900 border-zinc-900 text-white"
+                      : "bg-white border-zinc-300 text-white"
+                    : allSelected
+                    ? "bg-white border-white text-black"
+                    : "bg-[#0D1117] border-zinc-600 text-[#0D1117]",
+                ].join(" ")}
+              >
+                {allSelected && <Check size={14} />}
+              </span>
+              <span className="font-semibold">TODOS LOS ROLES</span>
+            </button>
+
+            {roles.map((opt) => {
+              const active =
+                selected === null ? true : selected.includes(opt.id);
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => toggleOne(opt.id)}
+                  className={[
+                    "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors",
+                    isLight ? "hover:bg-zinc-100" : "hover:bg-white/10",
+                    "cursor-pointer",
+                  ].join(" ")}
+                >
+                  <span
+                    className={[
+                      "w-5 h-5 grid place-items-center rounded-md border",
+                      isLight
+                        ? active
+                          ? "bg-zinc-900 border-zinc-900 text-white"
+                          : "bg-white border-zinc-300 text-white"
+                        : active
+                        ? "bg-white border-white text-black"
+                        : "bg-[#0D1117] border-zinc-600 text-[#0D1117]",
+                    ].join(" ")}
+                  >
+                    {active && <Check size={14} />}
+                  </span>
+                  <span className="font-semibold">
+                    {opt.name || opt.code || opt.id}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /* ====================== Dropdown: Page size (footer) ===================== */
+
+  function PageSizeDropdown({
+    theme,
+    value,
+    onChange,
+  }: {
+    theme: Theme;
+    value: number;
+    onChange: (v: number) => void;
+  }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+      function onDoc(e: MouseEvent) {
+        if (!open) return;
+        const t = e.target as Node;
+        if (ref.current && !ref.current.contains(t)) setOpen(false);
+      }
+      document.addEventListener("mousedown", onDoc);
+      return () => document.removeEventListener("mousedown", onDoc);
+    }, [open]);
+
+    const isLight = theme === "light";
+    const pillTone = isLight
+      ? "bg-white border-zinc-300"
+      : "bg-[#0D1117] border-zinc-700";
+    const pillHover = isLight ? "hover:bg-zinc-100" : "hover:bg-[#1a2230]";
+    const options = [10, 25, 50, 100];
+
+    return (
+      <div className="relative" ref={ref}>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className={[
+            "inline-flex items-center gap-2 px-2 h-7 rounded-lg border text-[12.5px] font-semibold",
+            pillTone,
+            pillHover,
+            "cursor-pointer",
+          ].join(" ")}
+        >
+          {value} / pág.
+          <ChevronDown size={14} />
+        </button>
+
+        {open && (
+          <div
+            className={[
+              "absolute left-0 bottom-full mb-2 w-28 rounded-xl border shadow-md overflow-hidden z-40",
+              isLight
+                ? "bg-white border-zinc-200"
+                : "bg-[#0D1117] border-zinc-700",
+            ].join(" ")}
+          >
+            {options.map((n) => {
+              const active = n === value;
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => {
+                    onChange(n);
+                    setOpen(false);
+                  }}
+                  className={[
+                    "w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px]",
+                    isLight ? "hover:bg-zinc-100" : "hover:bg-zinc-800/50",
+                    "cursor-pointer",
+                  ].join(" ")}
+                >
+                  <span
+                    className={[
+                      "w-4 h-4 rounded-full border grid place-items-center",
+                      isLight
+                        ? active
+                          ? "bg-zinc-900 border-zinc-900 text-white"
+                          : "bg-white border-zinc-300 text-white"
+                        : active
+                        ? "bg-white border-white text-black"
+                        : "bg-[#0D1117] border-zinc-600 text-[#0D1117]",
+                    ].join(" ")}
+                  >
+                    {active && <Check size={12} />}
+                  </span>
+                  <span className="font-semibold">{n} / pág.</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /* ------------------------------ API: detalle/editar/eliminar ------------------------------ */
+
+  async function fetchUserInfo(id: number): Promise<UserInfo> {
+    const res = await fetch(`/api/users/getUser/${id}`, {
+      method: "GET",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) throw new Error(`Error getUser ${id}: ${res.status}`);
+    const data = (await res.json()) as Partial<UserInfo> & { id?: number };
+    return {
+      id: typeof data.id === "number" ? data.id : id,
+      login: String(data.login ?? ""),
+      email: String(data.email ?? ""),
+      firstName: String(data.firstName ?? ""),
+      lastName: String(data.lastName ?? ""),
+    };
+  }
+
+  async function updateUser(id: number, payload: Partial<UserInfo>) {
+    const res = await fetch(`/api/users/update/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        login: payload.login ?? "",
+        email: payload.email ?? "",
+        firstName: payload.firstName ?? "",
+        lastName: payload.lastName ?? "",
+      }),
+    });
+
+    if (!res.ok) {
+      let msg = "";
+      try {
+        const body = (await res.json()) as unknown;
+        msg = pickErrorString(body) ?? "";
+      } catch {
+        // ignore
+      }
+      throw new Error(msg || `Error updateUser ${id}: ${res.status}`);
     }
   }
 
-  async function handleDelete() {
-    if (!info) return;
-    if (!confirm(`¿Eliminar al usuario “${info.login}”?`)) return;
-    setBusy(true);
-    try {
-      await deleteUser(info.id);
-      await onDeleted();
-    } finally {
-      setBusy(false);
-    }
+  async function deleteUser(id: number) {
+    // Si tienes endpoint real, cámbialo por:
+    // await fetch(`/api/users/delete/${encodeURIComponent(id)}`, { method: "DELETE" });
+    void id;
+    await new Promise((r) => setTimeout(r, 400));
   }
 
-  const panelTone = isLight
-    ? "bg-white border-zinc-300"
-    : "bg-[#0D1117] border-zinc-700";
-  const headerOpp = isLight
-    ? "bg-[#0D1117] text-white border-zinc-900"
-    : "bg-white text-black border-white";
-  const headerIconHover = isLight ? "hover:bg-white/10" : "hover:bg-black/5";
+  /* ============================ Modal: Crear ============================ */
 
-  const markBase = {
-    ["--mark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
-    ["--mark-border"]: isLight ? "#0e1117" : "#ffffff",
-    ["--mark-fg"]: isLight ? "#010409" : "#ffffff",
-    ["--iconmark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
-    ["--iconmark-border"]: isLight ? "#0e1117" : "#ffffff",
-    ["--iconmark-fg"]: isLight ? "#010409" : "#ffffff",
-  } as React.CSSProperties;
+  /* ============================ Modal: Crear ============================ */
 
-  return (
-    <div className="fixed inset-0 z-[60]">
+  function CreateUserModal({
+    theme,
+    roles,
+    onClose,
+    onCreated,
+  }: {
+    theme: Theme;
+    roles: RoleItem[];
+    onClose: () => void;
+    onCreated: () => Promise<void> | void;
+  }) {
+    const [login, setLogin] = useState("");
+    const [pass, setPass] = useState("");
+    const [email, setEmail] = useState("");
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
+    const [selectedRoleId, setSelectedRoleId] = useState<string>(""); // 👈 nuevo
+    const [busy, setBusy] = useState(false);
+
+    // Preseleccionar un rol por defecto (el primero disponible)
+    useEffect(() => {
+      if (!selectedRoleId && roles.length > 0) {
+        const byUserCode =
+          roles.find((r) => /user|usuario/i.test(r.code || r.name))?.id ?? null;
+        setSelectedRoleId(byUserCode ?? roles[0].id);
+      }
+    }, [roles, selectedRoleId]);
+
+    const isLight = theme === "light";
+
+    const headerOpp = isLight
+      ? "bg-[#0D1117] text-white border-zinc-900"
+      : "bg-white text-black border-white";
+    const headerIconHover = isLight ? "hover:bg-white/10" : "hover:bg-black/5";
+
+    const markBase = {
+      ["--mark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
+      ["--mark-border"]: isLight ? "#0e1117" : "#ffffff",
+      ["--mark-fg"]: isLight ? "#010409" : "#ffffff",
+    } as React.CSSProperties;
+
+    function isObj(v: unknown): v is Record<string, unknown> {
+      return typeof v === "object" && v !== null;
+    }
+    function pickIdFromCreateResponse(raw: unknown): number | null {
+      if (typeof raw === "number") return raw;
+      if (isObj(raw)) {
+        const r = raw as Record<string, unknown>;
+        const cands: unknown[] = [
+          r.id,
+          r.userId,
+          r.ID,
+          r.Id,
+          r.UserId,
+          r.uid,
+          isObj(r.user) ? (r.user as Record<string, unknown>).id : undefined,
+          isObj(r.data) ? (r.data as Record<string, unknown>).id : undefined,
+        ];
+        for (const c of cands) {
+          const n = typeof c === "number" ? c : Number(c ?? NaN);
+          if (Number.isFinite(n)) return n;
+        }
+      }
+      return null;
+    }
+    function pickErrorString(input: unknown): string | null {
+      if (typeof input === "object" && input !== null && "error" in input) {
+        const v = (input as { error?: unknown }).error;
+        return typeof v === "string" ? v : null;
+      }
+      return null;
+    }
+
+    async function submit(e: React.FormEvent) {
+      e.preventDefault();
+      const user = login.trim();
+      if (!user || !pass || !selectedRoleId) return;
+
+      setBusy(true);
+      try {
+        // Mandamos TODOS los campos que rellenas en el modal.
+        const payload = {
+          login: user,
+          password: pass,
+          email: email.trim() || undefined,
+          firstName: firstName.trim() || undefined,
+          lastName: lastName.trim() || undefined,
+          status: 1,
+          // mejor numérico para la FK
+          role_id: Number(selectedRoleId),
+        };
+
+        const res = await fetch("/api/users/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          let msg = "";
+          try {
+            const body = await res.json();
+            msg = typeof body?.error === "string" ? body.error : "";
+          } catch {}
+          throw new Error(msg || "Error creando usuario");
+        }
+
+        // listo: refrescamos lista
+        await onCreated();
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    return (
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-        onClick={onClose}
-      />
-      <aside
-        className={[
-          "userdrawer absolute right-0 top-0 h-full w-full max-w-xl border-l shadow-2xl",
-          panelTone,
-          "transition-transform duration-200 ease-out",
-          enter ? "translate-x-0" : "translate-x-full",
-          "rounded-l-2xl overflow-hidden flex flex-col",
-        ].join(" ")}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
+        className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-[2px] grid place-items-center p-4"
+        onMouseDown={onClose}
       >
         <div
           className={[
-            "flex items-center justify-between px-5 py-3 border-b",
-            headerOpp,
+            "create-modal relative w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden",
+            isLight
+              ? "bg-white border-zinc-300"
+              : "bg-[#0D1117] border-zinc-700",
           ].join(" ")}
+          onMouseDown={(e) => e.stopPropagation()}
         >
-          <h2 className="text-lg font-semibold">Detalles del usuario</h2>
-
-          <div className="flex items-center gap-2" ref={menuRef}>
-            <div className="relative">
-              <button
-                type="button"
-                aria-label="Acciones"
-                onClick={() => setMenuOpen((v) => !v)}
-                className={[
-                  "rounded-full p-1.5 transition-colors",
-                  headerIconHover,
-                ].join(" ")}
-                style={{ cursor: "pointer" }}
-              >
-                <MoreHorizontal />
-              </button>
-
-              {menuOpen && (
-                <div
-                  className={[
-                    "absolute right-0 mt-2 w-44 rounded-xl border shadow-md overflow-hidden z-30",
-                    isLight
-                      ? "bg-white border-zinc-200 text-black"
-                      : "bg-[#0D1117] border-zinc-700 text-white",
-                  ].join(" ")}
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      void handleDelete();
-                    }}
-                    className={[
-                      "btn-ik w-full flex items-center gap-2 px-3 py-2 text-left text-sm",
-                      isLight ? "hover:bg-zinc-100" : "hover:bg-zinc-800/50",
-                    ].join(" ")}
-                    style={
-                      {
-                        ["--btn-ik-accent"]: "#8E2434",
-                        ["--btn-ik-text"]: "#8E2434",
-                        cursor: "pointer",
-                      } as WithToolbarVars
-                    }
-                  >
-                    <IconMark size="xs" borderWidth={2} style={markBase}>
-                      <Trash2 />
-                    </IconMark>
-                    Eliminar
-                  </button>
-                </div>
-              )}
-            </div>
-
+          <div
+            className={[
+              "flex items-center justify-between px-5 pt-4 pb-3",
+              headerOpp,
+            ].join(" ")}
+          >
+            <h2 className="text-lg font-semibold">Crear usuario</h2>
             <button
               type="button"
-              className={[
-                "rounded-full p-1.5 transition-colors",
-                headerIconHover,
-              ].join(" ")}
+              className={["rounded-full p-1.5", headerIconHover].join(" ")}
               onClick={onClose}
               aria-label="Cerrar"
               style={{ cursor: "pointer" }}
@@ -1805,131 +1648,531 @@ function UserDetailDrawer({
               <X />
             </button>
           </div>
-        </div>
 
-        {/* CONTENIDO */}
-        <form
-          id="user-detail-form"
-          className="userdrawer-form-area flex-1 overflow-auto px-5 pt-4 pb-24"
-          onSubmit={handleSave}
-        >
-          {!info ? (
-            <p className="opacity-80 text-sm">Cargando…</p>
-          ) : (
-            <div className="userdrawer-grid">
-              <div className="flex justify-center my-4 md:my-6">
-                <div
+          {/* Anti-autocompletar a nivel de form */}
+          <form
+            className="px-5 pb-5 pt-4"
+            onSubmit={submit}
+            autoComplete="off"
+            // algunos gestores (1Password/LastPass) respetan estos data-attrs:
+            data-lpignore="true"
+            data-1p-ignore="true"
+          >
+            {/* Avatar */}
+            <div className="flex justify-center my-2">
+              <div
+                className={[
+                  "w-36 h-36 md:w-40 md:h-40 rounded-full border grid place-items-center",
+                  isLight
+                    ? "border-zinc-400 bg-white"
+                    : "border-zinc-600 bg-[#0D1117]",
+                ].join(" ")}
+              />
+            </div>
+
+            {/* Campos */}
+            <div className="grid gap-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="block">
+                  <span className="block text-sm mb-1 opacity-80">
+                    Usuario *
+                  </span>
+                  <input
+                    value={login}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLogin(e.target.value)
+                    }
+                    placeholder="Usuario"
+                    // 👇 anti-autofill
+                    name="new-username"
+                    autoComplete="off"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    className={[
+                      "w-full h-11 rounded-xl px-3 border outline-none",
+                      isLight
+                        ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
+                        : "bg-[#0D1117] border-zinc-700 text-white",
+                      "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
+                    ].join(" ")}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="block text-sm mb-1 opacity-80">
+                    Contraseña *
+                  </span>
+                  <input
+                    value={pass}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setPass(e.target.value)
+                    }
+                    placeholder="••••••"
+                    type="password"
+                    // 👇 anti-autofill
+                    name="new-password"
+                    autoComplete="new-password"
+                    spellCheck={false}
+                    className={[
+                      "w-full h-11 rounded-xl px-3 border outline-none",
+                      isLight
+                        ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
+                        : "bg-[#0D1117] border-zinc-700 text-white",
+                      "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
+                    ].join(" ")}
+                  />
+                </label>
+              </div>
+
+              <label className="block">
+                <span className="block text-sm mb-1 opacity-80">Email</span>
+                <input
+                  value={email}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setEmail(e.target.value)
+                  }
+                  placeholder="Introduce tu email"
+                  type="email"
+                  autoComplete="off"
                   className={[
-                    "userdrawer-avatar rounded-full border grid place-items-center",
-                    "w-40 h-40 md:w-44 md:h-44",
+                    "w-full h-11 rounded-xl px-3 border outline-none",
                     isLight
-                      ? "border-zinc-400 bg-white"
-                      : "border-zinc-600 bg-[#0D1117]",
+                      ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
+                      : "bg-[#0D1117] border-zinc-700 text-white",
+                    "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
                   ].join(" ")}
                 />
+              </label>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="block">
+                  <span className="block text-sm mb-1 opacity-80">Nombre</span>
+                  <input
+                    value={firstName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setFirstName(e.target.value)
+                    }
+                    placeholder="Nombre"
+                    autoComplete="off"
+                    className={[
+                      "w-full h-11 rounded-xl px-3 border outline-none",
+                      isLight
+                        ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
+                        : "bg-[#0D1117] border-zinc-700 text-white",
+                      "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
+                    ].join(" ")}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="block text-sm mb-1 opacity-80">
+                    Apellidos
+                  </span>
+                  <input
+                    value={lastName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLastName(e.target.value)
+                    }
+                    placeholder="Apellidos"
+                    autoComplete="off"
+                    className={[
+                      "w-full h-11 rounded-xl px-3 border outline-none",
+                      isLight
+                        ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
+                        : "bg-[#0D1117] border-zinc-700 text-white",
+                      "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
+                    ].join(" ")}
+                  />
+                </label>
               </div>
 
-              <div className="userdrawer-fields grid gap-3">
-                <Field
-                  label="Login"
-                  value={info.login}
-                  onChange={(v) => setInfo({ ...info, login: v })}
-                  theme={theme}
-                />
-                <Field
-                  label="Email"
-                  value={info.email}
-                  onChange={(v) => setInfo({ ...info, email: v })}
-                  theme={theme}
-                />
-                <div className="grid gap-3 md:grid-cols-2">
-                  <Field
-                    label="Nombre"
-                    value={info.firstName}
-                    onChange={(v) => setInfo({ ...info, firstName: v })}
-                    theme={theme}
-                  />
-                  <Field
-                    label="Apellidos"
-                    value={info.lastName}
-                    onChange={(v) => setInfo({ ...info, lastName: v })}
-                    theme={theme}
+              {/* 👇 Selector de rol (obligatorio) */}
+              <label className="block">
+                <span className="block text-sm mb-1 opacity-80">Rol *</span>
+                <select
+                  value={selectedRoleId}
+                  onChange={(e) => setSelectedRoleId(e.target.value)}
+                  className={[
+                    "w-full h-11 rounded-xl px-3 border outline-none text-[15px]",
+                    isLight
+                      ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
+                      : "bg-[#0D1117] border-zinc-700 text-white",
+                    "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
+                  ].join(" ")}
+                >
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name || r.code || r.id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className={[
+                  "btn-ik inline-flex items-center gap-2 px-4 h-10 rounded-xl border",
+                  isLight
+                    ? "bg-white border-zinc-300 hover:bg-zinc-100"
+                    : "bg-[#0D1117] border-zinc-700 hover:bg-zinc-800",
+                ].join(" ")}
+                style={
+                  {
+                    color: "#8E2434",
+                    ["--btn-ik-accent"]: "#8E2434",
+                    ["--btn-ik-text"]: "#8E2434",
+                  } as WithToolbarVars
+                }
+              >
+                <IconMark size="xs" borderWidth={2} style={markBase}>
+                  <X />
+                </IconMark>
+                Cancelar
+              </button>
+
+              <button
+                type="submit"
+                disabled={busy || !login.trim() || !pass || !selectedRoleId}
+                className={[
+                  "btn-ik inline-flex items-center gap-2 px-4 h-10 rounded-xl border",
+                  isLight
+                    ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
+                    : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
+                  busy || !login.trim() || !pass || !selectedRoleId
+                    ? "opacity-60 pointer-events-none"
+                    : "",
+                ].join(" ")}
+                style={
+                  {
+                    ["--btn-ik-accent"]: ACC_CREATE,
+                    ["--btn-ik-text"]: ACC_CREATE,
+                  } as WithToolbarVars
+                }
+              >
+                <IconMark size="xs" borderWidth={2} style={markBase}>
+                  <UserPlus />
+                </IconMark>
+                Crear
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  /* ====================== Drawer lateral: Detalle ====================== */
+
+  function UserDetailDrawer({
+    id,
+    theme,
+    onClose,
+    onDeleted,
+    onSaved,
+  }: {
+    id: number;
+    theme: Theme;
+    onClose: () => void;
+    onDeleted: () => Promise<void> | void;
+    onSaved: () => Promise<void> | void;
+  }) {
+    const [info, setInfo] = useState<UserInfo | null>(null);
+    const [busy, setBusy] = useState(false);
+    const [enter, setEnter] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement | null>(null);
+    const isLight = theme === "light";
+
+    useEffect(() => {
+      let alive = true;
+      (async () => {
+        try {
+          const data = await fetchUserInfo(id);
+          if (alive) setInfo(data);
+        } catch {
+          if (alive)
+            setInfo({ id, login: "", email: "", firstName: "", lastName: "" });
+        }
+      })();
+      return () => {
+        alive = false;
+      };
+    }, [id]);
+
+    useEffect(() => {
+      const t = setTimeout(() => setEnter(true), 10);
+      return () => clearTimeout(t);
+    }, []);
+
+    useEffect(() => {
+      function onDoc(e: MouseEvent) {
+        if (!menuOpen) return;
+        const t = e.target as Node;
+        if (menuRef.current && !menuRef.current.contains(t)) setMenuOpen(false);
+      }
+      document.addEventListener("mousedown", onDoc);
+      return () => document.removeEventListener("mousedown", onDoc);
+    }, [menuOpen]);
+
+    async function handleSave(e: React.FormEvent) {
+      e.preventDefault();
+      if (!info) return;
+      setBusy(true);
+      try {
+        await updateUser(info.id, {
+          login: info.login,
+          email: info.email,
+          firstName: info.firstName,
+          lastName: info.lastName,
+        });
+        await onSaved();
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function handleDelete() {
+      if (!info) return;
+      if (!confirm(`¿Eliminar al usuario “${info.login}”?`)) return;
+      setBusy(true);
+      try {
+        await deleteUser(info.id);
+        await onDeleted();
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    const panelTone = isLight
+      ? "bg-white border-zinc-300"
+      : "bg-[#0D1117] border-zinc-700";
+    const headerOpp = isLight
+      ? "bg-[#0D1117] text-white border-zinc-900"
+      : "bg-white text-black border-white";
+    const headerIconHover = isLight ? "hover:bg-white/10" : "hover:bg-black/5";
+
+    const markBase = {
+      ["--mark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
+      ["--mark-border"]: isLight ? "#0e1117" : "#ffffff",
+      ["--mark-fg"]: isLight ? "#010409" : "#ffffff",
+      ["--iconmark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
+      ["--iconmark-border"]: isLight ? "#0e1117" : "#ffffff",
+      ["--iconmark-fg"]: isLight ? "#010409" : "#ffffff",
+    } as React.CSSProperties;
+
+    return (
+      <div className="fixed inset-0 z-[60]">
+        <div
+          className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+          onClick={onClose}
+        />
+        <aside
+          className={[
+            "userdrawer absolute right-0 top-0 h-full w-full max-w-xl border-l shadow-2xl",
+            panelTone,
+            "transition-transform duration-200 ease-out",
+            enter ? "translate-x-0" : "translate-x-full",
+            "rounded-l-2xl overflow-hidden flex flex-col",
+          ].join(" ")}
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className={[
+              "flex items-center justify-between px-5 py-3 border-b",
+              headerOpp,
+            ].join(" ")}
+          >
+            <h2 className="text-lg font-semibold">Detalles del usuario</h2>
+
+            <div className="flex items-center gap-2" ref={menuRef}>
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-label="Acciones"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className={["rounded-full p-1.5", headerIconHover].join(" ")}
+                  style={{ cursor: "pointer" }}
+                >
+                  <MoreHorizontal />
+                </button>
+
+                {menuOpen && (
+                  <div
+                    className={[
+                      "absolute right-0 mt-2 w-44 rounded-xl border shadow-md overflow-hidden z-30",
+                      isLight
+                        ? "bg-white border-zinc-200 text-black"
+                        : "bg-[#0D1117] border-zinc-700 text-white",
+                    ].join(" ")}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        void handleDelete();
+                      }}
+                      className={[
+                        "btn-ik w-full flex items-center gap-2 px-3 py-2 text-left text-sm",
+                        isLight ? "hover:bg-zinc-100" : "hover:bg-zinc-800/50",
+                      ].join(" ")}
+                      style={
+                        {
+                          ["--btn-ik-accent"]: "#8E2434",
+                          ["--btn-ik-text"]: "#8E2434",
+                          cursor: "pointer",
+                        } as WithToolbarVars
+                      }
+                    >
+                      <IconMark size="xs" borderWidth={2} style={markBase}>
+                        <Trash2 />
+                      </IconMark>
+                      Eliminar
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className={["rounded-full p-1.5", headerIconHover].join(" ")}
+                onClick={onClose}
+                aria-label="Cerrar"
+                style={{ cursor: "pointer" }}
+              >
+                <X />
+              </button>
+            </div>
+          </div>
+
+          {/* CONTENIDO */}
+          <form
+            id="user-detail-form"
+            className="userdrawer-form-area flex-1 overflow-auto px-5 pt-4 pb-24"
+            onSubmit={handleSave}
+          >
+            {!info ? (
+              <p className="opacity-80 text-sm">Cargando…</p>
+            ) : (
+              <div className="userdrawer-grid">
+                <div className="flex justify-center my-4 md:my-6">
+                  <div
+                    className={[
+                      "userdrawer-avatar rounded-full border grid place-items-center",
+                      "w-40 h-40 md:w-44 md:h-44",
+                      isLight
+                        ? "border-zinc-400 bg-white"
+                        : "border-zinc-600 bg-[#0D1117]",
+                    ].join(" ")}
                   />
                 </div>
+
+                <div className="userdrawer-fields grid gap-3">
+                  <Field
+                    label="Login"
+                    value={info.login}
+                    onChange={(v) => setInfo({ ...info, login: v })}
+                    theme={theme}
+                  />
+                  <Field
+                    label="Email"
+                    value={info.email}
+                    onChange={(v) => setInfo({ ...info, email: v })}
+                    theme={theme}
+                  />
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Field
+                      label="Nombre"
+                      value={info.firstName}
+                      onChange={(v) => setInfo({ ...info, firstName: v })}
+                      theme={theme}
+                    />
+                    <Field
+                      label="Apellidos"
+                      value={info.lastName}
+                      onChange={(v) => setInfo({ ...info, lastName: v })}
+                      theme={theme}
+                    />
+                  </div>
+                </div>
               </div>
+            )}
+          </form>
+
+          <div
+            className={[
+              "absolute bottom-0 left-0 right-0 px-5 py-3 border-t",
+              isLight
+                ? "bg-[#E7EBF1] border-zinc-300"
+                : "bg-[#131821] border-zinc-700",
+            ].join(" ")}
+          >
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="submit"
+                form="user-detail-form"
+                disabled={busy || !info}
+                className={[
+                  "btn-ik inline-flex items-center gap-2 px-4 h-10 rounded-xl border",
+                  isLight
+                    ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
+                    : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
+                  busy || !info ? "opacity-60 pointer-events-none" : "",
+                ].join(" ")}
+                style={
+                  {
+                    ["--btn-ik-accent"]: ACC_ACTIONS,
+                    ["--btn-ik-text"]: ACC_ACTIONS,
+                  } as WithToolbarVars
+                }
+              >
+                <IconMark size="xs" borderWidth={2} style={markBase}>
+                  <Save />
+                </IconMark>
+                Guardar
+              </button>
             </div>
-          )}
-        </form>
-
-        <div
-          className={[
-            "absolute bottom-0 left-0 right-0 px-5 py-3 border-t",
-            isLight
-              ? "bg-[#E7EBF1] border-zinc-300"
-              : "bg-[#131821] border-zinc-700",
-          ].join(" ")}
-        >
-          <div className="flex items-center justify-end gap-3">
-            <button
-              type="submit"
-              form="user-detail-form"
-              disabled={busy || !info}
-              className={[
-                "btn-ik inline-flex items-center gap-2 px-4 h-10 rounded-xl border",
-                isLight
-                  ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
-                  : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
-                busy || !info ? "opacity-60 pointer-events-none" : "",
-              ].join(" ")}
-              style={
-                {
-                  ["--btn-ik-accent"]: ACC_ACTIONS,
-                  ["--btn-ik-text"]: ACC_ACTIONS,
-                } as WithToolbarVars
-              }
-            >
-              <IconMark size="xs" borderWidth={2} style={markBase}>
-                <Save />
-              </IconMark>
-              Guardar
-            </button>
           </div>
-        </div>
-      </aside>
-    </div>
-  );
-}
+        </aside>
+      </div>
+    );
+  }
 
-/* ------------------------------ Campo ------------------------------ */
+  /* ------------------------------ Campo ------------------------------ */
 
-function Field({
-  label,
-  value,
-  onChange,
-  theme,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  theme: Theme;
-}) {
-  const isLight = theme === "light";
-  return (
-    <label className="block">
-      <span className="block text-sm mb-1 opacity-80">{label}</span>
-      <input
-        value={value}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-          onChange(e.target.value)
-        }
-        className={[
-          "w-full h-11 rounded-xl px-3 border outline-none",
-          isLight
-            ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
-            : "bg-[#0D1117] border-zinc-700 text-white",
-          "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
-        ].join(" ")}
-      />
-    </label>
-  );
+  function Field({
+    label,
+    value,
+    onChange,
+    theme,
+  }: {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    theme: Theme;
+  }) {
+    const isLight = theme === "light";
+    return (
+      <label className="block">
+        <span className="block text-sm mb-1 opacity-80">{label}</span>
+        <input
+          value={value}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            onChange(e.target.value)
+          }
+          className={[
+            "w-full h-11 rounded-xl px-3 border outline-none",
+            isLight
+              ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
+              : "bg-[#0D1117] border-zinc-700 text-white",
+            "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
+          ].join(" ")}
+        />
+      </label>
+    );
+  }
 }
