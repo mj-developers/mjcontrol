@@ -19,14 +19,11 @@ import {
 import IconMark from "@/components/ui/IconMark";
 import Heading from "@/components/ui/Heading";
 import { getInitialTheme, type Theme } from "@/lib/theme";
+import MJSpinner from "@/components/ui/MJSpinner";
 
 /* --------------------------- Tipos & helpers --------------------------- */
 
-type RoleItem = {
-  id: string; // normalizado a string
-  code: string; // opcional en datos → aquí normalizado ("" si no hay)
-  name: string;
-};
+type RoleItem = { id: string; code: string; name: string };
 
 type UserListItem = {
   id: number;
@@ -34,9 +31,9 @@ type UserListItem = {
   firstName: string;
   lastName: string;
   email: string;
-  roleId?: string; // para poder mapear nombre
-  roleCode?: string; // para poder mapear nombre
-  roleName: string; // mostrado en la tabla
+  roleId?: string;
+  roleCode?: string;
+  roleName: string;
 };
 
 type UserInfo = {
@@ -45,6 +42,10 @@ type UserInfo = {
   email: string;
   firstName: string;
   lastName: string;
+  roleId?: string;
+  roleName?: string;
+  status: 1 | 2;
+  createdAt?: string;
 };
 
 type WithAccentVar = React.CSSProperties & { ["--accent"]?: string };
@@ -139,12 +140,45 @@ function pickNum(v: unknown, fallback = 0): number {
 function pickStr(v: unknown): string {
   return typeof v === "string" ? v : String(v ?? "").trim();
 }
-function pickErrorString(input: unknown): string | null {
-  if (typeof input === "object" && input !== null && "error" in input) {
-    const v = (input as { error?: unknown }).error;
-    return typeof v === "string" ? v : null;
+function pickFiniteNum(v: unknown): number | undefined {
+  const n = typeof v === "number" ? v : Number(v ?? NaN);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** Normaliza status que venga de la API a 1 (activo) o 2 (inactivo) */
+function readStatus(d: Record<string, unknown>): 1 | 2 {
+  const cs = isObj(d["clientStatus"])
+    ? (d["clientStatus"] as Record<string, unknown>)
+    : null;
+  const cs2 = isObj(d["client_status"])
+    ? (d["client_status"] as Record<string, unknown>)
+    : null;
+
+  const nested =
+    (cs ? pickFiniteNum(cs["id"]) : undefined) ??
+    (cs2 ? pickFiniteNum(cs2["id"]) : undefined) ??
+    pickFiniteNum(d["client_status_id"]) ??
+    pickFiniteNum(d["status_id"]);
+
+  if (nested === 1 || nested === 2) return nested as 1 | 2;
+
+  const statusNum = pickFiniteNum(d["status"]);
+  if (statusNum === 1 || statusNum === 2) return statusNum as 1 | 2;
+
+  if (typeof d["status"] === "boolean") {
+    return d["status"] ? 1 : 2;
   }
-  return null;
+
+  const s = String(d["status"] ?? "").toLowerCase();
+  if (["1", "true", "active", "activo"].includes(s)) return 1;
+  if (
+    ["2", "false", "inactive", "inactivo", "suspended", "suspendido"].includes(
+      s
+    )
+  )
+    return 2;
+
+  return 2;
 }
 
 function extractArray(root: unknown): unknown[] {
@@ -157,7 +191,6 @@ function extractArray(root: unknown): unknown[] {
   }
   return [];
 }
-
 function extractTotal(root: unknown): number {
   if (!isObj(root)) return NaN;
   const r = root as Record<string, unknown>;
@@ -178,7 +211,6 @@ function extractTotal(root: unknown): number {
   }
   return NaN;
 }
-
 function buildQS(params: Record<string, string | number | undefined>) {
   const usp = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => {
@@ -209,12 +241,11 @@ async function fetchRoles(): Promise<RoleItem[]> {
     if (!isObj(it)) continue;
     const o = it as Record<string, unknown>;
 
-    // 👇 tomar SOLO ids reales de DB (incluye role_id) y obligar numérico
     const idRaw =
       o.id ?? o.role_id ?? o.roleId ?? o.ID ?? o.Id ?? o.uid ?? null;
     const idStr = String(idRaw ?? "").trim();
     const idNum = Number(idStr);
-    if (!Number.isFinite(idNum)) continue; // si no es numérico, lo ignoramos
+    if (!Number.isFinite(idNum)) continue;
 
     const code = pickStr(o.code ?? o.Code ?? "");
     const name = pickStr(o.name ?? o.Name ?? (code || idStr));
@@ -232,7 +263,7 @@ type UsersQuery = {
   q: string;
   page: number;
   pageSize: number;
-  roleIds: string[] | null; // null = todos
+  roleIds: string[] | null;
 };
 
 async function fetchUsersPage({
@@ -247,8 +278,6 @@ async function fetchUsersPage({
     q,
     offset,
     limit: pageSize,
-    // se intenta server-side; si el backend lo ignora,
-    // más abajo lo filtramos client-side
     roleIds: roleIds && roleIds.length > 0 ? roleIds.join(",") : undefined,
   };
 
@@ -264,7 +293,6 @@ async function fetchUsersPage({
   const arr = extractArray(root);
   const totalFromApi = extractTotal(root);
 
-  // parse → items
   let itemsAll: UserListItem[] = [];
   for (const it of arr) {
     if (!isObj(it)) continue;
@@ -304,7 +332,6 @@ async function fetchUsersPage({
     }
   }
 
-  // Fallback de BÚSQUEDA si el backend no la hace.
   const qNorm = q.trim().toLowerCase();
   if (qNorm) {
     itemsAll = itemsAll.filter((u) =>
@@ -314,14 +341,12 @@ async function fetchUsersPage({
     );
   }
 
-  // Fallback de FILTRO DE ROLES si el backend lo ignora.
   if (roleIds && roleIds.length > 0) {
     itemsAll = itemsAll.filter((u) =>
       u.roleId ? roleIds.includes(String(u.roleId)) : false
     );
   }
 
-  // Fallback de PAGINACIÓN si el backend ignora offset/limit.
   const items =
     itemsAll.length > pageSize || offset > 0
       ? itemsAll.slice(offset, offset + pageSize)
@@ -359,11 +384,9 @@ export default function UsersPage() {
   const availH = useAppContentInnerHeight(10);
   const isMobilePortrait = useIsMobilePortrait();
 
-  // Estado UI
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Roles (lista desde API) + selección
   const [rolesList, setRolesList] = useState<RoleItem[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[] | null>(null); // null = TODOS
   const rolesFilterKey = useMemo(
@@ -374,7 +397,6 @@ export default function UsersPage() {
     [selectedRoleIds]
   );
 
-  // Índices para mapear roleId/code → name
   const rolesById = useMemo(() => {
     const m = new Map<string, string>();
     rolesList.forEach((r) => m.set(r.id, r.name));
@@ -386,13 +408,12 @@ export default function UsersPage() {
     return m;
   }, [rolesList]);
 
-  // Paginación (servidor)
   const [pageSize, setPageSize] = useState<number>(25);
   const [page, setPage] = useState<number>(1);
   const [list, setList] = useState<UserListItem[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
+  const [reloadToken, setReloadToken] = useState(0);
 
-  // cargar roles una vez
   useEffect(() => {
     if (!mounted) return;
     let alive = true;
@@ -409,18 +430,15 @@ export default function UsersPage() {
     };
   }, [mounted]);
 
-  // cambio de criterios → volvemos a página 1
   useEffect(() => {
     setPage(1);
   }, [search, pageSize, rolesFilterKey]);
 
-  // cargar usuarios cada vez que cambian criterios/página
   useEffect(() => {
     if (!mounted) return;
     let alive = true;
     setLoading(true);
 
-    // si el usuario no ha elegido nada o eligió todo, no filtramos por rol
     const activeRoleIds =
       selectedRoleIds &&
       selectedRoleIds.length > 0 &&
@@ -437,7 +455,6 @@ export default function UsersPage() {
           roleIds: activeRoleIds,
         });
 
-        // mapear nombres de rol si faltan
         const mapped = items.map((u) => {
           const finalName =
             u.roleName ||
@@ -468,6 +485,8 @@ export default function UsersPage() {
     rolesById,
     rolesByCode,
     rolesList.length,
+    reloadToken,
+    selectedRoleIds,
   ]);
 
   const totalPages = useMemo(
@@ -475,12 +494,10 @@ export default function UsersPage() {
     [totalCount, pageSize]
   );
 
-  // si totalPages baja (por ejemplo al cambiar pageSize), ajustamos page
   useEffect(() => {
     setPage((p) => Math.min(p, totalPages));
   }, [totalPages]);
 
-  // ====== estilos calculados por tema ======
   const subtleText = theme === "light" ? "text-zinc-500" : "text-zinc-400";
   const shellTone =
     theme === "light"
@@ -504,7 +521,6 @@ export default function UsersPage() {
     ["--iconmark-fg"]: FG_NORMAL,
   } as React.CSSProperties;
 
-  // Acciones dropdown
   const [actionsOpen, setActionsOpen] = useState(false);
   const actionsBtnRef = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
@@ -542,7 +558,6 @@ export default function UsersPage() {
         } as WithAccentVar
       }
     >
-      {/* ====== estilos scope ====== */}
       <style jsx global>{`
         .users-scope {
           font-family: var(--font-heading, Sora, ui-sans-serif);
@@ -577,7 +592,6 @@ export default function UsersPage() {
           transform: scale(1) !important;
         }
 
-        /* ===== Toolbar base ===== */
         .toolbar {
           flex-wrap: wrap;
         }
@@ -649,7 +663,6 @@ export default function UsersPage() {
           }
         }
 
-        /* ===== Espacio inferior por breakpoint ===== */
         .users-scope {
           padding-bottom: 16px;
         }
@@ -670,7 +683,6 @@ export default function UsersPage() {
           }
         }
 
-        /* ===== SOLO MÓVIL LANDSCAPE (para drawer/modals) ===== */
         @media (orientation: landscape) and (max-height: 480px) {
           .users-scope .userdrawer {
             max-width: clamp(44rem, 92vw, 62rem);
@@ -700,7 +712,6 @@ export default function UsersPage() {
           }
         }
 
-        /* ===== TABLA: columnas por dispositivo/orientación ===== */
         .users-scope .table-grid {
           display: grid;
           align-items: center;
@@ -821,7 +832,7 @@ export default function UsersPage() {
             />
           </div>
 
-          {/* Roles (multi desde API ZAux) */}
+          {/* Roles */}
           <div className="tb-roles">
             <RoleDropdown
               theme={theme}
@@ -842,10 +853,6 @@ export default function UsersPage() {
                 {
                   ["--btn-ik-accent"]: ACC_ACTIONS,
                   ["--btn-ik-text"]: ACC_ACTIONS,
-                  ["--mark-hover-bg"]: ACC_ACTIONS,
-                  ["--mark-hover-border"]: ACC_ACTIONS,
-                  ["--iconmark-hover-bg"]: ACC_ACTIONS,
-                  ["--iconmark-hover-border"]: ACC_ACTIONS,
                 } as WithToolbarVars
               }
             >
@@ -873,7 +880,7 @@ export default function UsersPage() {
                     : "bg-[#0D1117] border-zinc-700",
                 ].join(" ")}
               >
-                {/* NUEVO USUARIO (solo vistas compactas) */}
+                {/* NUEVO USUARIO */}
                 <button
                   type="button"
                   className={[
@@ -886,10 +893,6 @@ export default function UsersPage() {
                     {
                       ["--btn-ik-accent"]: ACC_CREATE,
                       ["--btn-ik-text"]: ACC_CREATE,
-                      ["--mark-hover-bg"]: ACC_CREATE,
-                      ["--mark-hover-border"]: ACC_CREATE,
-                      ["--iconmark-hover-bg"]: ACC_CREATE,
-                      ["--iconmark-hover-border"]: ACC_CREATE,
                     } as WithToolbarVars
                   }
                   onClick={() => {
@@ -897,14 +900,7 @@ export default function UsersPage() {
                     setCreateOpen(true);
                   }}
                 >
-                  <IconMark
-                    size="xs"
-                    borderWidth={2}
-                    interactive
-                    hoverAnim="zoom"
-                    zoomScale={1.5}
-                    style={iconMarkBase}
-                  >
+                  <IconMark size="xs" borderWidth={2} style={iconMarkBase}>
                     <UserPlus />
                   </IconMark>
                   Nuevo usuario
@@ -920,26 +916,8 @@ export default function UsersPage() {
                         ? "hover:bg-zinc-100"
                         : "hover:bg-zinc-800/50",
                     ].join(" ")}
-                    style={
-                      {
-                        ["--btn-ik-accent"]: ACC_ACTIONS,
-                        ["--btn-ik-text"]: ACC_ACTIONS,
-                        ["--mark-hover-bg"]: ACC_ACTIONS,
-                        ["--mark-hover-border"]: ACC_ACTIONS,
-                        ["--iconmark-hover-bg"]: ACC_ACTIONS,
-                        ["--iconmark-hover-border"]: ACC_ACTIONS,
-                      } as WithToolbarVars
-                    }
-                    onClick={() => setActionsOpen(false)}
                   >
-                    <IconMark
-                      size="xs"
-                      borderWidth={2}
-                      interactive
-                      hoverAnim="zoom"
-                      zoomScale={1.5}
-                      style={iconMarkBase}
-                    >
+                    <IconMark size="xs" borderWidth={2} style={iconMarkBase}>
                       <Edit3 />
                     </IconMark>
                     {label}
@@ -949,7 +927,7 @@ export default function UsersPage() {
             )}
           </div>
 
-          {/* Botón suelto "Nuevo usuario" */}
+          {/* Botón "Nuevo usuario" */}
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
@@ -958,21 +936,10 @@ export default function UsersPage() {
               {
                 ["--btn-ik-accent"]: ACC_CREATE,
                 ["--btn-ik-text"]: ACC_CREATE,
-                ["--mark-hover-bg"]: ACC_CREATE,
-                ["--mark-hover-border"]: ACC_CREATE,
-                ["--iconmark-hover-bg"]: ACC_CREATE,
-                ["--iconmark-hover-border"]: ACC_CREATE,
               } as WithToolbarVars
             }
           >
-            <IconMark
-              size="xs"
-              borderWidth={2}
-              interactive
-              hoverAnim="zoom"
-              zoomScale={1.5}
-              style={iconMarkBase}
-            >
+            <IconMark size="xs" borderWidth={2} style={iconMarkBase}>
               <UserPlus />
             </IconMark>
             Nuevo usuario
@@ -1010,10 +977,13 @@ export default function UsersPage() {
         </div>
 
         {/* Filas */}
-        <div className="table-scroll flex-1 min-h-0 overscroll-contain">
+        <div className="table-scroll flex-1 min-h-0 overscroll-contain relative">
           {loading && (
-            <div className="px-4 py-3 text-sm">Cargando usuarios…</div>
+            <div className="absolute inset-0 grid place-items-center pointer-events-none">
+              <MJSpinner size={120} label="Cargando usuarios…" />
+            </div>
           )}
+
           {!loading &&
             list.map((u) => (
               <button
@@ -1027,7 +997,6 @@ export default function UsersPage() {
                     : "hover:bg-white/10 border-zinc-800",
                 ].join(" ")}
               >
-                {/* Login + avatar */}
                 <div className="flex items-center gap-3">
                   <div
                     className={[
@@ -1040,27 +1009,22 @@ export default function UsersPage() {
                   <div className="font-medium truncate">{u.login}</div>
                 </div>
 
-                {/* Nombre */}
                 <div className="col-first text-sm truncate">
                   {u.firstName || "—"}
                 </div>
 
-                {/* Apellidos */}
                 <div className="col-last text-sm truncate">
                   {u.lastName || "—"}
                 </div>
 
-                {/* Email */}
                 <div className="col-email text-sm truncate">
                   {u.email || "—"}
                 </div>
 
-                {/* Rol */}
                 <div className="col-role text-sm truncate">
                   {u.roleName || "—"}
                 </div>
 
-                {/* ID */}
                 <div className="text-right font-semibold">{u.id}</div>
               </button>
             ))}
@@ -1174,11 +1138,12 @@ export default function UsersPage() {
       {createOpen && (
         <CreateUserModal
           theme={theme}
-          roles={rolesList} // 👈 pasamos los roles cargados de la API
+          roles={rolesList}
           onClose={() => setCreateOpen(false)}
           onCreated={async () => {
             setCreateOpen(false);
             setPage(1);
+            setReloadToken((t) => t + 1);
           }}
         />
       )}
@@ -1187,22 +1152,22 @@ export default function UsersPage() {
         <UserDetailDrawer
           id={detailId}
           theme={theme}
+          roles={rolesList}
           onClose={() => setDetailId(null)}
           onDeleted={async () => {
             setDetailId(null);
-            setPage(1);
+            setReloadToken((t) => t + 1);
           }}
           onSaved={async () => {
             setDetailId(null);
-            // solo refrescamos lista
-            setPage(1);
+            setReloadToken((t) => t + 1);
           }}
         />
       )}
     </div>
   );
 
-  /* ======================= Dropdown: Roles (multi; desde API) ======================= */
+  /* ======================= Dropdown: Roles ======================= */
 
   function RoleDropdown({
     theme,
@@ -1212,7 +1177,7 @@ export default function UsersPage() {
   }: {
     theme: Theme;
     roles: RoleItem[];
-    selected: string[] | null; // null = TODOS
+    selected: string[] | null;
     setSelected: React.Dispatch<React.SetStateAction<string[] | null>>;
   }) {
     const [open, setOpen] = useState(false);
@@ -1238,7 +1203,6 @@ export default function UsersPage() {
     const toggleOne = (id: string) => {
       setSelected((prev) => {
         if (prev === null) {
-          // si estaba "todos", pasamos a todos menos este
           return roles.map((r) => r.id).filter((x) => x !== id);
         }
         return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
@@ -1451,6 +1415,10 @@ export default function UsersPage() {
 
   /* ------------------------------ API: detalle/editar/eliminar ------------------------------ */
 
+  function toStr(v: unknown) {
+    return typeof v === "string" ? v : String(v ?? "").trim();
+  }
+
   async function fetchUserInfo(id: number): Promise<UserInfo> {
     const res = await fetch(`/api/users/getUser/${id}`, {
       method: "GET",
@@ -1458,48 +1426,100 @@ export default function UsersPage() {
       headers: { "Content-Type": "application/json" },
     });
     if (!res.ok) throw new Error(`Error getUser ${id}: ${res.status}`);
-    const data = (await res.json()) as Partial<UserInfo> & { id?: number };
+
+    const d = (await res.json()) as Record<string, unknown>;
+
+    const roleObj =
+      (isObj(d["role"]) ? (d["role"] as Record<string, unknown>) : undefined) ??
+      ({} as Record<string, unknown>);
+
+    const roleId =
+      toStr(
+        roleObj["id"] ??
+          d["roleId"] ??
+          (d as Record<string, unknown>)["role_id"] ??
+          ""
+      ).trim() || undefined;
+
+    const createdAt = toStr(
+      (d as Record<string, unknown>)["created_At"] ?? d["createdAt"] ?? ""
+    );
+
+    const status = readStatus(d); // 1 | 2
+
     return {
-      id: typeof data.id === "number" ? data.id : id,
-      login: String(data.login ?? ""),
-      email: String(data.email ?? ""),
-      firstName: String(data.firstName ?? ""),
-      lastName: String(data.lastName ?? ""),
+      id: typeof d["id"] === "number" ? (d["id"] as number) : id,
+      login: toStr(d["login"]),
+      email: toStr(d["email"]),
+      firstName: toStr(d["firstName"]),
+      lastName: toStr(d["lastName"]),
+      roleId,
+      roleName: toStr(roleObj["name"] ?? ""),
+      status,
+      createdAt,
     };
   }
 
-  async function updateUser(id: number, payload: Partial<UserInfo>) {
+  async function updateUser(
+    id: number,
+    payload: Partial<UserInfo> & { password?: string }
+  ) {
+    const roleIdNum =
+      payload.roleId != null &&
+      payload.roleId !== "" &&
+      Number.isFinite(Number(payload.roleId))
+        ? Number(payload.roleId)
+        : undefined;
+
+    const bodyPayload: Record<string, unknown> = {
+      id,
+      login: payload.login ?? "",
+      email: payload.email ?? "",
+      firstName: payload.firstName ?? "",
+      lastName: payload.lastName ?? "",
+    };
+
+    // status como número 1|2
+    if (payload.status === 1 || payload.status === 2) {
+      bodyPayload.status = payload.status;
+    }
+
+    // 🔁 Roles (dejamos como iba: objeto + id plano por compat)
+    if (roleIdNum !== undefined) {
+      bodyPayload.role = { id: roleIdNum, code: "", name: "" };
+      bodyPayload.role_id = roleIdNum;
+    }
+
+    if (payload.password) bodyPayload.password = payload.password;
+
     const res = await fetch(`/api/users/update/${encodeURIComponent(id)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        login: payload.login ?? "",
-        email: payload.email ?? "",
-        firstName: payload.firstName ?? "",
-        lastName: payload.lastName ?? "",
-      }),
+      body: JSON.stringify(bodyPayload),
     });
 
     if (!res.ok) {
-      let msg = "";
-      try {
-        const body = (await res.json()) as unknown;
-        msg = pickErrorString(body) ?? "";
-      } catch {
-        // ignore
-      }
-      throw new Error(msg || `Error updateUser ${id}: ${res.status}`);
+      const txt = await res.text().catch(() => "");
+      throw new Error(txt || `Error updateUser ${id}: ${res.status}`);
     }
   }
 
   async function deleteUser(id: number) {
-    // Si tienes endpoint real, cámbialo por:
-    // await fetch(`/api/users/delete/${encodeURIComponent(id)}`, { method: "DELETE" });
-    void id;
-    await new Promise((r) => setTimeout(r, 400));
+    const res = await fetch(`/api/users/delete/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) {
+      let msg = "";
+      try {
+        const body = (await res.json()) as Record<string, unknown>;
+        msg = typeof body?.error === "string" ? (body.error as string) : "";
+      } catch {
+        /* ignore */
+      }
+      throw new Error(msg || `Error deleteUser ${id}: ${res.status}`);
+    }
   }
-
-  /* ============================ Modal: Crear ============================ */
 
   /* ============================ Modal: Crear ============================ */
 
@@ -1519,10 +1539,9 @@ export default function UsersPage() {
     const [email, setEmail] = useState("");
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
-    const [selectedRoleId, setSelectedRoleId] = useState<string>(""); // 👈 nuevo
+    const [selectedRoleId, setSelectedRoleId] = useState<string>("");
     const [busy, setBusy] = useState(false);
 
-    // Preseleccionar un rol por defecto (el primero disponible)
     useEffect(() => {
       if (!selectedRoleId && roles.length > 0) {
         const byUserCode =
@@ -1544,38 +1563,6 @@ export default function UsersPage() {
       ["--mark-fg"]: isLight ? "#010409" : "#ffffff",
     } as React.CSSProperties;
 
-    function isObj(v: unknown): v is Record<string, unknown> {
-      return typeof v === "object" && v !== null;
-    }
-    function pickIdFromCreateResponse(raw: unknown): number | null {
-      if (typeof raw === "number") return raw;
-      if (isObj(raw)) {
-        const r = raw as Record<string, unknown>;
-        const cands: unknown[] = [
-          r.id,
-          r.userId,
-          r.ID,
-          r.Id,
-          r.UserId,
-          r.uid,
-          isObj(r.user) ? (r.user as Record<string, unknown>).id : undefined,
-          isObj(r.data) ? (r.data as Record<string, unknown>).id : undefined,
-        ];
-        for (const c of cands) {
-          const n = typeof c === "number" ? c : Number(c ?? NaN);
-          if (Number.isFinite(n)) return n;
-        }
-      }
-      return null;
-    }
-    function pickErrorString(input: unknown): string | null {
-      if (typeof input === "object" && input !== null && "error" in input) {
-        const v = (input as { error?: unknown }).error;
-        return typeof v === "string" ? v : null;
-      }
-      return null;
-    }
-
     async function submit(e: React.FormEvent) {
       e.preventDefault();
       const user = login.trim();
@@ -1583,7 +1570,6 @@ export default function UsersPage() {
 
       setBusy(true);
       try {
-        // Mandamos TODOS los campos que rellenas en el modal.
         const payload = {
           login: user,
           password: pass,
@@ -1591,7 +1577,6 @@ export default function UsersPage() {
           firstName: firstName.trim() || undefined,
           lastName: lastName.trim() || undefined,
           status: 1,
-          // mejor numérico para la FK
           role_id: Number(selectedRoleId),
         };
 
@@ -1610,7 +1595,6 @@ export default function UsersPage() {
           throw new Error(msg || "Error creando usuario");
         }
 
-        // listo: refrescamos lista
         await onCreated();
       } finally {
         setBusy(false);
@@ -1631,6 +1615,9 @@ export default function UsersPage() {
           ].join(" ")}
           onMouseDown={(e) => e.stopPropagation()}
         >
+          {/* SPINNER: crear usuario */}
+          {busy && <MJSpinner overlay size={110} label="Creando usuario…" />}
+
           <div
             className={[
               "flex items-center justify-between px-5 pt-4 pb-3",
@@ -1654,7 +1641,6 @@ export default function UsersPage() {
             className="px-5 pb-5 pt-4"
             onSubmit={submit}
             autoComplete="off"
-            // algunos gestores (1Password/LastPass) respetan estos data-attrs:
             data-lpignore="true"
             data-1p-ignore="true"
           >
@@ -1683,7 +1669,6 @@ export default function UsersPage() {
                       setLogin(e.target.value)
                     }
                     placeholder="Usuario"
-                    // 👇 anti-autofill
                     name="new-username"
                     autoComplete="off"
                     spellCheck={false}
@@ -1709,7 +1694,6 @@ export default function UsersPage() {
                     }
                     placeholder="••••••"
                     type="password"
-                    // 👇 anti-autofill
                     name="new-password"
                     autoComplete="new-password"
                     spellCheck={false}
@@ -1786,7 +1770,7 @@ export default function UsersPage() {
                 </label>
               </div>
 
-              {/* 👇 Selector de rol (obligatorio) */}
+              {/* Selector de rol (obligatorio) */}
               <label className="block">
                 <span className="block text-sm mb-1 opacity-80">Rol *</span>
                 <select
@@ -1824,7 +1808,7 @@ export default function UsersPage() {
                     color: "#8E2434",
                     ["--btn-ik-accent"]: "#8E2434",
                     ["--btn-ik-text"]: "#8E2434",
-                  } as WithToolbarVars
+                  } as React.CSSProperties
                 }
               >
                 <IconMark size="xs" borderWidth={2} style={markBase}>
@@ -1849,7 +1833,7 @@ export default function UsersPage() {
                   {
                     ["--btn-ik-accent"]: ACC_CREATE,
                     ["--btn-ik-text"]: ACC_CREATE,
-                  } as WithToolbarVars
+                  } as React.CSSProperties
                 }
               >
                 <IconMark size="xs" borderWidth={2} style={markBase}>
@@ -1869,45 +1853,72 @@ export default function UsersPage() {
   function UserDetailDrawer({
     id,
     theme,
+    roles,
     onClose,
     onDeleted,
     onSaved,
   }: {
     id: number;
     theme: Theme;
+    roles: RoleItem[];
     onClose: () => void;
     onDeleted: () => Promise<void> | void;
     onSaved: () => Promise<void> | void;
   }) {
-    const [info, setInfo] = useState<UserInfo | null>(null);
-    const [busy, setBusy] = useState(false);
-    const [enter, setEnter] = useState(false);
-    const [menuOpen, setMenuOpen] = useState(false);
-    const menuRef = useRef<HTMLDivElement | null>(null);
+    const [info, setInfo] = React.useState<UserInfo | null>(null);
+    const [busy, setBusy] = React.useState(false);
+    const [busyLabel, setBusyLabel] = React.useState<string | null>(null);
+    const [enter, setEnter] = React.useState(false);
+    const [menuOpen, setMenuOpen] = React.useState(false);
+    const [ask1, setAsk1] = React.useState(false);
+    const [ask2, setAsk2] = React.useState(false);
+    const menuRef = React.useRef<HTMLDivElement | null>(null);
     const isLight = theme === "light";
 
-    useEffect(() => {
-      let alive = true;
+    // --- Protecciones de concurrencia/Strict Mode ---
+    const editedRef = React.useRef(false);
+    const reqIdRef = React.useRef(0);
+
+    const markEdited = React.useCallback(() => {
+      editedRef.current = true;
+    }, []);
+
+    React.useEffect(() => {
+      editedRef.current = false;
+      const myReq = ++reqIdRef.current;
+      let cancelled = false;
+
       (async () => {
         try {
           const data = await fetchUserInfo(id);
-          if (alive) setInfo(data);
+          if (!cancelled && reqIdRef.current === myReq && !editedRef.current) {
+            setInfo(data);
+          }
         } catch {
-          if (alive)
-            setInfo({ id, login: "", email: "", firstName: "", lastName: "" });
+          if (!cancelled && reqIdRef.current === myReq && !editedRef.current) {
+            setInfo({
+              id,
+              login: "",
+              email: "",
+              firstName: "",
+              lastName: "",
+              status: 1,
+            });
+          }
         }
       })();
+
       return () => {
-        alive = false;
+        cancelled = true;
       };
     }, [id]);
 
-    useEffect(() => {
+    React.useEffect(() => {
       const t = setTimeout(() => setEnter(true), 10);
       return () => clearTimeout(t);
     }, []);
 
-    useEffect(() => {
+    React.useEffect(() => {
       function onDoc(e: MouseEvent) {
         if (!menuOpen) return;
         const t = e.target as Node;
@@ -1917,9 +1928,20 @@ export default function UsersPage() {
       return () => document.removeEventListener("mousedown", onDoc);
     }, [menuOpen]);
 
+    function formatDDMMYYYY(iso?: string) {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      if (isNaN(+d)) return "—";
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yy = d.getFullYear();
+      return `${dd}/${mm}/${yy}`;
+    }
+
     async function handleSave(e: React.FormEvent) {
       e.preventDefault();
       if (!info) return;
+      setBusyLabel("Guardando cambios…");
       setBusy(true);
       try {
         await updateUser(info.id, {
@@ -1927,22 +1949,26 @@ export default function UsersPage() {
           email: info.email,
           firstName: info.firstName,
           lastName: info.lastName,
+          roleId: info.roleId,
+          status: info.status,
         });
         await onSaved();
       } finally {
         setBusy(false);
+        setBusyLabel(null);
       }
     }
 
-    async function handleDelete() {
+    async function reallyDelete() {
       if (!info) return;
-      if (!confirm(`¿Eliminar al usuario “${info.login}”?`)) return;
+      setBusyLabel("Eliminando usuario…");
       setBusy(true);
       try {
         await deleteUser(info.id);
         await onDeleted();
       } finally {
         setBusy(false);
+        setBusyLabel(null);
       }
     }
 
@@ -1971,7 +1997,7 @@ export default function UsersPage() {
         />
         <aside
           className={[
-            "userdrawer absolute right-0 top-0 h-full w-full max-w-xl border-l shadow-2xl",
+            "userdrawer absolute inset-y-0 right-0 left-auto h-full w-full max-w-xl border-l shadow-2xl",
             panelTone,
             "transition-transform duration-200 ease-out",
             enter ? "translate-x-0" : "translate-x-full",
@@ -1981,6 +2007,16 @@ export default function UsersPage() {
           role="dialog"
           aria-modal="true"
         >
+          {/* Overlay del drawer */}
+          {(!info || busy) && (
+            <MJSpinner
+              overlay
+              size={120}
+              label={!info ? "Cargando…" : busyLabel ?? "Procesando…"}
+            />
+          )}
+
+          {/* Header */}
           <div
             className={[
               "flex items-center justify-between px-5 py-3 border-b",
@@ -2014,7 +2050,7 @@ export default function UsersPage() {
                       type="button"
                       onClick={() => {
                         setMenuOpen(false);
-                        void handleDelete();
+                        setAsk1(true);
                       }}
                       className={[
                         "btn-ik w-full flex items-center gap-2 px-3 py-2 text-left text-sm",
@@ -2025,7 +2061,7 @@ export default function UsersPage() {
                           ["--btn-ik-accent"]: "#8E2434",
                           ["--btn-ik-text"]: "#8E2434",
                           cursor: "pointer",
-                        } as WithToolbarVars
+                        } as React.CSSProperties
                       }
                     >
                       <IconMark size="xs" borderWidth={2} style={markBase}>
@@ -2049,17 +2085,17 @@ export default function UsersPage() {
             </div>
           </div>
 
-          {/* CONTENIDO */}
+          {/* Form */}
           <form
             id="user-detail-form"
             className="userdrawer-form-area flex-1 overflow-auto px-5 pt-4 pb-24"
             onSubmit={handleSave}
+            autoComplete="off"
           >
-            {!info ? (
-              <p className="opacity-80 text-sm">Cargando…</p>
-            ) : (
-              <div className="userdrawer-grid">
-                <div className="flex justify-center my-4 md:my-6">
+            {!info ? null : (
+              <div className="grid gap-5">
+                {/* Fila superior: Avatar + Activo */}
+                <div className="flex justify-center items-end gap-6 my-4 md:my-6">
                   <div
                     className={[
                       "userdrawer-avatar rounded-full border grid place-items-center",
@@ -2069,32 +2105,101 @@ export default function UsersPage() {
                         : "border-zinc-600 bg-[#0D1117]",
                     ].join(" ")}
                   />
+
+                  {/* Checkbox Activo -> status 1/2 */}
+                  <label className="inline-flex items-center gap-2 select-none text-sm">
+                    <input
+                      type="checkbox"
+                      checked={info.status === 1}
+                      onChange={(e) =>
+                        setInfo((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                status: (e.target.checked ? 1 : 2) as 1 | 2,
+                              }
+                            : prev
+                        )
+                      }
+                      className={[
+                        "w-4 h-4 rounded border",
+                        isLight
+                          ? "border-zinc-400"
+                          : "border-zinc-600 bg-[#0D1117]",
+                      ].join(" ")}
+                    />
+                    <span
+                      className={isLight ? "text-zinc-800" : "text-zinc-200"}
+                    >
+                      Activo
+                    </span>
+                  </label>
                 </div>
 
-                <div className="userdrawer-fields grid gap-3">
-                  <Field
-                    label="Login"
-                    value={info.login}
-                    onChange={(v) => setInfo({ ...info, login: v })}
-                    theme={theme}
-                  />
+                {/* Campos */}
+                <div className="grid gap-3">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Field
+                      label="Login"
+                      value={info.login}
+                      onChange={(v) =>
+                        setInfo((p) => (p ? { ...p, login: v } : p))
+                      }
+                      theme={theme}
+                    />
+                    <label className="block">
+                      <span className="block text-sm mb-1 opacity-80">Rol</span>
+                      <select
+                        value={info.roleId ?? ""}
+                        onChange={(e) =>
+                          setInfo((p) =>
+                            p ? { ...p, roleId: e.target.value } : p
+                          )
+                        }
+                        className={[
+                          "w-full h-11 rounded-xl px-3 border outline-none text-[15px]",
+                          isLight
+                            ? "bg-[#F6F8FA] border-zinc-300 text-zinc-900"
+                            : "bg-[#0D1117] border-zinc-700 text-white",
+                          "focus:ring-2 focus:ring-[var(--brand,#8E2434)]/30",
+                        ].join(" ")}
+                      >
+                        <option value="" disabled>
+                          Selecciona un rol…
+                        </option>
+                        {roles.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name || r.code || r.id}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
                   <Field
                     label="Email"
                     value={info.email}
-                    onChange={(v) => setInfo({ ...info, email: v })}
+                    onChange={(v) =>
+                      setInfo((p) => (p ? { ...p, email: v } : p))
+                    }
                     theme={theme}
                   />
+
                   <div className="grid gap-3 md:grid-cols-2">
                     <Field
                       label="Nombre"
                       value={info.firstName}
-                      onChange={(v) => setInfo({ ...info, firstName: v })}
+                      onChange={(v) =>
+                        setInfo((p) => (p ? { ...p, firstName: v } : p))
+                      }
                       theme={theme}
                     />
                     <Field
                       label="Apellidos"
                       value={info.lastName}
-                      onChange={(v) => setInfo({ ...info, lastName: v })}
+                      onChange={(v) =>
+                        setInfo((p) => (p ? { ...p, lastName: v } : p))
+                      }
                       theme={theme}
                     />
                   </div>
@@ -2103,6 +2208,7 @@ export default function UsersPage() {
             )}
           </form>
 
+          {/* Footer */}
           <div
             className={[
               "absolute bottom-0 left-0 right-0 px-5 py-3 border-t",
@@ -2111,7 +2217,19 @@ export default function UsersPage() {
                 : "bg-[#131821] border-zinc-700",
             ].join(" ")}
           >
-            <div className="flex items-center justify-end gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <div
+                className={[
+                  "text-[12.5px]",
+                  isLight ? "text-zinc-700" : "text-zinc-300",
+                ].join(" ")}
+              >
+                <span className="opacity-70 mr-1">Fecha de Creación:</span>
+                <span className="font-semibold">
+                  {formatDDMMYYYY(info?.createdAt)}
+                </span>
+              </div>
+
               <button
                 type="submit"
                 form="user-detail-form"
@@ -2125,9 +2243,9 @@ export default function UsersPage() {
                 ].join(" ")}
                 style={
                   {
-                    ["--btn-ik-accent"]: ACC_ACTIONS,
-                    ["--btn-ik-text"]: ACC_ACTIONS,
-                  } as WithToolbarVars
+                    ["--btn-ik-accent"]: "#6366F1",
+                    ["--btn-ik-text"]: "#6366F1",
+                  } as React.CSSProperties
                 }
               >
                 <IconMark size="xs" borderWidth={2} style={markBase}>
@@ -2138,6 +2256,134 @@ export default function UsersPage() {
             </div>
           </div>
         </aside>
+
+        {/* Confirmaciones */}
+        {ask1 && (
+          <ConfirmModal
+            theme={theme}
+            title="Se va a eliminar el usuario, ¿está seguro?"
+            primary={{
+              label: "Sí",
+              onClick: () => {
+                setAsk1(false);
+                setAsk2(true);
+              },
+            }}
+            secondary={{ label: "No", onClick: () => setAsk1(false) }}
+          />
+        )}
+
+        {ask2 && info && (
+          <ConfirmModal
+            theme={theme}
+            title={`Esta acción es irreversible, ¿seguro de querer eliminar el usuario "${info.login}"?`}
+            primary={{
+              label: "Sí",
+              onClick: async () => {
+                setAsk2(false);
+                await reallyDelete();
+              },
+            }}
+            secondary={{ label: "No", onClick: () => setAsk2(false) }}
+            reversed
+          />
+        )}
+      </div>
+    );
+  }
+
+  /* ------- Pequeño modal reutilizable de confirmación (mismo estilo) ------- */
+  function ConfirmModal({
+    theme,
+    title,
+    primary,
+    secondary,
+    reversed,
+  }: {
+    theme: Theme;
+    title: string;
+    primary: { label: string; onClick: () => void };
+    secondary: { label: string; onClick: () => void };
+    reversed?: boolean;
+  }) {
+    const isLight = theme === "light";
+    const headerOpp = isLight
+      ? "bg-[#0D1117] text-white border-zinc-900"
+      : "bg-white text-black border-white";
+    const shellTone = isLight
+      ? "bg-white border-zinc-300"
+      : "bg-[#0D1117] border-zinc-700";
+
+    const markBase = {
+      ["--mark-bg"]: isLight ? "#e2e5ea" : "#0b0b0d",
+      ["--mark-border"]: isLight ? "#0e1117" : "#ffffff",
+      ["--mark-fg"]: isLight ? "#010409" : "#ffffff",
+    } as React.CSSProperties;
+
+    const Btn = ({
+      label,
+      onClick,
+      accent = "#8E2434",
+    }: {
+      label: string;
+      onClick: () => void;
+      accent?: string;
+    }) => (
+      <button
+        type="button"
+        onClick={onClick}
+        className={[
+          "btn-ik inline-flex items-center gap-2 px-4 h-10 rounded-xl border",
+          isLight
+            ? "bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-100"
+            : "bg-[#0D1117] text-white border-zinc-700 hover:bg-zinc-800",
+        ].join(" ")}
+        style={
+          {
+            ["--btn-ik-accent"]: accent,
+            ["--btn-ik-text"]: accent,
+          } as React.CSSProperties
+        }
+      >
+        <IconMark size="xs" borderWidth={2} style={markBase}>
+          <Check />
+        </IconMark>
+        {label}
+      </button>
+    );
+
+    return (
+      <div
+        className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-[2px] grid place-items-center p-4"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div
+          className={[
+            "w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden",
+            shellTone,
+          ].join(" ")}
+        >
+          <div className={["px-5 pt-4 pb-3", headerOpp].join(" ")}>
+            <h3 className="text-base font-semibold">{title}</h3>
+          </div>
+
+          <div className="px-5 py-4">
+            <div
+              className={[
+                "flex items-center justify-center gap-3",
+                reversed ? "flex-row-reverse" : "",
+              ].join(" ")}
+            >
+              <Btn label={secondary.label} onClick={secondary.onClick} />
+              <Btn
+                label={primary.label}
+                onClick={primary.onClick}
+                accent="#8E2434"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

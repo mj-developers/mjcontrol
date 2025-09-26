@@ -1,12 +1,13 @@
 // src/app/api/users/getUser/[id]/route.ts
 import { NextResponse } from "next/server";
 
-type Ctx = { params?: { id?: string } };
+type Params = { id: string };
 
-export async function GET(_req: Request, ctx: unknown) {
-  const { params } = (ctx as Ctx) ?? {};
-  const id = typeof params?.id === "string" ? params.id : "";
-
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<Params> }
+) {
+  const { id } = await params;
   if (!id) {
     return NextResponse.json({ error: "Falta id" }, { status: 400 });
   }
@@ -21,13 +22,24 @@ export async function GET(_req: Request, ctx: unknown) {
 
   const upstream = await fetch(
     `${base}/users/getUser/${encodeURIComponent(id)}`,
-    { headers: { "Content-Type": "application/json" } }
+    {
+      headers: { "Content-Type": "application/json" },
+    }
   );
 
-  const body = await upstream.json().catch(() => null);
+  const text = await upstream.text().catch(() => "");
+  let body: unknown = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    body = { message: text };
+  }
+
   if (!upstream.ok) {
     return NextResponse.json(
-      body ?? { error: upstream.statusText || "Error obteniendo usuario" },
+      (body as Record<string, unknown>) ?? {
+        error: upstream.statusText || "Error obteniendo usuario",
+      },
       { status: upstream.status }
     );
   }

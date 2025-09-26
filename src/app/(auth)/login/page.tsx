@@ -1,3 +1,4 @@
+// src/app/(auth)/login/page.tsx
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
@@ -12,6 +13,7 @@ import { Sun, Moon } from "lucide-react";
 import IconMark from "@/components/ui/IconMark";
 import Logo from "@/components/Logo";
 import Heading from "@/components/ui/Heading";
+import MJSpinner from "@/components/ui/MJSpinner";
 
 /* helpers parseo */
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -21,6 +23,11 @@ function extractErrorMessage(v: unknown): string | null {
   if (!isRecord(v)) return null;
   const maybe = v["error"];
   return typeof maybe === "string" && maybe.trim().length > 0 ? maybe : null;
+}
+function pickString(obj: unknown, key: string): string {
+  if (!isRecord(obj)) return "";
+  const val = obj[key];
+  return typeof val === "string" ? val : "";
 }
 
 /* Tipado para overrides de ParticleBg */
@@ -79,33 +86,32 @@ function LoginPage() {
         return;
       }
 
-      // —— 👇 NUEVO: decidir y guardar el nombre que verá el Dashboard ——
+      // —— decidir y guardar el nombre que verá el Dashboard ——
       let usernameForGreeting = usuario; // por defecto, lo que puso en el form
 
-      if (isRecord(data)) {
-        // primero probamos en la raíz
-        const rootCandidate =
-          (typeof data.username === "string" && data.username) ||
-          (typeof data.login === "string" && data.login) ||
-          (typeof data.name === "string" && data.name) ||
-          (typeof data.email === "string" && data.email) ||
-          "";
-        if (rootCandidate.trim()) {
-          usernameForGreeting = rootCandidate.trim();
-        }
+      // Candidatos en la raíz
+      const rootCandidate =
+        pickString(data, "username") ||
+        pickString(data, "login") ||
+        pickString(data, "name") ||
+        pickString(data, "email");
+      if (rootCandidate.trim()) {
+        usernameForGreeting = rootCandidate.trim();
+      }
 
-        // luego probamos en data.user
-        const maybeUser = data.user;
-        if (isRecord(maybeUser)) {
-          const userCandidate =
-            (typeof maybeUser.name === "string" && maybeUser.name) ||
-            (typeof maybeUser.username === "string" && maybeUser.username) ||
-            (typeof maybeUser.login === "string" && maybeUser.login) ||
-            (typeof maybeUser.email === "string" && maybeUser.email) ||
-            "";
-          if (userCandidate.trim()) {
-            usernameForGreeting = userCandidate.trim();
-          }
+      // Candidatos en data.user
+      let userNode: unknown = undefined;
+      if (isRecord(data)) {
+        userNode = data["user"];
+      }
+      if (isRecord(userNode)) {
+        const userCandidate =
+          pickString(userNode, "name") ||
+          pickString(userNode, "username") ||
+          pickString(userNode, "login") ||
+          pickString(userNode, "email");
+        if (userCandidate.trim()) {
+          usernameForGreeting = userCandidate.trim();
         }
       }
 
@@ -119,7 +125,6 @@ function LoginPage() {
       } catch {
         // no-op si storage está bloqueado
       }
-      // —— 👆 FIN NUEVO ——
 
       const next = new URLSearchParams(window.location.search).get("next");
       window.location.assign(next || "/");
@@ -523,6 +528,11 @@ function LoginPage() {
           </footer>
         </div>
       </section>
+
+      {/* Overlay del spinner mientras loading=true */}
+      {loading && (
+        <MJSpinner overlay size={96} accent="var(--brand, #8E2434)" />
+      )}
     </div>
   );
 }

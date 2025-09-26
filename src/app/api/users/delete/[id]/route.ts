@@ -21,19 +21,16 @@ export async function DELETE(_req: Request, ctx: unknown) {
 
   const upstream = await fetch(
     `${base}/users/delete/${encodeURIComponent(id)}`,
-    {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-    }
+    { method: "DELETE", headers: { "Content-Type": "application/json" } }
   );
 
-  const body = await upstream.json().catch(() => null);
+  const json = await upstream.json().catch(() => null);
   if (!upstream.ok) {
     return NextResponse.json(
-      body ?? { error: upstream.statusText || "Error eliminando usuario" },
+      json ?? { error: upstream.statusText || "Error eliminando usuario" },
       { status: upstream.status }
     );
   }
 
-  return NextResponse.json(body ?? { ok: true });
+  return NextResponse.json(json ?? { ok: true });
 }
