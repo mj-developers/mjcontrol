@@ -27,6 +27,7 @@ export async function DELETE(req: Request, ctx: unknown) {
       {
         method: "DELETE",
         headers: { ...headersFrom(req) },
+        cache: "no-store",
       }
     );
 

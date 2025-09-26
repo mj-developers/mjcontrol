@@ -2,7 +2,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { BASE, authHeaders, readUpstream } from "../../_lib";
 
-type Ctx = { params?: { id?: string } };
+type Params = { id: string };
 
 /** Puente tipado: Request → NextRequest sin usar `any` */
 function headersFrom(req: Request): HeadersInit {
@@ -16,17 +16,21 @@ function headersFrom(req: Request): HeadersInit {
   }
 }
 
-export async function GET(req: Request, ctx: unknown) {
-  const { params } = (ctx as Ctx) ?? {};
-  const id = typeof params?.id === "string" ? params.id : "";
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<Params> }
+) {
+  // 👇 OBLIGATORIO: await params
+  const { id } = await params;
+  const idStr = typeof id === "string" ? id : "";
 
-  if (!id) {
+  if (!idStr) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
   }
 
   try {
     const upstream = await fetch(
-      `${BASE}/clients/getClient/${encodeURIComponent(id)}`,
+      `${BASE}/clients/getClient/${encodeURIComponent(idStr)}`,
       {
         method: "GET",
         headers: headersFrom(req),

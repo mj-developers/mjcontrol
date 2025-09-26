@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { BASE, authHeaders, readUpstream, pickArrayBody } from "../_lib";
+import { BASE, authHeaders, readUpstream } from "../_lib";
 
+/**
+ * Reenvía q, offset, limit y cualquier otro query param al upstream.
+ * Devuelve el cuerpo tal cual (para conservar `total`, `meta`, etc.).
+ */
 export async function GET(req: NextRequest) {
   try {
-    const upstream = await fetch(`${BASE}/clients/list`, {
+    const qs = req.nextUrl.search || "";
+    const upstream = await fetch(`${BASE}/clients/list${qs}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -13,16 +18,8 @@ export async function GET(req: NextRequest) {
     });
 
     const body = await readUpstream(upstream);
-    if (!upstream.ok) {
-      return NextResponse.json(
-        { error: "upstream", body },
-        { status: upstream.status }
-      );
-    }
-
-    const list = pickArrayBody(body);
-    return NextResponse.json(list, { status: 200 });
-  } catch (e) {
+    return NextResponse.json(body ?? null, { status: upstream.status });
+  } catch {
     return NextResponse.json({ error: "Unexpected failure" }, { status: 500 });
   }
 }
